@@ -15,6 +15,7 @@ export default function Talk() {
   const { id } = useParams<{ id: string }>();
   const [phase, setPhase] = useState<Phase>("idle");
   const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [persona, setPersona] = useState<DeployedPersona | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -59,6 +60,7 @@ export default function Talk() {
   async function start() {
     if (!id || !videoRef.current) return;
     setErr(null);
+    setBusy(false);
     setPhase("connecting");
     try {
       // Ensure we have the persona's config (in case the mount fetch is still in flight).
@@ -76,6 +78,7 @@ export default function Talk() {
       );
       setPhase("live");
     } catch (e: any) {
+      setBusy(Boolean(e?.busy));
       setErr(e?.message ?? String(e));
       setPhase("error");
     }
@@ -159,7 +162,14 @@ export default function Talk() {
 
               {phase === "error" && (
                 <>
-                  <div className="max-w-[300px] rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-[12px] text-destructive">
+                  <div
+                    className={
+                      busy
+                        ? "max-w-[300px] rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-[12px] text-amber-500"
+                        : "max-w-[300px] rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-[12px] text-destructive"
+                    }
+                  >
+                    {busy ? "The line is busy. " : null}
                     {err ?? "Couldn't start the session."}
                   </div>
                   <button
