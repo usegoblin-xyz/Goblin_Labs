@@ -190,7 +190,7 @@ const FAQS = [
   },
   {
     q: "What is Zek'thar?",
-    a: "Zek'thar is our first shipped model, an alien field observer that lives on macOS. He sees your screen, talks with you in real time, and acts on your behalf. He's the proof behind the three hard problems we've solved: low-latency avatar rendering, persistent multi-modal context, and reliable computer use.",
+    a: "Zek'thar is our Digital Companion, an alien field observer that lives on macOS. He sees your screen, talks with you in real time, and acts on your behalf. He's the proof behind the three hard problems we've solved: low-latency avatar rendering, persistent multi-modal context, and reliable computer use.",
   },
   {
     q: "What is Kara?",
@@ -442,7 +442,7 @@ export default function App() {
 
           <motion.h1 {...fadeUp(0.1)} className="mt-8 text-balance leading-[1.04]">
             <span className="block text-[clamp(2.25rem,6vw,4.75rem)] font-medium tracking-[-0.03em]">
-              Agents that look like
+              AI agents that feel like
             </span>
             <span className="font-serif-italic block text-[clamp(2.75rem,7.5vw,6rem)] leading-[1.1]">
               people.
@@ -453,10 +453,10 @@ export default function App() {
             {...fadeUp(0.25)}
             className="mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-white/60 sm:text-[16px]"
           >
-            Embodied, real-time agents that watch you and act alongside you.
-            Building them means solving three hard problems: low-latency avatar
-            rendering, persistent multi-modal context, and reliable computer
-            use. At Goblin Labs, we've cracked all three.
+            For businesses, we build branded agents that replace complex
+            websites: customers say what they need and get it done instantly.
+            For individuals, a voice-controlled companion that sees your
+            screen, remembers you, and uses your computer for you.
           </motion.p>
 
           <motion.div {...fadeUp(0.4)} className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -559,11 +559,97 @@ export default function App() {
         </motion.div>
       </section>
 
+      {/* What we build — the two products */}
+      <section id="products" className="px-4 py-20 sm:px-6 md:py-28">
+        <div className="mx-auto max-w-[1160px]">
+          <motion.div {...fadeUp(0)}>
+            <SectionBadge>What we build</SectionBadge>
+          </motion.div>
+          <motion.h2
+            {...fadeUp(0.1)}
+            className="mt-6 text-balance text-center text-[clamp(1.9rem,4vw,3rem)] font-medium tracking-[-0.025em]"
+          >
+            Two products. <span className="font-serif-italic">One idea.</span>
+          </motion.h2>
+
+          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <motion.div
+              {...fadeUp(0.15)}
+              className="flex flex-col rounded-2xl border border-dashed border-white/12 bg-white/[0.02] p-7"
+            >
+              <span className="text-[11px] uppercase tracking-[0.14em] text-[#22A03A]">For businesses</span>
+              <h3 className="mt-3 text-[clamp(1.35rem,2.5vw,1.75rem)] font-medium tracking-tight">
+                Business Agents
+              </h3>
+              <p className="mt-3 flex-1 text-[14px] leading-relaxed text-white/60">
+                A custom, fully branded agent for each business. It becomes the
+                main way customers interact with the company online: it answers
+                questions, collects details, and completes actions through
+                existing systems. Booking appointments, filing requests,
+                qualifying leads. In simple terms, we replace complex websites
+                with agents that get things done immediately.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {["White-labeled", "Uses your systems", "Lives on your site"].map((s) => (
+                  <span
+                    key={s}
+                    className="rounded-full border border-dashed border-white/12 bg-white/[0.03] px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] text-white/50"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+              <a
+                href={TALK_LINKS.gabriel}
+                className="group mt-6 inline-flex items-center gap-2 text-[13px] font-semibold text-[#22A03A]"
+              >
+                Talk to a live agent
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </a>
+            </motion.div>
+
+            <motion.div
+              {...fadeUp(0.25)}
+              className="flex flex-col rounded-2xl border border-dashed border-white/12 bg-white/[0.02] p-7"
+            >
+              <span className="text-[11px] uppercase tracking-[0.14em] text-[#22A03A]">For individuals</span>
+              <h3 className="mt-3 text-[clamp(1.35rem,2.5vw,1.75rem)] font-medium tracking-tight">
+                Digital Companion
+              </h3>
+              <p className="mt-3 flex-1 text-[14px] leading-relaxed text-white/60">
+                A personal companion that lives on your computer as a
+                voice-controlled character. You talk to it. It sees your screen,
+                remembers your context, and operates your computer for you:
+                email, files, research, your apps. In simple terms, Siri with a
+                face, a memory, and hands.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {["Screen vision", "Memory", "Computer use"].map((s) => (
+                  <span
+                    key={s}
+                    className="rounded-full border border-dashed border-white/12 bg-white/[0.03] px-3 py-1.5 text-[11px] uppercase tracking-[0.08em] text-white/50"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+              <a
+                href="#built"
+                className="group mt-6 inline-flex items-center gap-2 text-[13px] font-semibold text-[#22A03A]"
+              >
+                Meet Zek'thar
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </a>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* Zek'thar — what we've built */}
       <section id="built" className="px-4 py-20 sm:px-6 md:py-28">
         <div className="mx-auto max-w-[1160px]">
           <motion.div {...fadeUp(0)}>
-            <SectionBadge>What we've built</SectionBadge>
+            <SectionBadge>Digital Companion</SectionBadge>
           </motion.div>
           <motion.h2
             {...fadeUp(0.1)}
@@ -572,7 +658,7 @@ export default function App() {
             Meet <span className="font-serif-italic">Zek'thar.</span>
           </motion.h2>
           <motion.p {...fadeUp(0.2)} className="mx-auto mt-4 max-w-xl text-center text-[15px] leading-relaxed text-white/55">
-            Our first shipped model, an alien field observer that sees, talks,
+            Our digital companion, an alien field observer that sees, talks,
             and acts on macOS in real time.
           </motion.p>
 
@@ -766,7 +852,7 @@ export default function App() {
       <section id="personas" className="px-4 py-20 sm:px-6 md:py-28">
         <div className="mx-auto max-w-[1160px]">
           <motion.div {...fadeUp(0)}>
-            <SectionBadge>Use cases</SectionBadge>
+            <SectionBadge>Business Agents, live</SectionBadge>
           </motion.div>
           <motion.h2
             {...fadeUp(0.1)}
@@ -775,8 +861,8 @@ export default function App() {
             Personas already <span className="font-serif-italic">on the job.</span>
           </motion.h2>
           <motion.p {...fadeUp(0.2)} className="mx-auto mt-4 max-w-xl text-center text-[15px] leading-relaxed text-white/55">
-            Built and deployed with the exact pipeline you get in the Studio.
-            No demo video, no waitlist. Click one and talk right now.
+            Business agents built and deployed with the exact pipeline you get
+            in the Studio. No demo video, no waitlist. Click one and talk right now.
           </motion.p>
 
           <div className="mt-12 grid grid-cols-1 gap-4 lg:grid-cols-2">

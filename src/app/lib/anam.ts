@@ -280,7 +280,11 @@ async function streamToken(
     client.addListener(AnamEvent.VIDEO_PLAY_STARTED, () => resolve());
   });
 
-  await client.streamToVideoElement(videoEl.id);
+  try {
+    await client.streamToVideoElement(videoEl.id);
+  } catch (e) {
+    throw toFriendlySessionError(e);
+  }
   await ready;
 
   return {
@@ -291,6 +295,31 @@ async function streamToken(
       await client.talk(s);
     },
   };
+}
+
+// The engine rejects session starts once the account's concurrent-session cap
+// is hit (one live visitor can occupy the only slot on the current plan). The
+// SDK surfaces that as "Concurrency limit reached, please upgrade your plan",
+// which reads like the *visitor* did something wrong. Map every capacity-shaped
+// failure to a typed error so the UI can show an honest "line is busy" state
+// instead of leaking billing language.
+export class SessionBusyError extends Error {
+  readonly busy = true as const;
+  constructor() {
+    super(
+      "Another visitor is talking with a persona right now, and sessions run one at a time. Slots free up within about a minute, so please try again shortly.",
+    );
+    this.name = "SessionBusyError";
+  }
+}
+
+function toFriendlySessionError(e: unknown): Error {
+  const err = e as { message?: string; cause?: unknown; code?: unknown } | null;
+  const haystack = [err?.message, err?.cause, err?.code]
+    .map((v) => (typeof v === "string" ? v : ""))
+    .join(" | ");
+  if (/concurren|spend cap|usage limit/i.test(haystack)) return new SessionBusyError();
+  return e instanceof Error ? e : new Error(String(e));
 }
 
 export type SessionTimings = { tokenMs: number; firstFrameMs: number; totalMs: number };
