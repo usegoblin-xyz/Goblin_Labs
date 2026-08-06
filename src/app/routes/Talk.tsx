@@ -4,12 +4,21 @@ import { Loader2, Mic, PhoneOff, Sparkles } from "lucide-react";
 import {
   startTalk,
   getPersona,
+  LEAD_GEN_PERSONA_IDS,
   type SessionHandle,
   type DeployedPersona,
+  type PrefillArgs,
 } from "@/app/lib/anam";
 import { captureVisit, getVisitorId } from "@/app/lib/leads";
+import LeadCard from "@/app/components/LeadCard";
 
 type Phase = "idle" | "connecting" | "live" | "ended" | "error";
+
+// Master switch for the on-screen capture card. Set false to hide it without
+// touching the persona wiring. NOTE: this only hides the card — a lead-gen
+// persona still gets the prefill tool and will talk about a form the visitor
+// can't see. To turn the whole feature off, empty LEAD_GEN_PERSONA_IDS instead.
+const SHOW_LEAD_CARD = true;
 
 export default function Talk() {
   const { id } = useParams<{ id: string }>();
@@ -17,11 +26,18 @@ export default function Talk() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [persona, setPersona] = useState<DeployedPersona | null>(null);
+  // Values Gabriel calls prefill_contact with, one field at a time. Merged so a
+  // later call for `email` doesn't drop the `name` he sent a moment earlier.
+  const [prefill, setPrefill] = useState<PrefillArgs>({});
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const handleRef = useRef<SessionHandle | null>(null);
 
   const name = persona?.name ?? "Persona";
+  // Only lead-gen personas mint with the prefill tool, so only they get a card,
+  // and only once the session is under way — never behind the idle overlay.
+  const showLeadCard =
+    SHOW_LEAD_CARD && !!id && LEAD_GEN_PERSONA_IDS.has(id) && phase !== "idle";
 
   // Resolve the persona (name + config) up front so "Start" is instant — and
   // so a bad link fails visibly here instead of rendering the wrong persona.
@@ -75,6 +91,7 @@ export default function Talk() {
         p.id,
         p.config,
         getVisitorId(),
+        (args: PrefillArgs) => setPrefill((prev: PrefillArgs) => ({ ...prev, ...args })),
       );
       setPhase("live");
     } catch (e: any) {
@@ -111,7 +128,7 @@ export default function Talk() {
       </header>
 
       {/* Stage */}
-      <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 pt-24 pb-20">
+      <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 pt-24 pb-20 lg:flex-row lg:items-center lg:gap-8">
         <div className="relative aspect-[3/4] w-full max-w-[460px] overflow-hidden rounded-3xl border border-border/60 bg-black shadow-2xl">
           <video
             ref={videoRef}
@@ -199,6 +216,18 @@ export default function Talk() {
             </div>
           )}
         </div>
+
+        {/* Typed capture running alongside the voice conversation. Gabriel fills
+            it via prefill_contact as he learns each detail; the visitor confirms
+            by tapping Send, so an email never has to be spoken back. */}
+        {showLeadCard && (
+          <LeadCard
+            personaId={id}
+            personaName={name}
+            prefill={prefill}
+            className="w-full max-w-[460px] lg:max-w-[340px]"
+          />
+        )}
       </main>
 
       <footer className="absolute inset-x-0 bottom-0 z-10 px-5 py-4 text-center text-[11px] text-muted-foreground">
