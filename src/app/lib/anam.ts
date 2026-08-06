@@ -25,9 +25,8 @@ export const DEFAULT_AVATAR_MODEL = "cara-3";
 // persona anyway — his session is minted from a rebuilt config — so attaching
 // tools to a persona record was never an option for him.
 export const LEAD_GEN_PERSONA_IDS = new Set<string>([
-  // On-screen lead-capture form removed — the avatars are pure conversation now
-  // and contact details are recovered from transcripts, so no persona drives a
-  // form. Re-add a persona id here to bring its voice-driven form-fill back.
+  // Gabriel · Lead Gen. Empty this Set to go back to pure conversation.
+  "e6db066d-80f1-49c6-96e9-a9c10af18397",
 ]);
 
 // Inline client-tool definition Anam attaches at session-mint time. The browser
