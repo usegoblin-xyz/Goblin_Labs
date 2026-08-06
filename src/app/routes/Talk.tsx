@@ -14,6 +14,12 @@ import LeadCard from "@/app/components/LeadCard";
 
 type Phase = "idle" | "connecting" | "live" | "ended" | "error";
 
+// Master switch for the on-screen capture card. Set false to hide it without
+// touching the persona wiring. NOTE: this only hides the card — a lead-gen
+// persona still gets the prefill tool and will talk about a form the visitor
+// can't see. To turn the whole feature off, empty LEAD_GEN_PERSONA_IDS instead.
+const SHOW_LEAD_CARD = false;
+
 export default function Talk() {
   const { id } = useParams<{ id: string }>();
   const [phase, setPhase] = useState<Phase>("idle");
@@ -27,8 +33,10 @@ export default function Talk() {
   const handleRef = useRef<SessionHandle | null>(null);
 
   const name = persona?.name ?? "Persona";
-  // Only lead-gen personas mint with the prefill tool, so only they get a card.
-  const leadGen = !!id && LEAD_GEN_PERSONA_IDS.has(id);
+  // Only lead-gen personas mint with the prefill tool, so only they get a card,
+  // and only once the session is under way — never behind the idle overlay.
+  const showLeadCard =
+    SHOW_LEAD_CARD && !!id && LEAD_GEN_PERSONA_IDS.has(id) && phase !== "idle";
 
   // Resolve the persona (name + config) up front so "Start" is instant — and
   // so a bad link fails visibly here instead of rendering the wrong persona.
@@ -202,7 +210,7 @@ export default function Talk() {
         {/* Typed capture running alongside the voice conversation. Gabriel fills
             it via prefill_contact as he learns each detail; the visitor confirms
             by tapping Send, so an email never has to be spoken back. */}
-        {leadGen && phase !== "idle" && (
+        {showLeadCard && (
           <LeadCard
             personaId={id}
             personaName={name}
