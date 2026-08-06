@@ -8,3 +8,7 @@ dist/
 
 # Avatar idling clips shown on the landing page (static assets, intentionally tracked)
 !public/avatars/*.mp4
+
+# local codegraph KG
+.codegraph/
+codegraph-map.html
