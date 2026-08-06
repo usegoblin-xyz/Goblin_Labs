@@ -20,7 +20,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Leads are stored in Mongo (the system of record). Notion mirroring is off for
 // now — flip to true to start promoting valid-email leads into the CRM again.
-const SYNC_TO_NOTION = false;
+//const SYNC_TO_NOTION = false;
+const SYNC_TO_NOTION=true; 
+
 
 function cleanUtm(u: unknown): LeadUtm | undefined {
   if (!u || typeof u !== "object") return undefined;
