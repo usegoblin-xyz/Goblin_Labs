@@ -18,7 +18,7 @@ type Phase = "idle" | "connecting" | "live" | "ended" | "error";
 // touching the persona wiring. NOTE: this only hides the card — a lead-gen
 // persona still gets the prefill tool and will talk about a form the visitor
 // can't see. To turn the whole feature off, empty LEAD_GEN_PERSONA_IDS instead.
-const SHOW_LEAD_CARD = false;
+const SHOW_LEAD_CARD = true;
 
 export default function Talk() {
   const { id } = useParams<{ id: string }>();
