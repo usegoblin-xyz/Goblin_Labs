@@ -194,7 +194,11 @@ const FAQS = [
   },
   {
     q: "What is Kara?",
-    a: "Kara is our newest model, a design partner you talk to. Describe the site you want ('a landing page for a medspa, light and airy') and she designs and publishes a finished page while you're still on the call. She's live right now. No signup, just a microphone.",
+    a: "Kara is our design-partner model, one you talk to. Describe the site you want ('a landing page for a medspa, light and airy') and she designs and publishes a finished page while you're still on the call. She's live right now. No signup, just a microphone.",
+  },
+  {
+    q: "What is Tony?",
+    a: "Tony is our newest model, a goblin tutor that teaches AWS by watching your real console. He sees the page you're on, highlights the next click, and talks you through it in real time, acting only with your consent. Every resource you build together he writes up as Terraform, so you leave with a working runbook. He's a Mac app plus a Chrome extension, live now at tony.usegoblin.xyz.",
   },
   {
     q: "Does it need my microphone?",
@@ -727,9 +731,8 @@ export default function App() {
             Meet <span className="font-serif-italic">Kara.</span>
           </motion.h2>
           <motion.p {...fadeUp(0.2)} className="mx-auto mt-4 max-w-xl text-center text-[15px] leading-relaxed text-white/55">
-            Our newest model, a design partner you talk to. Ask her for a
-            website out loud and a finished page lands in her Files box seconds
-            later.
+            A design partner you talk to. Ask her for a website out loud and a
+            finished page lands in her Files box seconds later.
           </motion.p>
 
           <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-12">
@@ -771,6 +774,76 @@ export default function App() {
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   {["Real-time voice", "Designs on request", "Instant publish"].map((s) => (
+                    <div
+                      key={s}
+                      className="rounded-xl border border-dashed border-white/12 bg-white/[0.02] px-3 py-3 text-center text-[11px] uppercase tracking-[0.1em] text-white/50"
+                    >
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Tony — newest model */}
+      <section id="tony" className="px-4 py-20 sm:px-6 md:py-28">
+        <div className="mx-auto max-w-[1160px]">
+          <motion.div {...fadeUp(0)}>
+            <SectionBadge>Now teaching</SectionBadge>
+          </motion.div>
+          <motion.h2
+            {...fadeUp(0.1)}
+            className="mt-6 text-balance text-center text-[clamp(1.9rem,4vw,3rem)] font-medium tracking-[-0.025em]"
+          >
+            Meet <span className="font-serif-italic">Tony.</span>
+          </motion.h2>
+          <motion.p {...fadeUp(0.2)} className="mx-auto mt-4 max-w-xl text-center text-[15px] leading-relaxed text-white/55">
+            Our newest model, a goblin tutor who teaches you AWS by watching your
+            real console, highlighting the next click, and talking you through it
+            in real time.
+          </motion.p>
+
+          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-12">
+            {/* Living portrait */}
+            <motion.div {...fadeUp(0.15)} className="md:col-span-7">
+              <div className="h-full rounded-2xl border border-dashed border-white/12 bg-white/[0.02] p-2">
+                <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
+                  <InViewVideo
+                    src="/avatars/tony-demo.mp4"
+                    poster="/avatars/tony-poster.jpg"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Copy + CTA panel */}
+            <motion.div {...fadeUp(0.25)} className="md:col-span-5">
+              <div className="flex h-full flex-col gap-4">
+                <a
+                  href="https://tony.usegoblin.xyz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex flex-1 items-center justify-center rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-8 py-14 transition-colors hover:bg-white/[0.04]"
+                >
+                  <span className="inline-flex items-center gap-2 text-[clamp(1.25rem,2.5vw,1.75rem)] font-medium tracking-tight">
+                    Meet Tony
+                    <ArrowUpRight className="h-5 w-5 opacity-50 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100" />
+                  </span>
+                </a>
+                <div className="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-6 py-6">
+                  <div className="text-[14px] font-medium">Watches. Teaches. Hands off.</div>
+                  <p className="mt-2 text-[13.5px] leading-relaxed text-white/55">
+                    Tony sees the AWS console you're on, highlights the exact
+                    button, and acts only with your say-so. Every resource you
+                    build he writes up as Terraform, so you leave with a runbook.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  {["Screen vision", "Voice tutoring", "Terraform hand-off"].map((s) => (
                     <div
                       key={s}
                       className="rounded-xl border border-dashed border-white/12 bg-white/[0.02] px-3 py-3 text-center text-[11px] uppercase tracking-[0.1em] text-white/50"
