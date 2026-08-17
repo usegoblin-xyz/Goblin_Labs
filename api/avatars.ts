@@ -49,7 +49,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     init.duplex = "half"; // required by Node's fetch when sending a body
   }
 
-  const upstream = await fetch(`${ANAM_BASE}/avatars`, init);
+  // Forward the query string (e.g. ?limit=, pagination cursors) to Anam. The
+  // default page is only ~10 newest avatars, so without this a couple of custom
+  // uploads push curated avatars off the list entirely.
+  const qIndex = req.url ? req.url.indexOf("?") : -1;
+  const qs = qIndex >= 0 ? req.url!.slice(qIndex) : "";
+  const upstream = await fetch(`${ANAM_BASE}/avatars${qs}`, init);
   const text = await upstream.text();
 
   // Only cache idempotent reads. Writes/deletes must always go upstream.
