@@ -538,7 +538,7 @@ export default function Studio() {
                   value={extraPrompt}
                   onChange={(e) => setExtraPrompt(e.target.value)}
                   rows={4}
-                  placeholder="e.g. Always greet the user by name. Refuse to discuss pricing; refer them to sales."
+                  placeholder="e.g. Always greet the user by name. Keep answers short, and hand off to a human when unsure."
                   className="w-full rounded-lg border border-border/60 bg-background/60 px-4 py-3 text-[14px] outline-none focus:border-foreground/60"
                 />
               </div>
