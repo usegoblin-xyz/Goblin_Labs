@@ -3,24 +3,13 @@ import { motion } from "motion/react";
 import {
   ArrowRight,
   ArrowUpRight,
-  Brain,
-  CalendarCheck,
   Check,
-  Clock3,
-  Database,
-  Eye,
   Linkedin,
   Menu,
-  Mic,
   Minus,
-  MonitorSmartphone,
-  MousePointerClick,
   Plus,
-  Ticket,
   Twitter,
-  Users,
   X,
-  Zap,
 } from "lucide-react";
 import { useAuth, useUser, UserButton } from "@clerk/clerk-react";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
