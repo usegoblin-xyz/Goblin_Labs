@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode — Vite/esbuild owns emit; tsc is type-check only. */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* @/* path alias, matching vite.config.ts */
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] },
+
+    /* Type-safety gate. strict catches the real bugs (null/undefined, type
+       mismatches, bad props). Unused-var checks are intentionally OFF: failing
+       a production deploy over a temporarily-unused local is too brittle for a
+       fast-iterating repo. Flip these on if you want editor nagging. */
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "allowJs": false
+  },
+  "include": ["src", "api"]
+}
