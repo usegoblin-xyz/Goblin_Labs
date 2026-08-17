@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { useAuth, UserButton } from "@clerk/clerk-react";
+import { useAuth, useUser, UserButton } from "@clerk/clerk-react";
 import { motion } from "motion/react";
 import { ArrowLeft, ArrowRight, Check, Loader2, Play, Plus, Sparkles, Upload, X } from "lucide-react";
 import { EtherealShadow } from "@/app/components/ui/etheral-shadow";
@@ -102,6 +102,13 @@ export default function Studio() {
   const [deployId, setDeployId] = useState<string | null>(null);
   const [deploying, setDeploying] = useState(false);
   const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
+  const displayName =
+    user?.firstName ||
+    user?.fullName ||
+    user?.username ||
+    user?.primaryEmailAddress?.emailAddress?.split("@")[0] ||
+    "Account";
   const navigate = useNavigate();
 
   // Restore an in-progress config saved before a login redirect.
@@ -328,11 +335,15 @@ export default function Studio() {
           <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
             Persona Studio
           </div>
-          <div className="flex w-24 items-center justify-end gap-3">
+          <div className="flex items-center justify-end gap-2.5">
             {isSignedIn ? (
               <>
-                <Link to="/personas" className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground">
-                  Mine
+                <Link
+                  to="/personas"
+                  className="max-w-[130px] truncate text-[13px] font-medium text-foreground/90 transition-colors hover:text-foreground"
+                  title={`${displayName} — your personas`}
+                >
+                  {displayName}
                 </Link>
                 <UserButton />
               </>
