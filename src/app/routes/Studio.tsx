@@ -165,21 +165,21 @@ export default function Studio() {
       .join("\n\n");
   }, [vertical, tone, extraPrompt]);
 
+  const selectedAvatar = useMemo(
+    () => avatars.find((a) => a.id === avatarId),
+    [avatars, avatarId],
+  );
+
   const config: PersonaConfig = useMemo(
     () => ({
       name: name.trim() || `${vertical.title} Persona`,
       avatarId: avatarId || DEFAULT_AVATAR_ID,
       voiceId: voiceId || DEFAULT_VOICE_ID,
       llmId: DEFAULT_LLM_ID,
-      avatarModel: DEFAULT_AVATAR_MODEL,
+      avatarModel: selectedAvatar?.model ?? DEFAULT_AVATAR_MODEL,
       systemPrompt: fullPrompt,
     }),
-    [name, vertical, avatarId, voiceId, fullPrompt],
-  );
-
-  const selectedAvatar = useMemo(
-    () => avatars.find((a) => a.id === avatarId),
-    [avatars, avatarId],
+    [name, vertical, avatarId, voiceId, fullPrompt, selectedAvatar],
   );
 
   const canAdvance = useMemo(() => {
