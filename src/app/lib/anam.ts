@@ -226,19 +226,46 @@ export async function createAvatarFromUrl(
   };
 }
 
+// Curated Studio avatar catalog. All Studio users share ONE Anam account, so an
+// unfiltered listAvatars() returns every avatar anyone uploads — leaking one
+// user's face to all users and making the newest upload everyone's default
+// (that is how a custom "Godson" upload became stuck in the preview for
+// everyone). We show only this deliberate set, in this order. A user's own
+// freshly-created custom avatar still works: submitCustomAvatar adds it to the
+// session locally, and a deployed persona stores its avatarId so the talk page
+// keeps working regardless of the picker.
+export const CURATED_AVATAR_IDS: string[] = [
+  "a2f0f964-6d5d-4bd9-81fe-973ef6a6215b", // Pulse
+  "f80eebff-c8b6-40bf-8453-1674894a169a", // Johnny
+  "fbd1a638-d4bd-4e99-91cc-583545398926", // Kenji
+  "554fe76e-25ae-4eb5-9860-eb9501d39313", // Zekhtar
+  "6cc28442-cccd-42a8-b6e4-24b7210a09c5", // Gabriel
+  "edf6fdcb-acab-44b8-b974-ded72665ee26", // Mia
+  "27e12daa-50fc-4384-93c2-ebca73f1f78d", // Anne
+  "071b0286-4cce-4808-bee2-e642f1062de3", // Liv
+  "dc9aa3e1-32f2-499e-9921-ecabac1076fc", // Bella
+  "8a339c9f-0666-46bd-ab27-e90acd0409dc", // Finn
+];
+
 export async function listAvatars(): Promise<Avatar[]> {
-  const res = await fetch("/api/avatars");
+  // perPage=100 so the curated ids (some are older stock avatars) are all in
+  // the page we filter, not just the ~10 newest.
+  const res = await fetch("/api/avatars?perPage=100");
   if (!res.ok) throw new Error(`avatars failed: ${res.status}`);
   const data = await res.json();
   const items = data.data ?? data ?? [];
-  return items.map((a: any) => ({
-    id: a.id,
-    name: a.displayName ?? a.name ?? a.id,
-    variant: a.variantName,
-    model: a.activeVersion ?? (Array.isArray(a.availableVersions) ? a.availableVersions[0] : undefined),
-    imageUrl: a.imageUrl,
-    videoUrl: a.videoUrl,
-  }));
+  const order = new Map(CURATED_AVATAR_IDS.map((id, i) => [id, i]));
+  return items
+    .filter((a: any) => order.has(a.id))
+    .map((a: any) => ({
+      id: a.id,
+      name: a.displayName ?? a.name ?? a.id,
+      variant: a.variantName,
+      model: a.activeVersion ?? (Array.isArray(a.availableVersions) ? a.availableVersions[0] : undefined),
+      imageUrl: a.imageUrl,
+      videoUrl: a.videoUrl,
+    }))
+    .sort((x: Avatar, y: Avatar) => order.get(x.id)! - order.get(y.id)!);
 }
 
 export type SessionHandle = {
