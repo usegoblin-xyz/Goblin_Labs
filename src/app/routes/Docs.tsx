@@ -4,20 +4,29 @@ import { Link } from "react-router";
 // Plain-language docs. Short sentences, no jargon. This page is the answer to
 // "what is this?" for launch-week visitors, so it must read in two minutes.
 
-const EMBED_SNIPPET = `<!-- Paste this where you want the persona to appear.
-     Replace PERSONA_ID with the id from your persona's link
-     (the part after /p/). -->
+const EMBED_SNIPPET = `<!-- An inline window: the persona lives right in your page.
+     Replace PERSONA_ID with your persona's id (the part after
+     /embed/ in its link, or copy it from your account page). -->
 <iframe
-  src="https://www.usegoblin.xyz/p/PERSONA_ID"
+  src="https://www.usegoblin.xyz/embed/PERSONA_ID"
   allow="camera; microphone; autoplay; clipboard-write"
-  style="width:100%;max-width:480px;height:640px;border:0;border-radius:16px;"
+  style="width:100%;max-width:420px;height:640px;border:0;border-radius:16px;"
   title="Talk to our persona"
 ></iframe>`;
 
-const BUTTON_SNIPPET = `<!-- Or a simple button that opens the persona in a new tab -->
+const SCRIPT_SNIPPET = `<!-- A floating button in the corner of every page.
+     Click it and the persona opens in a small window. -->
+<script
+  src="https://www.usegoblin.xyz/embed.js"
+  data-persona="PERSONA_ID"
+  data-label="Ask us"
+  defer
+></script>`;
+
+const BUTTON_SNIPPET = `<!-- A simple link that opens the persona on its own page -->
 <a href="https://www.usegoblin.xyz/p/PERSONA_ID" target="_blank" rel="noopener"
    style="display:inline-block;padding:12px 24px;border-radius:10px;
-          background:#fafafa;color:#0a0a0a;font-weight:600;text-decoration:none;">
+          background:#22a03a;color:#fff;font-weight:600;text-decoration:none;">
   Talk to us
 </a>`;
 
@@ -45,6 +54,10 @@ function CodeBlock({ code }: { code: string }) {
 
 function H2({ children }: { children: React.ReactNode }) {
   return <h2 className="mt-12 text-[1.35rem] font-semibold tracking-tight">{children}</h2>;
+}
+
+function H3({ children }: { children: React.ReactNode }) {
+  return <h3 className="mt-8 text-[1.05rem] font-semibold tracking-tight">{children}</h3>;
 }
 
 function P({ children }: { children: React.ReactNode }) {
@@ -116,20 +129,55 @@ export default function Docs() {
 
         <H2>Put a persona on your own site</H2>
         <P>
-          Every persona has a link that looks like usegoblin.xyz/p/its-id. To place it on your
-          website, paste this where you want it to appear and replace PERSONA_ID with the id from
-          your persona's link:
+          Every persona has its own id: the part after /embed/ in its link. The
+          easiest place to get it is your{" "}
+          <Link to="/account" className="text-foreground underline underline-offset-4 hover:text-foreground/80">
+            account page
+          </Link>
+          , which lists each of your personas with the codes below already filled
+          in and ready to copy. Pick whichever of these three fits your site.
+          There is no install, no key, and no build step.
+        </P>
+
+        <H3>1. An inline window</H3>
+        <P>
+          Drops the persona straight into the page, ready to talk. Paste this
+          where you want it to appear and replace PERSONA_ID with your id:
         </P>
         <CodeBlock code={EMBED_SNIPPET} />
         <P>
-          The camera and microphone permissions in that code let visitors talk to the persona
-          from inside your page. If you prefer a button instead of an embedded window:
+          This embed is clean: just the persona, with none of the Goblin Labs
+          header or footer around it, so it looks like part of your own site.
+        </P>
+
+        <H3>2. A floating button</H3>
+        <P>
+          Adds a small button in the corner of every page. When a visitor clicks
+          it, the persona opens in a little window over your site. It is one line
+          and works anywhere you can add a script:
+        </P>
+        <CodeBlock code={SCRIPT_SNIPPET} />
+        <P>
+          Change the wording with data-label (for example
+          data-label="Talk to sales"), move it to the left with
+          data-position="left", or match your brand with
+          data-accent="#22a03a".
+        </P>
+
+        <H3>3. A simple link</H3>
+        <P>
+          The lightest option: a button that opens the persona on its own page in
+          a new tab. Good for emails, a link in your bio, or anywhere you cannot
+          paste an HTML widget.
         </P>
         <CodeBlock code={BUTTON_SNIPPET} />
+
         <P>
-          That is the whole integration. No install, no keys, no build step. If you want the
-          persona connected to your calendar, contact list, or help desk so it can book meetings
-          and save leads for you, email us and we will set it up with you.
+          The camera and microphone permissions in the first two options let
+          visitors talk to the persona from inside your page. Visitors never need
+          an account. If you want the persona connected to your calendar, contact
+          list, or help desk so it can book meetings and save leads for you,
+          email us and we will set it up with you.
         </P>
 
         <H2>What it knows</H2>
