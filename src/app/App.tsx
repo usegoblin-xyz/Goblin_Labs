@@ -89,10 +89,9 @@ const STREAM_AVATARS = [
   { src: "/avatars/zekthar-poster.jpg", alt: "Zek'thar" },
   { src: "https://lab.anam.ai/persona_thumbnails/anne_home.png", alt: "Anne" },
   { src: "/avatars/kara.png", alt: "Kara" },
-  { src: "/avatars/tony-poster.jpg", alt: "Tony" },
 ];
 // Varying heights give the row a gentle corridor-like depth wave.
-const STREAM_HEIGHTS = [120, 160, 196, 160, 120, 152];
+const STREAM_HEIGHTS = [120, 160, 196, 160, 128];
 
 const STEPS = [
   {
