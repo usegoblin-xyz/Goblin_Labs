@@ -81,23 +81,18 @@ const AVATAR_REEL = [
   },
 ];
 
-// Capability pills for the two marquee rows under the hero.
-const TICKER_A = [
-  { icon: Eye, label: "Screen vision" },
-  { icon: Mic, label: "Real-time voice" },
-  { icon: Zap, label: "Low-latency rendering" },
-  { icon: MousePointerClick, label: "Computer use" },
-  { icon: Users, label: "Lead capture" },
-  { icon: Brain, label: "Persistent memory" },
+// Avatar stream under the hero — our personas, echoing the email header's
+// receding "corridor" of faces. Uses portraits we already host.
+const STREAM_AVATARS = [
+  { src: "https://lab.anam.ai/persona_thumbnails/gabriel_table.png", alt: "Gabriel" },
+  { src: "https://lab.anam.ai/persona_thumbnails/mia_studio.png", alt: "Mia" },
+  { src: "/avatars/zekthar-poster.jpg", alt: "Zek'thar" },
+  { src: "https://lab.anam.ai/persona_thumbnails/anne_home.png", alt: "Anne" },
+  { src: "/avatars/kara.png", alt: "Kara" },
+  { src: "/avatars/tony-poster.jpg", alt: "Tony" },
 ];
-const TICKER_B = [
-  { icon: Database, label: "RAG knowledge" },
-  { icon: Ticket, label: "Zendesk tickets" },
-  { icon: CalendarCheck, label: "Calendar booking" },
-  { icon: MonitorSmartphone, label: "Lives on your site" },
-  { icon: Clock3, label: "Always on" },
-  { icon: Brain, label: "Multi-modal context" },
-];
+// Varying heights give the row a gentle corridor-like depth wave.
+const STREAM_HEIGHTS = [120, 160, 196, 160, 120, 152];
 
 const STEPS = [
   {
@@ -289,27 +284,34 @@ function SectionBadge({ children }: { children: ReactNode }) {
   );
 }
 
-function TickerPill({ icon: Icon, label }: { icon: typeof Eye; label: string }) {
-  return (
-    <span className="mx-1.5 inline-flex shrink-0 items-center gap-2 rounded-full border border-dashed border-white/12 bg-white/[0.03] px-3.5 py-1.5 text-[12px] text-white/60">
-      <Icon className="h-3.5 w-3.5 text-[#22A03A]" />
-      {label}
-    </span>
-  );
-}
-
-function TickerRow({ items, reverse = false }: { items: typeof TICKER_A; reverse?: boolean }) {
+function AvatarStream() {
   // Content is duplicated so the -50% translate loops seamlessly.
   return (
-    <div className="ticker-mask relative overflow-hidden py-1">
-      <div className={`flex w-max ${reverse ? "animate-marquee-reverse" : "animate-marquee"}`}>
-        {[0, 1].map((half) => (
-          <div key={half} aria-hidden={half === 1} className="flex">
-            {items.map((t) => (
-              <TickerPill key={`${half}-${t.label}`} icon={t.icon} label={t.label} />
-            ))}
-          </div>
-        ))}
+    <div className="relative">
+      {/* Green glow, echoing the email header's center light */}
+      <div className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center">
+        <div className="h-[240px] w-[72%] rounded-full bg-[#22A03A]/12 blur-[100px]" />
+      </div>
+      <div className="ticker-mask relative overflow-hidden py-6">
+        <div className="flex w-max animate-marquee items-center">
+          {[0, 1].map((half) => (
+            <div key={half} aria-hidden={half === 1} className="flex items-center">
+              {STREAM_AVATARS.map((a, i) => (
+                <div
+                  key={`${half}-${a.alt}`}
+                  className="relative mx-2 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
+                  style={{
+                    height: `${STREAM_HEIGHTS[i % STREAM_HEIGHTS.length]}px`,
+                    aspectRatio: "3 / 4",
+                  }}
+                >
+                  <img src={a.src} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/5" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -551,10 +553,9 @@ export default function App() {
           </motion.div>
         </div>
 
-        {/* Capability ticker */}
-        <motion.div {...fadeUp(0.55)} className="relative z-10 mx-auto mt-14 max-w-[1280px] space-y-2.5">
-          <TickerRow items={TICKER_A} />
-          <TickerRow items={TICKER_B} reverse />
+        {/* Avatar stream — our personas, echoing the email header */}
+        <motion.div {...fadeUp(0.55)} className="relative z-10 mx-auto mt-14 max-w-[1280px]">
+          <AvatarStream />
         </motion.div>
 
         {/* Hero media panel — the three avatars rendered live, in one frame */}
