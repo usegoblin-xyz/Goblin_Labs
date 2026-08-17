@@ -20,7 +20,7 @@ type Phase = "idle" | "connecting" | "live" | "ended" | "error";
 // can't see. To turn the whole feature off, empty LEAD_GEN_PERSONA_IDS instead.
 const SHOW_LEAD_CARD = true;
 
-export default function Talk() {
+export default function Talk({ embed = false }: { embed?: boolean }) {
   const { id } = useParams<{ id: string }>();
   const [phase, setPhase] = useState<Phase>("idle");
   const [err, setErr] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export default function Talk() {
   // Only lead-gen personas mint with the prefill tool, so only they get a card,
   // and only once the session is under way — never behind the idle overlay.
   const showLeadCard =
-    SHOW_LEAD_CARD && !!id && LEAD_GEN_PERSONA_IDS.has(id) && phase !== "idle";
+    !embed && SHOW_LEAD_CARD && !!id && LEAD_GEN_PERSONA_IDS.has(id) && phase !== "idle";
 
   // Resolve the persona (name + config) up front so "Start" is instant — and
   // so a bad link fails visibly here instead of rendering the wrong persona.
@@ -118,14 +118,16 @@ export default function Talk() {
   return (
     <div className="relative flex min-h-[100dvh] w-full flex-col overflow-x-hidden bg-background text-foreground">
       {/* Header */}
-      <header className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-5 py-4 sm:px-8">
-        <Link to="/" className="text-[14px] font-semibold tracking-tight">
-          Goblin Labs
-        </Link>
-        <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          {phase === "live" ? "Live" : "Persona"}
-        </span>
-      </header>
+      {!embed && (
+        <header className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-5 py-4 sm:px-8">
+          <Link to="/" className="text-[14px] font-semibold tracking-tight">
+            Goblin Labs
+          </Link>
+          <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            {phase === "live" ? "Live" : "Persona"}
+          </span>
+        </header>
+      )}
 
       {/* Stage */}
       <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 pt-24 pb-20 lg:flex-row lg:items-center lg:gap-8">
@@ -230,9 +232,11 @@ export default function Talk() {
         )}
       </main>
 
-      <footer className="absolute inset-x-0 bottom-0 z-10 px-5 py-4 text-center text-[11px] text-muted-foreground">
-        Built with Goblin Labs · real-time AI personas
-      </footer>
+      {!embed && (
+        <footer className="absolute inset-x-0 bottom-0 z-10 px-5 py-4 text-center text-[11px] text-muted-foreground">
+          Built with Goblin Labs · real-time AI personas
+        </footer>
+      )}
     </div>
   );
 }

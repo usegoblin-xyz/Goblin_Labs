@@ -22,7 +22,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useAuth, UserButton } from "@clerk/clerk-react";
+import { useAuth, useUser, UserButton } from "@clerk/clerk-react";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import goblinLogo from "@/assets/goblin-logo.png";
 import founderPortrait from "@/assets/founder-portrait.jpg";
@@ -343,6 +343,13 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const { isSignedIn } = useAuth();
+  const { user } = useUser();
+  const displayName =
+    user?.firstName ||
+    user?.fullName ||
+    user?.username ||
+    user?.primaryEmailAddress?.emailAddress?.split("@")[0] ||
+    "Account";
 
   return (
     <div id="top" className="min-h-screen w-full bg-background text-foreground">
@@ -389,25 +396,28 @@ export default function App() {
               </a>
             </div>
             {isSignedIn ? (
-              <div className="hidden sm:flex">
-                <UserButton afterSignOutUrl="/" />
+              <div className="hidden items-center gap-2.5 sm:flex">
+                <a
+                  href="/account"
+                  className="max-w-[160px] truncate text-[13px] font-medium text-foreground/90 transition-colors hover:text-foreground"
+                  title={displayName}
+                >
+                  {displayName}
+                </a>
+                <UserButton
+                  afterSignOutUrl="/"
+                  userProfileMode="navigation"
+                  userProfileUrl="/account"
+                />
               </div>
             ) : (
               <a
                 href="/login"
-                className="hidden text-[13px] text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
+                className="hidden items-center gap-1.5 rounded-full bg-[#22A03A] px-4 py-2 text-[12px] font-semibold text-black transition-opacity hover:opacity-90 sm:inline-flex"
               >
                 Sign in
               </a>
             )}
-            <a
-              href="https://zekthar-landing.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden items-center gap-1.5 rounded-full bg-[#22A03A] px-4 py-2 text-[12px] font-semibold text-black transition-opacity hover:opacity-90 sm:inline-flex"
-            >
-              Try Zek'thar
-            </a>
             <button
               type="button"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -437,29 +447,21 @@ export default function App() {
               ))}
               {isSignedIn ? (
                 <a
-                  href="/studio"
+                  href="/account"
                   onClick={() => setMenuOpen(false)}
                   className="rounded-lg px-3 py-3 text-[15px] text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
                 >
-                  Your account
+                  {displayName} &middot; Account
                 </a>
               ) : (
                 <a
                   href="/login"
                   onClick={() => setMenuOpen(false)}
-                  className="rounded-lg px-3 py-3 text-[15px] text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
+                  className="mt-2 rounded-lg bg-[#22A03A] px-3 py-3 text-center text-[14px] font-semibold text-black"
                 >
                   Sign in
                 </a>
               )}
-              <a
-                href="https://zekthar-landing.vercel.app/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 rounded-lg bg-[#22A03A] px-3 py-3 text-center text-[14px] font-semibold text-black"
-              >
-                Try Zek'thar
-              </a>
             </nav>
           </div>
         )}
