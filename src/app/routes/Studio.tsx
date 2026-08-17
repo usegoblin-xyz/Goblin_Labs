@@ -101,6 +101,8 @@ export default function Studio() {
   const [previewErr, setPreviewErr] = useState<string | null>(null);
   const [deployId, setDeployId] = useState<string | null>(null);
   const [deploying, setDeploying] = useState(false);
+  // Whether the deployed persona was recorded to the signed-in user's library.
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "failed" | "anon">("idle");
   const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
   const { user } = useUser();
   const displayName =
@@ -276,16 +278,23 @@ export default function Studio() {
       // Usually already resolved from the preview pre-warm; otherwise creates now.
       const { id } = await ensurePersona(config);
       setDeployId(id);
-      // Record ownership so it appears under /personas (best-effort, signed-in only).
-      try {
-        if (!isSignedIn) throw new Error("anonymous");
-        const token = await getToken();
-        await fetch("/api/personas-mine", {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-          body: JSON.stringify({ anamPersonaId: id, name: config.name, vertical: vertical.title }),
-        });
-      } catch {}
+      // Record ownership so it appears under /personas. Signed-in only; the
+      // share link works regardless, so a save failure never blocks the deploy.
+      if (!isSignedIn) {
+        setSaveState("anon");
+      } else {
+        try {
+          const token = await getToken();
+          const r = await fetch("/api/personas-mine", {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+            body: JSON.stringify({ anamPersonaId: id, name: config.name, vertical: vertical.title }),
+          });
+          setSaveState(r.ok ? "saved" : "failed");
+        } catch {
+          setSaveState("failed");
+        }
+      }
     } catch (e: any) {
       setPreviewErr(e.message ?? String(e));
     } finally {
@@ -651,6 +660,32 @@ export default function Studio() {
                       </a>
                       <div className="mt-3 break-all text-[11px] text-muted-foreground">
                         Persona ID: {deployId}
+                      </div>
+                      <div className="mt-4 border-t border-border/40 pt-3">
+                        {saveState === "saved" ? (
+                          <Link
+                            to="/personas"
+                            className="inline-flex items-center gap-1.5 text-[12px] uppercase tracking-[0.16em] text-foreground"
+                          >
+                            Saved · view your personas
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Link>
+                        ) : saveState === "anon" ? (
+                          <div className="text-[12px] text-muted-foreground">
+                            <Link to="/login?redirect=/personas" className="text-foreground underline">
+                              Sign in
+                            </Link>{" "}
+                            to save this to your personas.
+                          </div>
+                        ) : saveState === "failed" ? (
+                          <div className="text-[12px] text-muted-foreground">
+                            Couldn't add this to your library, but the share link
+                            above works.{" "}
+                            <Link to="/personas" className="text-foreground underline">
+                              Your personas
+                            </Link>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   ) : (
