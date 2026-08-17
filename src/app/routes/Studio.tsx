@@ -345,7 +345,7 @@ export default function Studio() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1100px] px-6 pb-24 pt-28 md:px-12 md:pt-36">
+      <main className="mx-auto max-w-[1240px] px-6 pb-24 pt-28 md:px-12 md:pt-36">
         {/* Heading */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -390,8 +390,11 @@ export default function Studio() {
           })}
         </div>
 
-        {/* Step content */}
-        <div className="liquid-glass rounded-3xl p-6 sm:p-10">
+        {/* Build area: wizard (left) + live avatar preview (right) */}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0">
+            {/* Step content */}
+            <div className="liquid-glass rounded-3xl p-6 sm:p-10">
           {catalogErr && (
             <div className="mb-6 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-[13px] text-destructive">
               Couldn't load Anam catalog: {catalogErr}. Check that ANAM_API_KEY is set in Vercel.
@@ -677,6 +680,57 @@ export default function Studio() {
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
+          </div>{/* /left column */}
+
+          {/* Live avatar preview — visible while building (steps 1-4) */}
+          {step !== "Preview" && (
+            <aside className="hidden lg:sticky lg:top-28 lg:block lg:self-start">
+              <div className="liquid-glass overflow-hidden rounded-3xl">
+                <div className="relative aspect-[3/4] w-full bg-black">
+                  {selectedAvatar?.imageUrl ? (
+                    <img
+                      src={selectedAvatar.imageUrl}
+                      alt={selectedAvatar.name}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 grid place-items-center text-[12px] text-muted-foreground">
+                      Pick an avatar
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
+                    <span className="rounded-full bg-black/45 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-white/80 backdrop-blur">
+                      Preview
+                    </span>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-5">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/60">
+                      {vertical.title}
+                    </div>
+                    <div className="mt-1 truncate text-[19px] font-semibold text-white">
+                      {name || `${vertical.title} Persona`}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3 p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Avatar</span>
+                    <span className="truncate text-[13px] text-foreground/90">{selectedAvatar?.name ?? "—"}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Voice</span>
+                    <span className="truncate text-[13px] text-foreground/90">
+                      {voices.find((v) => v.id === voiceId)?.name ?? "—"}
+                    </span>
+                  </div>
+                  <p className="pt-1 text-[11.5px] leading-relaxed text-muted-foreground">
+                    This is your persona so far. Hear it talk back in the Preview step.
+                  </p>
+                </div>
+              </div>
+            </aside>
+          )}
+        </div>{/* /build grid */}
       </main>
     </div>
   );
