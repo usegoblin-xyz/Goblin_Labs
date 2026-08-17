@@ -12,9 +12,11 @@ export type PersonaConfig = {
 export const DEFAULT_LLM_ID = "a7cf662c-2ace-4de1-a21e-ef0fbf144bb7";
 export const DEFAULT_AVATAR_ID = "30fa96d0-26c4-4e55-94a0-517025942e18";
 export const DEFAULT_VOICE_ID = "6bfbe25a-979d-40f3-a92b-5394170af54b";
-// Pin the stable flagship model. Unpinned sessions fall back to a default that
-// can be a slower-to-initialize / early-access model. cara-3 is GA + low-latency.
-export const DEFAULT_AVATAR_MODEL = "cara-3";
+// Fallback avatar render version, used only when an avatar's own activeVersion
+// is unknown. New one-shot (custom) avatars and the current catalog default are
+// cara-4; the legacy cara-3 fails session start for cara-4-only avatars, which
+// is why custom avatars hit "Invalid request to start session".
+export const DEFAULT_AVATAR_MODEL = "cara-4";
 
 // Personas that should drive the on-screen lead-capture form. For these, the
 // session mint gets an inline `prefill_contact` client tool plus form-fill
@@ -160,6 +162,9 @@ export type Avatar = {
   variant?: string;
   imageUrl?: string;
   videoUrl?: string;
+  // Anam avatar render version, e.g. "cara-3" or "cara-4". Custom (one-shot)
+  // avatars are cara-4; sending the wrong model fails session start.
+  model?: string;
 };
 
 export async function listVoices(): Promise<Voice[]> {
@@ -193,6 +198,7 @@ export async function createAvatarFromFile(
     id: a.id,
     name: a.displayName ?? a.name ?? a.id,
     variant: a.variantName,
+    model: a.activeVersion ?? (Array.isArray(a.availableVersions) ? a.availableVersions[0] : undefined),
     imageUrl: a.imageUrl,
     videoUrl: a.videoUrl,
   };
@@ -214,6 +220,7 @@ export async function createAvatarFromUrl(
     id: a.id,
     name: a.displayName ?? a.name ?? a.id,
     variant: a.variantName,
+    model: a.activeVersion ?? (Array.isArray(a.availableVersions) ? a.availableVersions[0] : undefined),
     imageUrl: a.imageUrl,
     videoUrl: a.videoUrl,
   };
@@ -228,6 +235,7 @@ export async function listAvatars(): Promise<Avatar[]> {
     id: a.id,
     name: a.displayName ?? a.name ?? a.id,
     variant: a.variantName,
+    model: a.activeVersion ?? (Array.isArray(a.availableVersions) ? a.availableVersions[0] : undefined),
     imageUrl: a.imageUrl,
     videoUrl: a.videoUrl,
   }));
@@ -443,7 +451,7 @@ export async function getPersona(id: string): Promise<DeployedPersona | null> {
       avatarId,
       voiceId,
       llmId: p.llmId ?? DEFAULT_LLM_ID,
-      avatarModel: p.avatarModel ?? p.avatar?.model ?? DEFAULT_AVATAR_MODEL,
+      avatarModel: p.avatarModel ?? p.avatar?.model ?? p.avatar?.activeVersion ?? DEFAULT_AVATAR_MODEL,
       systemPrompt: p.brain?.systemPrompt ?? "You are a helpful, embodied AI persona.",
     },
   };
