@@ -22,6 +22,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useAuth, UserButton } from "@clerk/clerk-react";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import goblinLogo from "@/assets/goblin-logo.png";
 import founderPortrait from "@/assets/founder-portrait.jpg";
@@ -341,6 +342,7 @@ function FaqItem({ i, q, a, open, onToggle }: { i: number; q: string; a: string;
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const { isSignedIn } = useAuth();
 
   return (
     <div id="top" className="min-h-screen w-full bg-background text-foreground">
@@ -386,6 +388,18 @@ export default function App() {
                 <Linkedin className="h-4 w-4" />
               </a>
             </div>
+            {isSignedIn ? (
+              <div className="hidden sm:flex">
+                <UserButton afterSignOutUrl="/" />
+              </div>
+            ) : (
+              <a
+                href="/login"
+                className="hidden text-[13px] text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
+              >
+                Sign in
+              </a>
+            )}
             <a
               href="https://zekthar-landing.vercel.app/"
               target="_blank"
@@ -421,6 +435,23 @@ export default function App() {
                   {n.label}
                 </a>
               ))}
+              {isSignedIn ? (
+                <a
+                  href="/studio"
+                  onClick={() => setMenuOpen(false)}
+                  className="rounded-lg px-3 py-3 text-[15px] text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
+                >
+                  Your account
+                </a>
+              ) : (
+                <a
+                  href="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="rounded-lg px-3 py-3 text-[15px] text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
+                >
+                  Sign in
+                </a>
+              )}
               <a
                 href="https://zekthar-landing.vercel.app/"
                 target="_blank"
