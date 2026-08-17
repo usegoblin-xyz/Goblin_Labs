@@ -188,21 +188,12 @@ export default function Docs() {
           we will.
         </P>
 
-        <H2>What it costs</H2>
-        <P>
-          You can try a persona on your site free for 14 days. We agree on a goal first, for
-          example a number of meetings booked, so you can judge it on results. After that, Starter
-          is $299 per month for one persona. Growth is $799 per month for three personas plus help
-          desk connections. Cancel any time.
-        </P>
-
         <H2>Common questions</H2>
         <QA q="How fast can it be live?" a="Within 48 hours of saying yes. Usually faster." />
         <QA q="Will it make things up?" a="It answers from your material. You review it before it goes live, like a new hire in their first week. If something slips through, you can fix it in minutes." />
         <QA q="Do my visitors need an account?" a="No. They just talk. Nobody needs an account right now, including you." />
         <QA q="What happens to visitor details?" a="Contact details your persona collects go to you. We do not sell them or use them for anything else." />
         <QA q="Can I see what it said?" a="Yes. You get a weekly note with the numbers: how many conversations, how many leads, how many meetings, and the question visitors asked most." />
-        <QA q="What if I want to stop?" a="Cancel any time. No calls, no hoops." />
 
         <H2>Talk to us</H2>
         <P>
