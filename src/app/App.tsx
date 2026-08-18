@@ -14,7 +14,6 @@ import {
 import { useAuth, useUser, UserButton } from "@clerk/clerk-react";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import goblinLogo from "@/assets/goblin-logo.png";
-import founderPortrait from "@/assets/founder-portrait.jpg";
 
 const NAV = [
   { label: "Home", href: "#top" },
@@ -1048,19 +1047,7 @@ export default function App() {
 
           <div className="mt-12 rounded-2xl border border-dashed border-white/12 bg-white/[0.02] p-6 sm:p-10">
             <div className="grid grid-cols-12 gap-8">
-              <aside className="col-span-12 flex flex-col items-center text-center md:col-span-3 md:items-start md:text-left">
-                <div className="w-36 overflow-hidden rounded-xl border border-dashed border-white/15 p-1 sm:w-44 md:w-full">
-                  <div className="aspect-square w-full overflow-hidden rounded-lg">
-                    <ImageWithFallback src={founderPortrait} alt="Founder portrait" className="h-full w-full object-cover" />
-                  </div>
-                </div>
-                <div className="mt-5">
-                  <div className="font-serif-italic text-[1.9rem] leading-none">Obi</div>
-                  <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-white/40">Founder, Goblin Labs</div>
-                </div>
-              </aside>
-
-              <article className="col-span-12 md:col-span-9">
+              <article className="col-span-12">
                 <motion.p
                   {...fadeUp(0.1)}
                   className="text-[16px] leading-[1.7] text-white/60 sm:text-[17px]"
