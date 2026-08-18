@@ -1043,7 +1043,7 @@ export default function App() {
             {...fadeUp(0.1)}
             className="mt-6 text-balance text-center text-[clamp(1.9rem,4vw,3rem)] font-medium tracking-[-0.025em]"
           >
-            Meet the <span className="font-serif-italic">founder.</span>
+            Field <span className="font-serif-italic">notes.</span>
           </motion.h2>
 
           <div className="mt-12 rounded-2xl border border-dashed border-white/12 bg-white/[0.02] p-6 sm:p-10">
@@ -1060,40 +1060,57 @@ export default function App() {
                 </div>
               </aside>
 
-              <article
-                className="col-span-12 space-y-5 text-[16px] leading-[1.7] text-foreground/90 sm:text-[17px] md:col-span-9"
-                style={{ fontFamily: "Instrument Serif, serif" }}
-              >
-                {[
-                  "I came to the United States on a scholarship to study computer science. The expected path, for someone from where I come from, was to get the degree, get the job, and stay quiet. The work that interested me was somewhere else.",
-                  "I learned to write before I learned to ship. Years of essays, arguments and poetry taught me how to take something dense and make it land, a skill I'd later realise is the most undervalued one in software. AI products live or die on how well their makers can articulate what they are; this knowledge requires a deep understanding of the model ecosystem and how models work together.",
-                  "The first thing I tried to build was a personal AI tutor to help me study. The second was a voice agent with low enough latency to feel like it was real-time. Both failed. But the lesson was that I'd been building before I'd done the research.",
-                  "After that, every project started with a longer read. Voice agents, hackathon projects, Skiyu, the skill marketplace I just shipped, each got sharper because failures became more specific.",
-                ].map((p, i) => (
-                  <motion.p key={i} {...fadeUp(i * 0.05)}>{p}</motion.p>
-                ))}
-
-                <motion.p {...fadeUp(0.2)}>
-                  Then I built Zek'thar. And the thing that hit me halfway through
-                  was bigger than the project:{" "}
-                  <span className="bg-[#22A03A] px-1.5 py-0.5 font-sans text-[0.85em] not-italic text-black">
-                    we already have the tools to build AGI. What we don't have are
-                    the tools to put them together.
-                  </span>{" "}
-                  That gap is the thesis.
+              <article className="col-span-12 md:col-span-9">
+                <motion.p
+                  {...fadeUp(0.1)}
+                  className="text-[16px] leading-[1.7] text-white/60 sm:text-[17px]"
+                  style={{ fontFamily: "Instrument Serif, serif" }}
+                >
+                  Field notes — writing on how we think about personas, models,
+                  and building the lab.
                 </motion.p>
 
-                <motion.p {...fadeUp(0.25)}>
-                  Goblin Labs is the lab built around that thesis. We're starting
-                  with real-time AI personas, characters that see your screen,
-                  talk with you, and act alongside you. Zek'thar is the first.
-                </motion.p>
+                <ul className="mt-8 divide-y divide-dashed divide-white/12 border-y border-dashed border-white/12">
+                  {[
+                    {
+                      title: "Come Build a Persona",
+                      href: "https://goblinlabs.substack.com/p/come-build-a-persona?r=8l3ibi&utm_campaign=post-expanded-share&utm_medium=post%20viewer",
+                    },
+                    {
+                      title: "Notes from the Lab",
+                      href: "https://substack.com/@goblinlabs/note/p-211663260?utm_source=notes-share-action&r=8l3ibi",
+                    },
+                  ].map((note, i) => (
+                    <motion.li key={note.href} {...fadeUp(0.15 + i * 0.05)}>
+                      <a
+                        href={note.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center justify-between gap-4 py-5 transition-colors hover:text-[#22A03A]"
+                      >
+                        <span
+                          className="text-[1.35rem] leading-tight sm:text-[1.6rem]"
+                          style={{ fontFamily: "Instrument Serif, serif" }}
+                        >
+                          {note.title}
+                        </span>
+                        <span className="shrink-0 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-[#22A03A]">
+                          ↗
+                        </span>
+                      </a>
+                    </motion.li>
+                  ))}
+                </ul>
 
-                <motion.p {...fadeUp(0.3)} className="text-white/50">
-                  Inside me, there's a kid from the same place I was who hasn't
-                  yet been told that the path can be drawn differently. If we
-                  build well, they'll see it.
-                </motion.p>
+                <motion.a
+                  {...fadeUp(0.3)}
+                  href="https://goblinlabs.substack.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-8 inline-block text-[13px] uppercase tracking-[0.2em] text-white/40 underline underline-offset-4 hover:text-white"
+                >
+                  Read more on Substack
+                </motion.a>
               </article>
             </div>
           </div>
