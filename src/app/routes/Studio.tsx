@@ -40,10 +40,10 @@ import {
   type SessionTimings,
 } from "@/app/lib/anam";
 
-// Warm accent used for the primary call-to-action (Start call / Publish), the
-// same role orange plays in the reference studio. Kept as a constant so the two
-// buttons and the active-tab underline stay in lockstep.
-const ACCENT = "#e2572a";
+// Goblin green — the brand accent used for the primary call-to-action (Start
+// call / Publish) and the active-tab underline. Matches the landing-page CTAs
+// (#22A03A on black text). Kept as a constant so every accent stays in lockstep.
+const ACCENT = "#22A03A";
 
 // Shown in the system-prompt editor by default and restored by "Default prompt".
 const DEFAULT_SYSTEM_PROMPT =
@@ -402,7 +402,7 @@ export default function Studio() {
             <button
               onClick={deploy}
               disabled={deploying}
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[12px] font-semibold text-white transition-opacity disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[12px] font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: ACCENT }}
             >
               {deploying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
@@ -659,7 +659,7 @@ export default function Studio() {
                 <div className="absolute inset-x-0 bottom-0 flex justify-center p-5">
                   <button
                     onClick={startLivePreview}
-                    className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[13px] font-semibold text-white shadow-lg transition-transform hover:scale-[1.02]"
+                    className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[13px] font-semibold text-black shadow-lg transition-transform hover:scale-[1.02]"
                     style={{ backgroundColor: ACCENT }}
                   >
                     <Phone className="h-4 w-4" />
