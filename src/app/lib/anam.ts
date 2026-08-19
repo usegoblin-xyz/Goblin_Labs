@@ -7,6 +7,13 @@ export type PersonaConfig = {
   systemPrompt: string;
   llmId: string;
   avatarModel?: string;
+  // First greeting the persona speaks to open the call. Empty/omitted lets the
+  // persona generate its own opener. These map 1:1 to Anam's persona fields.
+  initialMessage?: string;
+  skipGreeting?: boolean;
+  // Anam stores the negative ("uninterruptible"); the Studio UI exposes the
+  // positive "Interruptible" toggle, so interruptible === !uninterruptibleGreeting.
+  uninterruptibleGreeting?: boolean;
 };
 
 export const DEFAULT_LLM_ID = "a7cf662c-2ace-4de1-a21e-ef0fbf144bb7";
@@ -166,6 +173,31 @@ export type Avatar = {
   // avatars are cara-4; sending the wrong model fails session start.
   model?: string;
 };
+
+export type Llm = {
+  id: string;
+  name: string;
+  // Upstream model identifier, e.g. "gpt-4o-mini" — shown as a subtitle.
+  model?: string;
+  description?: string;
+  tags?: string[];
+};
+
+// The account's available LLMs (GET /v1/llms via the edge proxy). Used to
+// populate the Studio's LLM picker with real, session-valid ids.
+export async function listLlms(): Promise<Llm[]> {
+  const res = await fetch("/api/llms");
+  if (!res.ok) throw new Error(`llms failed: ${res.status}`);
+  const data = await res.json();
+  const items = data.data ?? data ?? [];
+  return items.map((l: any) => ({
+    id: l.id,
+    name: l.displayName ?? l.name ?? l.id,
+    model: l.modelName ?? l.model,
+    description: l.description,
+    tags: l.displayTags,
+  }));
+}
 
 export async function listVoices(): Promise<Voice[]> {
   const res = await fetch("/api/voices");
@@ -477,9 +509,14 @@ export async function getPersona(id: string): Promise<DeployedPersona | null> {
       // GET /personas/:id returns avatar/voice as objects and the prompt under `brain`.
       avatarId,
       voiceId,
-      llmId: p.llmId ?? DEFAULT_LLM_ID,
+      llmId: p.llmId ?? p.brain?.llmId ?? DEFAULT_LLM_ID,
       avatarModel: p.avatarModel ?? p.avatar?.model ?? p.avatar?.activeVersion ?? DEFAULT_AVATAR_MODEL,
-      systemPrompt: p.brain?.systemPrompt ?? "You are a helpful, embodied AI persona.",
+      systemPrompt: p.brain?.systemPrompt ?? p.systemPrompt ?? "You are a helpful, embodied AI persona.",
+      // Greeting behavior is part of the persona's identity; carry it through so
+      // the ephemeral fallback mint reproduces the deployed persona faithfully.
+      initialMessage: p.initialMessage ?? undefined,
+      skipGreeting: p.skipGreeting ?? undefined,
+      uninterruptibleGreeting: p.uninterruptibleGreeting ?? undefined,
     },
   };
 }
