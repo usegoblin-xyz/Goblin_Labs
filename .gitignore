@@ -12,3 +12,4 @@ dist/
 # local codegraph KG
 .codegraph/
 codegraph-map.html
+.env*
