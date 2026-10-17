@@ -17,7 +17,7 @@ type Props = {
 export function LivePlayer({ template: t, brand, content, controls = false, className, style }: Props) {
   const ref = useRef<PlayerRef>(null);
   const box = useRef<HTMLDivElement>(null);
-  const inputProps = useMemo(() => ({ brand, content }), [brand, content]);
+  const inputProps = useMemo(() => ({ brand, content, audio: controls }), [brand, content, controls]);
   const landscape = t.width >= t.height && t.width / t.height > 1.2;
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export function LivePlayer({ template: t, brand, content, controls = false, clas
         // Paused or not yet started, show a finished-looking frame, not a blank one.
         initialFrame={Math.round(t.durationInFrames * 0.55)}
         loop
-        muted
+        muted={!controls}
         controls={controls}
         clickToPlay={controls}
         doubleClickToFullscreen={controls}

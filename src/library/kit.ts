@@ -3,7 +3,9 @@ import { spring, interpolate, Easing } from "remotion";
 import { FONTS, MOTIONS, type Brand } from "./brand";
 
 // Every template receives the brand kit plus its own content fields.
-export type TemplateProps<C> = { brand: Brand; content: C };
+// `audio` is true only where sound can play (the editor and MP4 renders), so
+// grid previews never download soundtrack files.
+export type TemplateProps<C> = { brand: Brand; content: C; audio?: boolean };
 
 export type Field = {
   key: string;
@@ -27,6 +29,7 @@ export type Template<C = Record<string, string | number>> = {
   component: ComponentType<TemplateProps<C>>;
   defaults: C;
   fields: Field[];
+  soundtrack?: string; // file in public/, used by the MP4 renderer
 };
 
 export const font = (b: Brand) => FONTS[b.font].stack;

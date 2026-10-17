@@ -19,9 +19,11 @@ import { lowerThird } from "./templates/LowerThird";
 import { howItWorks } from "./templates/HowItWorks";
 import { comparison } from "./templates/Comparison";
 import { eventAnnouncement } from "./templates/EventAnnouncement";
+import { showreel } from "./templates/Showreel";
 
 // Order here is the order on the homepage.
 export const TEMPLATES = [
+  showreel,
   launchTitle,
   featureSpotlight,
   changelogDrop,
