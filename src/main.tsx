@@ -2,7 +2,7 @@ import { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router";
 import { ClerkProvider } from "@clerk/clerk-react";
-import App from "./app/App.tsx";
+import Home from "./app/routes/Home.tsx";
 import { Toaster } from "./app/components/ui/sonner";
 import "./styles/index.css";
 
@@ -13,6 +13,8 @@ const CLERK_PK =
   "pk_live_Y2xlcmsudXNlZ29ibGluLnh5eiQ";
 
 // Heavy routes load only when visited.
+// Previous Goblin Labs homepage (personas), kept reachable during the pivot.
+const LabsHome = lazy(() => import("./app/App.tsx"));
 const Studio = lazy(() => import("./app/routes/Studio.tsx"));
 const Talk = lazy(() => import("./app/routes/Talk.tsx"));
 const Login = lazy(() => import("./app/routes/Login.tsx"));
@@ -26,7 +28,15 @@ createRoot(document.getElementById("root")!).render(
   <ClerkProvider publishableKey={CLERK_PK} afterSignOutUrl="/">
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<App />} />
+        <Route path="/" element={<Home />} />
+        <Route
+          path="/labs"
+          element={
+            <Suspense fallback={null}>
+              <LabsHome />
+            </Suspense>
+          }
+        />
         <Route
           path="/studio"
           element={

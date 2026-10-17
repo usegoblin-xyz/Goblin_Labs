@@ -12,7 +12,7 @@
            (media=print flips to all on load). display=swap avoids invisible text. -->
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital,wght@0,400;1,400&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
         media="print"
         onload="this.media='all'"
       />
@@ -25,7 +25,7 @@
       <noscript>
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Serif:ital,wght@0,400;1,400&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital,wght@0,400;1,400&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
         />
         <link
           rel="stylesheet"
@@ -37,22 +37,21 @@
       <link rel="dns-prefetch" href="https://api.anam.ai" />
       <link rel="dns-prefetch" href="https://res.cloudinary.com" />
       <link rel="dns-prefetch" href="https://www.youtube.com" />
-      <title>Goblin Labs | AI agents that feel like people</title>
+      <title>Goblin | On-brand motion templates for SaaS launches</title>
       <link rel="icon" href="/favicon.ico" sizes="32x32" />
       <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32" />
       <link rel="icon" type="image/png" href="/favicon-192.png" sizes="192x192" />
       <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-      <meta name="description" content="Goblin Labs builds AI agents that feel like people: branded business agents that replace complex websites, and a digital companion that uses your computer for you." />
-      <meta property="og:title" content="Goblin Labs | AI agents that feel like people" />
-      <meta property="og:description" content="Branded business agents that replace complex websites, and a digital companion that uses your computer for you. Talk to one right now, no signup." />
+      <meta name="description" content="Ready-made motion templates for launches, feature drops, changelogs and traction posts. Set your brand once and every template follows." />
+      <meta property="og:title" content="Goblin | On-brand motion templates for SaaS launches" />
+      <meta property="og:description" content="Ready-made motion templates for SaaS launches. Set your brand once and every template follows." />
       <meta property="og:image" content="https://www.usegoblin.xyz/og.png" />
       <meta property="og:url" content="https://www.usegoblin.xyz" />
       <meta property="og:type" content="website" />
       <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content="Goblin Labs | AI agents that feel like people" />
-      <meta name="twitter:description" content="Branded business agents that replace complex websites, and a digital companion that uses your computer for you. Talk to one, no signup." />
+      <meta name="twitter:title" content="Goblin | On-brand motion templates for SaaS launches" />
+      <meta name="twitter:description" content="Ready-made motion templates for SaaS launches. Set your brand once and every template follows." />
       <meta name="twitter:image" content="https://www.usegoblin.xyz/og.png" />
-      <meta name="description" content="Goblin Labs is an AI research lab building embodied, real-time AI personas that see your screen, talk with you, and act alongside you." />
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
     </head>
 
@@ -80,7 +79,8 @@
       <script>
         // The concierge launcher is for our own site — never show it inside an
         // embedded persona (/embed/:id) running on someone else's page.
-        if (location.pathname.indexOf("/embed/") === 0) {
+        // Also hidden on the motion-library homepage, which isn't a persona surface.
+        if (location.pathname.indexOf("/embed/") === 0 || location.pathname === "/") {
           var m = document.getElementById("goblin-ask-mia");
           if (m) m.remove();
         }
