@@ -20,10 +20,12 @@ import { howItWorks } from "./templates/HowItWorks";
 import { comparison } from "./templates/Comparison";
 import { eventAnnouncement } from "./templates/EventAnnouncement";
 import { showreel } from "./templates/Showreel";
+import { uiMorph } from "./templates/UIMorph";
 
 // Order here is the order on the homepage.
 export const TEMPLATES = [
   showreel,
+  uiMorph,
   launchTitle,
   featureSpotlight,
   changelogDrop,
