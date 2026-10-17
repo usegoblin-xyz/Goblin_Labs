@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { toast } from "sonner";
-import { Copy, Film, RotateCcw } from "lucide-react";
+import { Copy, Film, RotateCcw, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/app/components/ui/dialog";
 import type { Brand } from "../brand";
 import type { Template } from "../kit";
 import { aspectLabel, seconds } from "../registry";
+import { buildPrompt, type AudioMode } from "../prompts";
 import { LivePlayer } from "./LivePlayer";
 
 type Props = {
@@ -18,7 +20,24 @@ type Props = {
 const inputCls =
   "w-full rounded-lg border border-white/12 bg-white/[0.04] px-3 py-2 text-[14px] text-white outline-none placeholder:text-white/30 focus:border-[#22A03A]";
 
+const AUDIO: { key: AudioMode; label: string }[] = [
+  { key: "off", label: "Silent" },
+  { key: "subtle", label: "Effects" },
+  { key: "music", label: "Music" },
+];
+
 export function TemplateDialog({ template: t, brand, content, onContent, onClose, onWaitlist }: Props) {
+  const [audio, setAudio] = useState<AudioMode>("off");
+  const prompt = t ? buildPrompt(t, brand, content, audio) : null;
+  const copyPrompt = async () => {
+    if (!prompt) return;
+    try {
+      await navigator.clipboard.writeText(prompt);
+      toast.success("Prompt copied", { description: "Filled with your brand kit and copy. Paste it into Claude or another AI tool." });
+    } catch {
+      toast.error("Couldn't copy to the clipboard");
+    }
+  };
   const copy = async () => {
     if (!t) return;
     const json = JSON.stringify({ template: t.id, brand, content }, null, 2);
@@ -83,6 +102,44 @@ export function TemplateDialog({ template: t, brand, content, onContent, onClose
                   </label>
                 ))}
               </div>
+
+              {prompt && (
+                <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex items-center gap-2 text-[13px] font-semibold">
+                    <Sparkles className="h-4 w-4 text-[#22A03A]" /> AI prompt
+                  </div>
+                  <p className="mt-1 text-[12px] leading-relaxed text-white/50">
+                    Build this video yourself with an AI tool. The prompt updates with your brand kit and fields.
+                  </p>
+                  <div className="mt-3 flex rounded-lg border border-white/12 p-0.5" role="radiogroup" aria-label="Audio">
+                    {AUDIO.map((a) => (
+                      <button
+                        key={a.key}
+                        role="radio"
+                        aria-checked={audio === a.key}
+                        onClick={() => setAudio(a.key)}
+                        className={`flex-1 rounded-md px-2 py-1 text-[12px] font-medium transition-colors ${
+                          audio === a.key ? "bg-white text-black" : "text-white/60 hover:text-white"
+                        }`}
+                      >
+                        {a.label}
+                      </button>
+                    ))}
+                  </div>
+                  <details className="group mt-3">
+                    <summary className="cursor-pointer text-[12px] text-white/55 hover:text-white">Show prompt</summary>
+                    <pre className="mt-2 max-h-56 overflow-auto rounded-lg bg-black/60 p-3 text-[11px] leading-relaxed whitespace-pre-wrap text-white/75">
+                      {prompt}
+                    </pre>
+                  </details>
+                  <button
+                    onClick={copyPrompt}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#22A03A]/60 px-4 py-2 text-[13px] font-medium text-[#22A03A] transition-colors hover:border-[#22A03A] hover:bg-[#22A03A]/10"
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copy prompt
+                  </button>
+                </div>
+              )}
 
               <div className="mt-6 flex flex-col gap-2 pt-2 lg:mt-auto">
                 <button

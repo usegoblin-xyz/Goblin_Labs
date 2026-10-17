@@ -6,6 +6,7 @@ import { DEFAULT_BRAND, type Brand } from "@/library/brand";
 import type { Category, Template } from "@/library/kit";
 import { CATEGORIES, TEMPLATES, aspectLabel, matches, seconds } from "@/library/registry";
 import { BrandBar } from "@/library/ui/BrandBar";
+import { hasPrompt } from "@/library/prompts";
 import { LivePlayer } from "@/library/ui/LivePlayer";
 import { TemplateDialog } from "@/library/ui/TemplateDialog";
 import { captureContact } from "@/app/lib/leads";
@@ -214,6 +215,12 @@ export default function Home() {
                       <span>{aspectLabel(t)}</span>
                       <span>·</span>
                       <span>{seconds(t)}s</span>
+                      {hasPrompt(t) && (
+                        <>
+                          <span>·</span>
+                          <span className="text-[#22A03A]">Prompt</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <p className="mt-1 text-[13px] leading-snug text-white/55">{t.outcome}</p>
