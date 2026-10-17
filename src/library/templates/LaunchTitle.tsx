@@ -2,7 +2,7 @@ import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remo
 import { alpha } from "../brand";
 import { enter, font, outro, ramp, type Template, type TemplateProps } from "../kit";
 
-type C = { eyebrow: string; headline: string; subhead: string };
+type C = { headline: string; subhead: string };
 
 function LaunchTitle({ brand, content }: TemplateProps<C>) {
   const frame = useCurrentFrame();
@@ -11,7 +11,6 @@ function LaunchTitle({ brand, content }: TemplateProps<C>) {
   const out = outro(frame, durationInFrames);
   const glowX = interpolate(frame, [0, durationInFrames], [35, 65]);
   const bar = enter(frame, fps, brand, 18 + words.length * 4);
-  const pill = enter(frame, fps, brand, 4);
 
   return (
     <AbsoluteFill
@@ -32,27 +31,9 @@ function LaunchTitle({ brand, content }: TemplateProps<C>) {
         }}
       />
       <div style={{ opacity: out, transform: `scale(${1 + (1 - out) * 0.04})`, textAlign: "center", padding: "0 160px" }}>
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 14,
-            padding: "12px 26px",
-            borderRadius: 999,
-            border: `2px solid ${alpha(brand.foreground, 0.16)}`,
-            fontSize: 30,
-            letterSpacing: "0.14em",
-            textTransform: "uppercase",
-            opacity: pill,
-            transform: `translateY(${(1 - pill) * 20}px)`,
-          }}
-        >
-          <span style={{ width: 14, height: 14, borderRadius: 99, background: brand.primary }} />
-          {content.eyebrow} {brand.name}
-        </div>
         <h1
           style={{
-            margin: "44px 0 0",
+            margin: 0,
             fontSize: 124,
             lineHeight: 1.04,
             fontWeight: 600,
@@ -118,12 +99,10 @@ export const launchTitle: Template<C> = {
   durationInFrames: 150,
   component: LaunchTitle,
   defaults: {
-    eyebrow: "Introducing",
     headline: "Launch videos in minutes",
     subhead: "On-brand motion for every release, without a designer.",
   },
   fields: [
-    { key: "eyebrow", label: "Eyebrow", type: "text", hint: "Shown before your product name" },
     { key: "headline", label: "Headline", type: "text", hint: "Last word gets your primary color" },
     { key: "subhead", label: "Subhead", type: "textarea" },
   ],

@@ -113,10 +113,7 @@ export default function Home() {
         </div>
         <div className="relative mx-auto grid max-w-[1240px] items-center gap-10 px-4 pt-14 pb-10 sm:px-6 lg:grid-cols-[1fr_1.15fr] lg:pt-20">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/12 px-3 py-1 text-[12px] text-white/70">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#22A03A]" /> Motion templates for SaaS launches
-            </div>
-            <h1 className="mt-5 text-[44px] leading-[1.02] font-semibold tracking-[-0.035em] sm:text-[60px]">
+            <h1 className="text-[44px] leading-[1.02] font-semibold tracking-[-0.035em] sm:text-[60px]">
               Launch videos that already look like{" "}
               <span style={{ fontFamily: "Instrument Serif, serif" }} className="font-normal italic text-[#22A03A]">
                 your brand.
