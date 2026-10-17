@@ -7,16 +7,40 @@ import { logoReveal } from "./templates/LogoReveal";
 import { changelogDrop } from "./templates/ChangelogDrop";
 import { testimonial } from "./templates/Testimonial";
 import { endCard } from "./templates/EndCard";
+import { pricingReveal } from "./templates/PricingReveal";
+import { kineticCaptions } from "./templates/KineticCaptions";
+import { launchCountdown } from "./templates/LaunchCountdown";
+import { beforeAfter } from "./templates/BeforeAfter";
+import { integrations } from "./templates/Integrations";
+import { socialPost } from "./templates/SocialPost";
+import { hiring } from "./templates/Hiring";
+import { milestone } from "./templates/Milestone";
+import { lowerThird } from "./templates/LowerThird";
+import { howItWorks } from "./templates/HowItWorks";
+import { comparison } from "./templates/Comparison";
+import { eventAnnouncement } from "./templates/EventAnnouncement";
 
 // Order here is the order on the homepage.
 export const TEMPLATES = [
   launchTitle,
   featureSpotlight,
   changelogDrop,
+  pricingReveal,
+  kineticCaptions,
   statCounter,
+  beforeAfter,
+  launchCountdown,
   barChart,
-  logoReveal,
+  integrations,
   testimonial,
+  howItWorks,
+  socialPost,
+  comparison,
+  milestone,
+  logoReveal,
+  eventAnnouncement,
+  hiring,
+  lowerThird,
   endCard,
 ] as unknown as Template[];
 
