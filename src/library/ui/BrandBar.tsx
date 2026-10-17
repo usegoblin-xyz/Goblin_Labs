@@ -1,4 +1,8 @@
 import { FONTS, MOTIONS, PRESETS, type Brand, type FontKey, type MotionKey } from "../brand";
+import { track } from "@/app/lib/analytics";
+
+// Count each kind of brand edit once per visit (color pickers fire on every drag).
+const customized = new Set<string>();
 
 type Props = { brand: Brand; onChange: (b: Brand) => void };
 
@@ -31,7 +35,13 @@ function Swatch({ value, label, onChange }: { value: string; label: string; onCh
 
 // The brand kit editor. Every preview on the page reads from this one object.
 export function BrandBar({ brand, onChange }: Props) {
-  const set = <K extends keyof Brand>(k: K, v: Brand[K]) => onChange({ ...brand, [k]: v });
+  const set = <K extends keyof Brand>(k: K, v: Brand[K]) => {
+    if (!customized.has(k)) {
+      customized.add(k);
+      track("brand_customized", { field: k });
+    }
+    onChange({ ...brand, [k]: v });
+  };
 
   return (
     <div className="rounded-2xl border border-white/12 bg-[#0b0b0b]/90 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-md sm:p-4">
@@ -88,7 +98,10 @@ export function BrandBar({ brand, onChange }: Props) {
           {PRESETS.map((p) => (
             <button
               key={p.name}
-              onClick={() => onChange(p)}
+              onClick={() => {
+                track("brand_preset_applied", { preset: p.name });
+                onChange(p);
+              }}
               title={p.name}
               aria-label={`Use ${p.name} preset`}
               className={`h-7 w-7 rounded-full border transition-transform hover:scale-110 ${

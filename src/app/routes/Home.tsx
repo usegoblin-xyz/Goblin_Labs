@@ -9,6 +9,7 @@ import { BrandBar } from "@/library/ui/BrandBar";
 import { LivePlayer } from "@/library/ui/LivePlayer";
 import { TemplateDialog } from "@/library/ui/TemplateDialog";
 import { captureContact } from "@/app/lib/leads";
+import { track } from "@/app/lib/analytics";
 
 type Content = Record<string, string | number>;
 const BRAND_KEY = "goblin_brand_kit";
@@ -54,6 +55,19 @@ export default function Home() {
   );
   const hero = TEMPLATES[0];
 
+  const openTemplate = (t: Template) => {
+    track("template_opened", { template: t.id, category: t.category });
+    setOpen(t);
+  };
+
+  // Log searches once the visitor pauses typing.
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) return;
+    const id = setTimeout(() => track("library_searched", { query: q.slice(0, 80), results: shown.length }), 900);
+    return () => clearTimeout(id);
+  }, [query, shown.length]);
+
   const goWaitlist = () => {
     setOpen(null);
     setTimeout(() => {
@@ -71,6 +85,7 @@ export default function Home() {
     setSending(true);
     try {
       await captureContact("motion-waitlist", { email, company: brand.name, need: "Motion library waitlist" });
+      track("waitlist_joined", { source: "homepage" });
       toast.success("You're on the list", { description: "We'll email you when rendering opens." });
       setEmail("");
     } catch {
@@ -139,7 +154,7 @@ export default function Home() {
             </div>
           </div>
           <button
-            onClick={() => setOpen(hero)}
+            onClick={() => openTemplate(hero)}
             className="group relative block w-full overflow-hidden rounded-2xl border border-white/12 text-left shadow-[0_40px_120px_rgba(34,160,58,0.15)]"
             aria-label={`Open ${hero.title}`}
           >
@@ -178,7 +193,10 @@ export default function Home() {
           {CATEGORIES.map((c) => (
             <button
               key={c}
-              onClick={() => setCategory(c)}
+              onClick={() => {
+                track("category_filtered", { category: c });
+                setCategory(c);
+              }}
               className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition-colors ${
                 category === c
                   ? "border-white bg-white font-medium text-black"
@@ -203,7 +221,7 @@ export default function Home() {
             {shown.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setOpen(t)}
+                onClick={() => openTemplate(t)}
                 className="group overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] text-left transition-colors hover:border-white/30"
               >
                 <LivePlayer template={t} brand={brand} content={contentFor(t)} className="aspect-video w-full" />

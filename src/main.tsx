@@ -5,6 +5,9 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import Home from "./app/routes/Home.tsx";
 import { Toaster } from "./app/components/ui/sonner";
 import "./styles/index.css";
+import { initAnalytics } from "./app/lib/analytics";
+
+initAnalytics();
 
 // Publishable key is public by design (it ships in the bundle either way).
 // Env var wins so prod can rotate it without a code change.

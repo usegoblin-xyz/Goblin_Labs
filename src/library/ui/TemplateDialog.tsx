@@ -5,6 +5,7 @@ import type { Brand } from "../brand";
 import type { Template } from "../kit";
 import { aspectLabel, seconds } from "../registry";
 import { LivePlayer } from "./LivePlayer";
+import { track } from "@/app/lib/analytics";
 
 type Props = {
   template: Template | null;
@@ -24,6 +25,7 @@ export function TemplateDialog({ template: t, brand, content, onContent, onClose
     const json = JSON.stringify({ template: t.id, brand, content }, null, 2);
     try {
       await navigator.clipboard.writeText(json);
+      track("props_copied", { template: t.id });
       toast.success("Props copied", { description: "Paste them into your Remotion project." });
     } catch {
       toast.error("Couldn't copy to the clipboard");
@@ -86,7 +88,10 @@ export function TemplateDialog({ template: t, brand, content, onContent, onClose
 
               <div className="mt-6 flex flex-col gap-2 pt-2 lg:mt-auto">
                 <button
-                  onClick={onWaitlist}
+                  onClick={() => {
+                    track("render_clicked", { template: t.id });
+                    onWaitlist();
+                  }}
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-[#22A03A] px-5 py-2.5 text-[13px] font-semibold text-black transition-opacity hover:opacity-90"
                 >
                   <Film className="h-4 w-4" /> Render MP4 · join the waitlist
