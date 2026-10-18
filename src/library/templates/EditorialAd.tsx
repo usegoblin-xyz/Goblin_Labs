@@ -229,7 +229,7 @@ function WordMorph({ t, c, pal, ff }: P) {
   const weight = kf(t, [[0.92, 320], [1.32, 860]]);
   const k = slots.map((s) => (s.kind === "keep" ? 1 : s.kind === "ins" ? expOut(seg(t, 0.64, 0.34)) : 1 - expInOut(seg(t, 0.7, 0.3))));
   const periodK = expOut(seg(t, 1.26, 0.3));
-  const widths = slots.map((s, i) => textWidth(s.ch, size, weight) * k[i]);
+  const widths = slots.map((s, i) => textWidth(s.ch, size, weight, 0, ff) * k[i]);
   const gap = 0.07 * size * periodK;
   const dotR = 0.085 * size;
   const total = widths.reduce((a, v) => a + v, 0) + (gap + dotR * 2) * periodK;
@@ -630,11 +630,11 @@ function Headline({ t, c, pal, ff }: P) {
   const u = t - b(20);
   const l1 = c.line1.trim() || "Make it";
   const l2 = c.line2.trim() || "move";
-  const s2 = Math.min(330, 1300 / Math.max(1, textWidth(l2 + ".", 1, 900)));
-  const s1 = Math.min(140, 1300 / Math.max(1, textWidth(l1, 1, 600)));
+  const s2 = Math.min(330, 1300 / Math.max(1, textWidth(l2 + ".", 1, 900, 0, ff)));
+  const s1 = Math.min(140, 1300 / Math.max(1, textWidth(l1, 1, 600, 0, ff)));
   const y2 = CY + 190;
   const y1 = CY - 120;
-  const xs2 = charX(l2, s2, 900);
+  const xs2 = charX(l2, s2, 900, 0, ff);
   const w2 = xs2[xs2.length - 1];
   const dotR = 0.085 * s2;
   const gap = 0.07 * s2;
@@ -653,7 +653,7 @@ function Headline({ t, c, pal, ff }: P) {
 
   // line 1 types in with the dot as cursor
   const typed = Math.floor(c01((u - 0.5) / 0.4) * l1.length + 1e-6);
-  const xs1 = charX(l1, s1, 620);
+  const xs1 = charX(l1, s1, 620, 0, ff);
   const x1 = CX - xs1[xs1.length - 1] / 2;
   const cursor = u > 0.46 && u < 1.0;
 
@@ -728,7 +728,7 @@ function Cube({ t, c, pal, ff, initial }: P) {
     for (let k = fl - 1; k <= fl + 2; k++) if (((k % 4) + 4) % 4 === j) return states[Math.max(0, Math.min(states.length - 1, k))];
     return states[0];
   };
-  const wordSize = (w: string) => Math.min(108, (CUBE - 80) / Math.max(0.1, textWidth(w, 1, 800)));
+  const wordSize = (w: string) => Math.min(108, (CUBE - 80) / Math.max(0.1, textWidth(w, 1, 800, 0, ff)));
   return (
     <>
       <div style={{ position: "absolute", left: CX - CUBE * 0.6, top: CY + CUBE * 0.62, width: CUBE * 1.2, height: 60, borderRadius: "50%", background: "rgba(11,11,12,0.14)", filter: "blur(18px)", opacity: c01(-tilt / 16) }} />
@@ -791,8 +791,8 @@ function Cube({ t, c, pal, ff, initial }: P) {
 function Lockup({ t, b: brand, pal, ff, initial }: P) {
   const u = t - 12.66;
   const name = brand.name.trim() || "Goblin";
-  const fs = Math.min(150, 980 / Math.max(0.1, textWidth(name, 1, 800)));
-  const xs = charX(name, fs, 800, -0.02);
+  const fs = Math.min(150, 980 / Math.max(0.1, textWidth(name, 1, 800, 0, ff)));
+  const xs = charX(name, fs, 800, -0.02, ff);
   const nameW = xs[xs.length - 1];
   const m = 210;
   const gap = 46;
@@ -831,7 +831,7 @@ export function EditorialAd({ brand, content, audio }: TemplateProps<C>) {
   const t = frame / fps;
   const p = neutral(brand.primary) ? brand.accent : brand.primary;
   const pal: Pal = { p, on: onColor(p), side: shade(p, 0.62) };
-  const ff = brand.font === "inter" ? '"Inter Variable", Inter, system-ui, sans-serif' : font(brand);
+  const ff = font(brand);
   const initial = (brand.name.trim()[0] ?? "G").toUpperCase();
   const props: P = { t, b: brand, c: content, pal, ff, initial };
 

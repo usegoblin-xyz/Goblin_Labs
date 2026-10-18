@@ -108,8 +108,8 @@ export function palette(b: Brand) {
 }
 export type Pal = ReturnType<typeof palette>;
 
-export const fontOf = (b: Brand) => (b.font === "inter" ? '"Inter Variable", Inter, system-ui, sans-serif' : FONTS[b.font].stack);
-export const MONO = '"JetBrains Mono", ui-monospace, monospace';
+export const fontOf = (b: Brand) => FONTS[b.font].stack;
+export const MONO = '"JetBrains Mono", "JetBrains Mono Variable", ui-monospace, monospace';
 export const SERIF = '"Instrument Serif", Georgia, serif';
 export const initialOf = (b: Brand) => (b.name.trim()[0] ?? "G").toUpperCase();
 export const nameOf = (b: Brand) => b.name.trim() || "Goblin";
@@ -158,7 +158,7 @@ export function Txt({
 }: {
   text: string; x: number; y: number; size: number; weight?: number; color: string; font: string; anchor?: "start" | "middle" | "end"; p?: number; out?: number; mode?: Reveal; stagger?: number; tracking?: number; opacity?: number; italic?: boolean;
 }) {
-  const xs = charX(text, size, weight, tracking);
+  const xs = charX(text, size, weight, tracking, font);
   const total = xs[xs.length - 1];
   const x0 = anchor === "start" ? x : anchor === "end" ? x - total : x - total / 2;
   const n = Math.max(1, text.length);
@@ -204,9 +204,9 @@ export function Txt({
     </g>
   );
 }
-export const txtW = (s: string, size: number, weight = 700, tracking = -0.02) => textWidth(s, size, weight, tracking);
+export const txtW = (s: string, size: number, weight = 700, tracking = -0.02, font?: string) => textWidth(s, size, weight, tracking, font);
 // Font size that fits `s` in `maxW`, capped at `max`.
-export const fit = (s: string, maxW: number, max: number, weight = 700, tracking = -0.02) => Math.min(max, maxW / Math.max(0.01, textWidth(s, 1, weight, tracking)));
+export const fit = (s: string, maxW: number, max: number, weight = 700, tracking = -0.02, font?: string) => Math.min(max, maxW / Math.max(0.01, textWidth(s, 1, weight, tracking, font)));
 
 // Soundtrack: plays only where audio is allowed (editor and renders).
 export function Track({ src, on }: { src: string; on?: boolean }) {

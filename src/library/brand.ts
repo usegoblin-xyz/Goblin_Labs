@@ -16,10 +16,10 @@ export type Brand = {
 };
 
 export const FONTS: Record<FontKey, { label: string; stack: string }> = {
-  inter: { label: "Inter", stack: "Inter, system-ui, sans-serif" },
-  grotesk: { label: "Space Grotesk", stack: '"Space Grotesk", Inter, sans-serif' },
+  inter: { label: "Inter", stack: 'Inter, "Inter Variable", system-ui, sans-serif' },
+  grotesk: { label: "Space Grotesk", stack: '"Space Grotesk", "Space Grotesk Variable", Inter, sans-serif' },
   serif: { label: "Instrument Serif", stack: '"Instrument Serif", Georgia, serif' },
-  mono: { label: "JetBrains Mono", stack: '"JetBrains Mono", ui-monospace, monospace' },
+  mono: { label: "JetBrains Mono", stack: '"JetBrains Mono", "JetBrains Mono Variable", ui-monospace, monospace' },
 };
 
 export const MOTIONS: Record<
