@@ -25,8 +25,8 @@ export default function DotSystem({ brand: b, content: c, audio }: TemplateProps
   // ---- toggle + word morph ----
   const LS = 64; // label size
   const HS = 230; // hero size
-  const lxs = charX(label, LS, 600);
-  const hxs = charX(hero.replace(/ı/g, "i"), HS, 800);
+  const lxs = charX(label, LS, 600, 0, ff);
+  const hxs = charX(hero.replace(/ı/g, "i"), HS, 800, 0, ff);
   const labelX = 960 - 120;
   const heroX = 960 - hxs[hxs.length - 1] / 2;
   const at = label.toLowerCase().lastIndexOf(hero.toLowerCase());
