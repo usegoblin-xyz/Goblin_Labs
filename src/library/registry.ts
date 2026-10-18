@@ -22,12 +22,14 @@ import { eventAnnouncement } from "./templates/EventAnnouncement";
 import { showreel } from "./templates/Showreel";
 import { uiMorph } from "./templates/UIMorph";
 import { kineticReel } from "./templates/KineticReel";
+import { productAd } from "./templates/ProductAd";
 
 // Order here is the order on the homepage.
 export const TEMPLATES = [
   showreel,
   uiMorph,
   kineticReel,
+  productAd,
   launchTitle,
   featureSpotlight,
   changelogDrop,
