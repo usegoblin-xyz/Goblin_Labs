@@ -54,6 +54,9 @@ export default function Home() {
     [category, query],
   );
   const hero = TEMPLATES[0];
+  const PAGE = 24;
+  const [limit, setLimit] = useState(PAGE);
+  useEffect(() => setLimit(PAGE), [category, query]);
 
   const openTemplate = (t: Template) => {
     track("template_opened", { template: t.id, category: t.category });
@@ -217,8 +220,9 @@ export default function Home() {
             and we'll build it.
           </div>
         ) : (
+          <>
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {shown.map((t) => (
+            {shown.slice(0, limit).map((t) => (
               <button
                 key={t.id}
                 onClick={() => openTemplate(t)}
@@ -239,6 +243,17 @@ export default function Home() {
               </button>
             ))}
           </div>
+          {shown.length > limit && (
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={() => setLimit((n) => n + PAGE)}
+                className="rounded-full border border-white/20 px-6 py-2.5 text-[14px] font-medium text-white/85 hover:border-white/50"
+              >
+                Show more <span className="text-white/45">({shown.length - limit} left)</span>
+              </button>
+            </div>
+          )}
+          </>
         )}
       </section>
 

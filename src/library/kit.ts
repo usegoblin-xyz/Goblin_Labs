@@ -14,7 +14,7 @@ export type Field = {
   hint?: string;
 };
 
-export type Category = "Launch" | "Product" | "Data" | "Brand" | "Social";
+export type Category = "Launch" | "Product" | "Data" | "Brand" | "Social" | "Explainer" | "Showreel" | "Story";
 
 export type Template<C = Record<string, string | number>> = {
   id: string;
@@ -26,7 +26,10 @@ export type Template<C = Record<string, string | number>> = {
   height: number;
   fps: number;
   durationInFrames: number;
-  component: ComponentType<TemplateProps<C>>;
+  // Either the component itself, or a loader so the code downloads only when
+  // the template is first shown (used by most of the library).
+  component?: ComponentType<TemplateProps<C>>;
+  lazy?: () => Promise<{ default: ComponentType<TemplateProps<C>> }>;
   defaults: C;
   fields: Field[];
   soundtrack?: string; // file in public/, used by the MP4 renderer

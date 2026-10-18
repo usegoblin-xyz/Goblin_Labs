@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import type { Brand } from "../brand";
 import type { Template } from "../kit";
@@ -19,6 +19,17 @@ export function LivePlayer({ template: t, brand, content, controls = false, clas
   const box = useRef<HTMLDivElement>(null);
   const inputProps = useMemo(() => ({ brand, content, audio: controls }), [brand, content, controls]);
   const landscape = t.width >= t.height && t.width / t.height > 1.2;
+  // Grid cards mount their player only near the viewport, so a library of
+  // hundreds of templates never runs (or downloads) more than a handful.
+  const [near, setNear] = useState(controls);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el || controls) return;
+    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: "600px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [controls]);
 
   useEffect(() => {
     const el = box.current;
@@ -43,7 +54,7 @@ export function LivePlayer({ template: t, brand, content, controls = false, clas
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [controls]);
+  }, [controls, near]);
 
   return (
     <div
@@ -59,9 +70,10 @@ export function LivePlayer({ template: t, brand, content, controls = false, clas
         ...style,
       }}
     >
+      {near && (
       <Player
         ref={ref}
-        component={t.component as never}
+        {...(t.component ? { component: t.component as never } : { lazyComponent: t.lazy as never })}
         inputProps={inputProps as never}
         durationInFrames={t.durationInFrames}
         fps={t.fps}
@@ -83,6 +95,7 @@ export function LivePlayer({ template: t, brand, content, controls = false, clas
           maxHeight: "100%",
         }}
       />
+      )}
     </div>
   );
 }
