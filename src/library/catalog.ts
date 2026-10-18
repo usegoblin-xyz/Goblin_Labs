@@ -70,6 +70,27 @@ const ENTRIES: Entry[] = [
     soundtrack: "tracks/ask-think-deliver.wav",
     lazy: () => import("./templates/lib/AskThinkDeliver"),
   },
+  {
+    id: "model-launch-square",
+    title: "Model Launch, Square",
+    outcome: "A square launch film for a generative model: glass controls, live captions, image bursts",
+    category: "Launch",
+    tags: ["AI", "model", "square", "captions", "images", "music"],
+    width: 1080,
+    height: 1080,
+    fps: 30,
+    durationInFrames: 480,
+    defaults: {"pitch": "An image model made for taste.", "prompt": "a quiet harbour at dawn, ink on paper", "verb": "Create", "settings": "Lighting, Mood, Detail", "outro": "Out now"},
+    fields: [
+      { key: "pitch", label: "Pitch line", type: "text" },
+      { key: "prompt", label: "Typed prompt", type: "text" },
+      { key: "verb", label: "Verb", type: "text" },
+      { key: "settings", label: "Three settings", type: "text" },
+      { key: "outro", label: "Outro", type: "text" }
+    ],
+    soundtrack: "tracks/model-launch-square.wav",
+    lazy: () => import("./templates/lib/ModelLaunchSquare"),
+  },
   // @catalog-end
 ];
 

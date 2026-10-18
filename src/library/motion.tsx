@@ -87,7 +87,11 @@ export { alpha, onColor };
 // Everything a template needs from the brand kit, resolved once.
 export function palette(b: Brand) {
   const dark = lum(b.background) < 0.5;
+  const [r, g, bl] = rgbOf(b.primary);
+  const vivid = Math.max(r, g, bl) - Math.min(r, g, bl) < 28 ? b.accent : b.primary;
   return {
+    v: vivid, // the brand's most colorful color (primary unless it is neutral)
+    onV: onColor(vivid),
     bg: b.background,
     fg: b.foreground,
     p: b.primary,
