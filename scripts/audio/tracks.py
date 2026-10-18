@@ -68,6 +68,27 @@ def ask_think_deliver():
     s.write(f"{OUT}/ask-think-deliver.wav")
 
 
+@track
+def model_launch_square():
+    s = Song(16, bpm=128, seed=4)
+    B = s.beat
+    harmony(s, 0, 4.8, "Eb", stabs=(), padlevel=0.09, basslevel=0.0)
+    for k in range(int(4.8 / (B / 2))):
+        s.put("mus", pluck(PROGS["Eb"][0][1][k % 3] + 12, 0.25, 2200), k * B / 2, 0.12, pan=0.3 if k % 2 else -0.3)
+    s.put("fx", riser(1.0, 300, 8000), 3.8, 0.3)
+    harmony(s, 4.8, 14.4, "Eb", stabs=(0, 3, 6, 10, 13), padlevel=0.04, stablevel=0.2, basslevel=0.38)
+    groove(s, 4.8, 14.4, "house", 0.95)
+    s.put("fx", impact(), 4.8, 0.5)
+    t = 2.6
+    while t < 14.4:  # a click on each image change
+        if 2.6 <= t < 4.8 or 4.8 <= t < 7.4 or 8.6 <= t < 9.6:
+            s.put("fx", tick(3400), t, 0.18, pan=0.2)
+        t += s.s16
+    s.put("mus", pad([63, 67, 70, 75], 1.6), 14.4, 0.1)
+    s.put("fx", bell(87, 1.5), 14.45, 0.35)
+    s.write(f"{OUT}/model-launch-square.wav")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
