@@ -21,11 +21,13 @@ import { comparison } from "./templates/Comparison";
 import { eventAnnouncement } from "./templates/EventAnnouncement";
 import { showreel } from "./templates/Showreel";
 import { uiMorph } from "./templates/UIMorph";
+import { kineticReel } from "./templates/KineticReel";
 
 // Order here is the order on the homepage.
 export const TEMPLATES = [
   showreel,
   uiMorph,
+  kineticReel,
   launchTitle,
   featureSpotlight,
   changelogDrop,
