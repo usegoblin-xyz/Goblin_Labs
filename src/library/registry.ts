@@ -23,6 +23,7 @@ import { showreel } from "./templates/Showreel";
 import { uiMorph } from "./templates/UIMorph";
 import { kineticReel } from "./templates/KineticReel";
 import { productAd } from "./templates/ProductAd";
+import { editorialAd } from "./templates/EditorialAd";
 
 // Order here is the order on the homepage.
 export const TEMPLATES = [
@@ -30,6 +31,7 @@ export const TEMPLATES = [
   uiMorph,
   kineticReel,
   productAd,
+  editorialAd,
   launchTitle,
   featureSpotlight,
   changelogDrop,
