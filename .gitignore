@@ -15,3 +15,7 @@ codegraph-map.html
 # rendered videos
 out/
 .cache/
+
+# local frame-check harness
+check.html
+src/__check.tsx

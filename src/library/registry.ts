@@ -24,6 +24,7 @@ import { uiMorph } from "./templates/UIMorph";
 import { kineticReel } from "./templates/KineticReel";
 import { productAd } from "./templates/ProductAd";
 import { editorialAd } from "./templates/EditorialAd";
+import { CATALOG } from "./catalog";
 
 // Order here is the order on the homepage.
 export const TEMPLATES = [
@@ -52,9 +53,10 @@ export const TEMPLATES = [
   hiring,
   lowerThird,
   endCard,
+  ...CATALOG,
 ] as unknown as Template[];
 
-export const CATEGORIES: ("All" | Category)[] = ["All", "Launch", "Product", "Data", "Brand", "Social"];
+export const CATEGORIES: ("All" | Category)[] = ["All", "Launch", "Product", "Data", "Explainer", "Social", "Brand", "Showreel", "Story"];
 
 export function aspectLabel(t: Template) {
   if (t.width === t.height) return "1:1";
