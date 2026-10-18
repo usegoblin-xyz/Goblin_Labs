@@ -26,6 +26,27 @@ const ENTRIES: Entry[] = [
     ],
     lazy: () => import("./templates/lib/LandingFlyover"),
   },
+  {
+    id: "ball-ui-loop",
+    title: "Ball Through the UI",
+    outcome: "A ball runs a toggle, slider, notifications and keyboard in one seamless loop",
+    category: "Product",
+    tags: ["UI", "loop", "interaction", "keyboard", "slider", "music"],
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    durationInFrames: 300,
+    defaults: {"target": "100", "note1": "Slider \u00b7 Reached 100", "note2": "Gravity \u00b7 Something is falling", "note3": "Messages \u00b7 What now?", "reply": "retry"},
+    fields: [
+      { key: "target", label: "Slider value", type: "text" },
+      { key: "note1", label: "Notification 1 (Title \u00b7 message)", type: "text" },
+      { key: "note2", label: "Notification 2", type: "text" },
+      { key: "note3", label: "Notification 3", type: "text" },
+      { key: "reply", label: "Typed reply", type: "text", hint: "Up to 9 letters" }
+    ],
+    soundtrack: "tracks/ball-ui-loop.wav",
+    lazy: () => import("./templates/lib/BallUILoop"),
+  },
   // @catalog-end
 ];
 
