@@ -91,6 +91,28 @@ const ENTRIES: Entry[] = [
     soundtrack: "tracks/model-launch-square.wav",
     lazy: () => import("./templates/lib/ModelLaunchSquare"),
   },
+  {
+    id: "dot-system",
+    title: "One Dot, Every Scene",
+    outcome: "A looping motion film where one brand dot becomes a toggle, a spring, a shape and your end card",
+    category: "Brand",
+    tags: ["dot", "loop", "spring", "kinetic type", "halftone", "music"],
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    durationInFrames: 450,
+    defaults: {"label": "Reduce Motion", "hero": "Motion", "stat": "+22%", "words": "SPRINGS, EASING, KINETIC TYPE, 3D, SOUND", "line": "Motion, by design.", "note": "0 keyframes"},
+    fields: [
+      { key: "label", label: "Toggle label", type: "text" },
+      { key: "hero", label: "Hero word (part of the label)", type: "text" },
+      { key: "stat", label: "Graph callout", type: "text" },
+      { key: "words", label: "Orbiting words", type: "text" },
+      { key: "line", label: "End card line", type: "text" },
+      { key: "note", label: "End card note", type: "text" }
+    ],
+    soundtrack: "tracks/dot-system.wav",
+    lazy: () => import("./templates/lib/DotSystem"),
+  },
   // @catalog-end
 ];
 

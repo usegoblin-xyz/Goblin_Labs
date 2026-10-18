@@ -89,6 +89,31 @@ def model_launch_square():
     s.write(f"{OUT}/model-launch-square.wav")
 
 
+@track
+def dot_system():
+    s = Song(15, bpm=120, seed=5)
+    harmony(s, 0, 15, "Dm", stabs=(0, 6, 10), padlevel=0.05, stablevel=0.18, basslevel=0.34)
+    groove(s, 1.0, 12.0, "funk", 0.9)
+    groove(s, 12.0, 15, "pulse", 0.6)
+    s.put("fx", click(), 0.6, 0.9)
+    s.put("fx", pop(500), 0.65, 0.4)
+    s.put("fx", whoosh(0.6, 1200), 1.05, 0.25)
+    s.put("fx", pop(800), 1.85, 0.4)
+    s.put("fx", thud(120), 2.6, 0.5)
+    s.put("fx", blip(400, 1400, 0.5), 2.7, 0.2)
+    s.put("fx", bell(84, 0.8), 4.6, 0.35)
+    s.put("fx", whoosh(0.4, 2000), 5.0, 0.35)
+    s.put("fx", impact(), 5.6, 0.4)
+    s.put("fx", thud(90), 5.9, 0.5)
+    s.put("fx", whoosh(0.4, 900), 6.8, 0.25)
+    s.put("fx", whoosh(0.6, 700), 7.4, 0.3)
+    s.put("fx", riser(1.4, 300, 6000), 10.2, 0.3)
+    s.put("fx", impact(), 12.0, 0.5)
+    s.put("fx", whoosh(0.8, 1000), 13.8, 0.25)
+    s.put("fx", click(), 14.9, 0.3)
+    s.write(f"{OUT}/dot-system.wav")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
