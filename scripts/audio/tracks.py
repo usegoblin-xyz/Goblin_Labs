@@ -114,6 +114,31 @@ def dot_system():
     s.write(f"{OUT}/dot-system.wav")
 
 
+@track
+def gallery_promo():
+    s = Song(23, bpm=120, seed=6)
+    B = s.beat
+    harmony(s, 0, B * 13, "Gm", stabs=(0, 10), padlevel=0.07, stablevel=0.12, basslevel=0.18)
+    groove(s, B * 2, B * 11, "pulse", 0.7)
+    s.put("fx", riser(B * 2, 300, 9000), B * 11, 0.4)
+    harmony(s, B * 13, B * 32, "Gm", stabs=(0, 3, 6, 10, 13), padlevel=0.04, stablevel=0.22, basslevel=0.4)
+    groove(s, B * 13, B * 32, "house", 1.0)
+    harmony(s, B * 32, 23, "Gm", stabs=(0, 6), padlevel=0.07, stablevel=0.14, basslevel=0.25)
+    groove(s, B * 34, 23, "pulse", 0.6)
+    s.put("fx", whoosh(0.5, 900), B * 0.5, 0.25)
+    for k in (13, 14, 15):
+        s.put("fx", impact(0.6), B * k, 0.45)
+    s.put("fx", whoosh(0.6, 1200), B * 16, 0.3)
+    s.put("fx", click(), B * 20, 0.8)
+    s.put("fx", whoosh(0.6, 800), B * 21, 0.25)
+    s.put("fx", whoosh(0.4, 2400), B * 28.4, 0.2)
+    s.put("fx", click(), B * 30.6, 0.8)
+    s.put("fx", bell(86, 0.8), B * 30.7, 0.3)
+    s.put("fx", whoosh(0.7, 1000), B * 32, 0.3)
+    s.put("fx", bell(91, 1.4), B * 35, 0.35)
+    s.write(f"{OUT}/gallery-promo.wav")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []

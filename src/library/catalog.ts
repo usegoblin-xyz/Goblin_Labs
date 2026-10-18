@@ -113,6 +113,28 @@ const ENTRIES: Entry[] = [
     soundtrack: "tracks/dot-system.wav",
     lazy: () => import("./templates/lib/DotSystem"),
   },
+  {
+    id: "gallery-promo",
+    title: "Gallery Promo",
+    outcome: "A promo for a gallery or marketplace: grid, whip-ins, an entry page and a copied prompt",
+    category: "Launch",
+    tags: ["gallery", "marketplace", "website", "grid", "camera", "music"],
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    durationInFrames: 690,
+    defaults: {"tagline1": "Motion made by prompts.", "tagline2": "Copy any of them.", "url": "gallery.example", "title": "One dot, every scene", "prompt": "A 15 second film in one take. One dot carries every scene, springs settle with a small overshoot, and the last frame matches the first so it loops.", "phrase": "the last frame matches the first"},
+    fields: [
+      { key: "tagline1", label: "Tagline (first half)", type: "text" },
+      { key: "tagline2", label: "Tagline (second half)", type: "text" },
+      { key: "url", label: "Site URL", type: "text" },
+      { key: "title", label: "Entry title", type: "text" },
+      { key: "prompt", label: "Entry prompt", type: "textarea" },
+      { key: "phrase", label: "Highlighted phrase", type: "text", hint: "Must appear in the prompt" }
+    ],
+    soundtrack: "tracks/gallery-promo.wav",
+    lazy: () => import("./templates/lib/GalleryPromo"),
+  },
   // @catalog-end
 ];
 
