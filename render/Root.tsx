@@ -2,6 +2,7 @@ import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
 import "@fontsource/inter/700.css";
+import "@fontsource-variable/inter";
 import { Audio, Composition, staticFile } from "remotion";
 import { CameraMotionBlur } from "@remotion/motion-blur";
 import { DEFAULT_BRAND, type Brand } from "../src/library/brand";

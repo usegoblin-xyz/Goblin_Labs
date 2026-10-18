@@ -14,3 +14,4 @@ dist/
 codegraph-map.html
 # rendered videos
 out/
+.cache/
