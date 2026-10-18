@@ -47,6 +47,29 @@ const ENTRIES: Entry[] = [
     soundtrack: "tracks/ball-ui-loop.wav",
     lazy: () => import("./templates/lib/BallUILoop"),
   },
+  {
+    id: "ask-think-deliver",
+    title: "Ask, Think, Deliver",
+    outcome: "An AI assistant film: a typed request, a playful think, results on the drop, done",
+    category: "Launch",
+    tags: ["AI", "assistant", "chat", "phone", "launch", "music"],
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    durationInFrames: 450,
+    defaults: {"request": "I am really hungry, I do not know / what I want but something / spicy, crispy and filling", "thinking": "Finding something for you\u2026", "results": "Fire Noodles, Birria Tacos, Smash Burger, Buffalo Wings, Spicy Ramen, Hot Chicken", "answer": "Found it. Smoky, spicy and seriously filling.", "question": "Want me to order it for you?", "line1": "You were craving noodles.", "line2": "Now it is on the way."},
+    fields: [
+      { key: "request", label: "Request (3 lines, split with /)", type: "textarea" },
+      { key: "thinking", label: "Thinking text", type: "text" },
+      { key: "results", label: "Six results", type: "text", hint: "Comma separated; the first is the pick" },
+      { key: "answer", label: "Answer", type: "text" },
+      { key: "question", label: "Follow-up", type: "text" },
+      { key: "line1", label: "Closing line 1", type: "text" },
+      { key: "line2", label: "Closing line 2", type: "text" }
+    ],
+    soundtrack: "tracks/ask-think-deliver.wav",
+    lazy: () => import("./templates/lib/AskThinkDeliver"),
+  },
   // @catalog-end
 ];
 
