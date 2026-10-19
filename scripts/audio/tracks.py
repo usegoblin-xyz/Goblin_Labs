@@ -139,6 +139,40 @@ def gallery_promo():
     s.write(f"{OUT}/gallery-promo.wav")
 
 
+FX = {"click": lambda: click(), "pop": lambda: pop(600), "thud": lambda: thud(110), "whoosh": lambda: whoosh(0.4, 1400),
+      "impact": lambda: impact(), "bell": lambda: bell(84, 1.0), "riser": lambda: riser(1.0, 300, 7000), "tick": lambda: tick(),
+      "snap": lambda: snap(), "chime": lambda: bell(91, 1.4)}
+
+
+def basic(name, dur, bpm=120, key="C", style="house", start=0.0, hits=(), intro=None, end=None, level=1.0, seed=10):
+    """A compact track: optional quiet intro, groove from `start`, hits = [(time, fx), ...]."""
+    s = Song(dur, bpm=bpm, seed=seed)
+    if start > 0:
+        harmony(s, 0, start, key, stabs=(0,), padlevel=0.08, stablevel=0.1, basslevel=0.0)
+    harmony(s, start, end or dur, key, padlevel=0.05, stablevel=0.2, basslevel=0.38)
+    groove(s, start, end or dur, style, level)
+    if end and end < dur:
+        harmony(s, end, dur, key, stabs=(0,), padlevel=0.08, stablevel=0.12, basslevel=0.2)
+    for at, kind in hits:
+        s.put("fx", FX[kind](), at, 0.45 if kind in ("impact", "riser") else 0.6)
+    s.write(f"{OUT}/{name}.wav")
+
+
+@track
+def feature_teaser():
+    basic("feature-teaser", 13.5, 124, "Fm", "break", start=0.6, hits=[(0.6, "whoosh"), (5.0, "thud"), (6.0, "riser"), (7.4, "impact"), (9.2, "pop"), (12.3, "whoosh"), (12.5, "chime")], end=12.2, seed=11)
+
+
+@track
+def full_stop():
+    basic("full-stop", 12, 110, "Dm", "half", start=1.6, hits=[(1.6, "pop"), (2.6, "whoosh"), (3.9, "whoosh"), (5.2, "whoosh"), (6.5, "whoosh"), (7.9, "riser"), (9.4, "whoosh"), (10.6, "thud"), (11.0, "chime")], seed=12)
+
+
+@track
+def skill_launch():
+    basic("skill-launch", 13, 118, "Am", "pulse", start=0.0, hits=[(1.7, "tick"), (1.95, "tick"), (2.2, "tick"), (4.4, "whoosh"), (7.2, "impact"), (11.0, "chime")], seed=13)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []

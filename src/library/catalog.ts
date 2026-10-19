@@ -135,6 +135,65 @@ const ENTRIES: Entry[] = [
     soundtrack: "tracks/gallery-promo.wav",
     lazy: () => import("./templates/lib/GalleryPromo"),
   },
+  {
+    id: "feature-teaser",
+    title: "Next Feature Teaser",
+    outcome: "Tease your next release: a roadmap race to a locked card that cracks open",
+    category: "Launch",
+    tags: ["teaser", "roadmap", "coming soon", "reveal"],
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    durationInFrames: 405,
+    defaults: {"shipped": "Dark mode, Brand kits, Team spaces, API access", "next": "Live Collaboration", "teaser": "Next up", "date": "Coming this spring"},
+    fields: [
+      { key: "shipped", label: "Shipped items", type: "text", hint: "Comma separated, up to 5" },
+      { key: "next", label: "Next feature", type: "text" },
+      { key: "teaser", label: "Kicker", type: "text" },
+      { key: "date", label: "Date pill", type: "text" }
+    ],
+    soundtrack: "tracks/feature-teaser.wav",
+    lazy: () => import("./templates/lib/FeatureTeaser"),
+  },
+  {
+    id: "full-stop",
+    title: "Full Stop",
+    outcome: "A sentence ends and its period refuses to: it becomes a run of figures and comes back",
+    category: "Showreel",
+    tags: ["shapes", "particles", "morph", "kinetic type"],
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    durationInFrames: 360,
+    defaults: {"sentence": "Every story needs an ending", "end": "Or does it"},
+    fields: [
+      { key: "sentence", label: "Opening sentence", type: "text" },
+      { key: "end", label: "Final words", type: "text" }
+    ],
+    soundtrack: "tracks/full-stop.wav",
+    lazy: () => import("./templates/lib/FullStop"),
+  },
+  {
+    id: "skill-launch",
+    title: "Skill Launch",
+    outcome: "Developer launch: install in a terminal, code streams, the result renders itself",
+    category: "Launch",
+    tags: ["developer", "terminal", "code", "CLI", "launch"],
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    durationInFrames: 390,
+    defaults: {"command": "npx skills add motion", "skill": "motion", "ask": "> make a launch video for my app", "result": "Launch day, on brand", "tagline": "Your agent, now a motion designer."},
+    fields: [
+      { key: "command", label: "Install command", type: "text" },
+      { key: "skill", label: "Skill name", type: "text" },
+      { key: "ask", label: "Request", type: "text" },
+      { key: "result", label: "Rendered title", type: "text" },
+      { key: "tagline", label: "Tagline", type: "text" }
+    ],
+    soundtrack: "tracks/skill-launch.wav",
+    lazy: () => import("./templates/lib/SkillLaunch"),
+  },
   // @catalog-end
 ];
 
