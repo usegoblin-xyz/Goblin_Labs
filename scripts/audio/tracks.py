@@ -689,6 +689,54 @@ def project_carousel():
     basic("project-carousel", 9.5, 124, "Dm", "house", start=1.2, hits=hits, seed=99)
 
 
+@track
+def hundred_thanks():
+    hits = [(0.4 + i * 0.3, "pop") for i in range(10)] + [(3.8, "whoosh"), (5.4, "thud"), (5.9, "thud"), (6.0, "chime"), (9.4, "bell")]
+    basic("hundred-thanks", 10.5, 92, "C", "half", start=0.4, hits=hits, seed=100)
+
+
+@track
+def voice_agent():
+    hits = [(0.1, "bell"), (0.6, "bell"), (1.2, "click"), (2.5, "tick"), (5.0, "tick"), (6.6, "chime"), (9.2, "impact")]
+    basic("voice-agent", 10.5, 110, "Dm", "pulse", start=1.2, hits=hits, seed=101)
+
+
+@track
+def swiss_grid():
+    hits = [(0.0, "riser"), (1.0, "snap"), (3.3, "snap"), (5.6, "snap"), (8.8, "impact")]
+    basic("swiss-grid", 9.7, 116, "Am", "break", start=1.0, hits=hits, seed=102)
+
+
+@track
+def caption_app():
+    hits = [(0.2, "whoosh"), (3.8, "click"), (6.2, "click"), (9.1, "chime")]
+    basic("caption-app", 9.8, 112, "Eb", "pulse", start=1.2, hits=hits, seed=103)
+
+
+@track
+def social_feed():
+    hits = [(0.1, "whoosh"), (1.0, "whoosh"), (2.0, "pop"), (2.6, "whoosh"), (3.4, "whoosh"), (5.4, "whoosh"), (5.8, "pop"), (6.5, "pop"), (7.2, "pop"), (8.6, "impact")]
+    basic("social-feed", 9.7, 124, "Fm", "trap", start=0.6, hits=hits, seed=104)
+
+
+@track
+def pen_tool_reel():
+    hits = [(0.4 + i * 0.6, "click") for i in range(5)] + [(3.6, "whoosh"), (4.4, "whoosh"), (6.3, "riser"), (8.8, "impact")]
+    basic("pen-tool-reel", 9.7, 104, "Gm", "half", start=0.4, hits=hits, seed=105)
+
+
+@track
+def email_verify():
+    hits = [(0.2, "whoosh"), (1.4, "riser")] + [(1.6 + i * 0.4, "tick") for i in range(8)] + [(5.0, "whoosh"), (6.6, "chime"), (8.8, "impact")]
+    basic("email-verify", 9.7, 120, "C", "house", start=1.4, hits=hits, seed=106)
+
+
+@track
+def net_worth():
+    hits = [(0.2 + i * 0.18, "pop") for i in range(5)] + [(2.2, "whoosh"), (2.6, "riser"), (4.0, "chime"), (4.3, "whoosh"), (9.0, "impact")]
+    basic("net-worth", 9.8, 118, "Am", "funk", start=2.2, hits=hits, seed=107)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
