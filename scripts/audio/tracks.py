@@ -785,6 +785,54 @@ def agent_hud():
     basic("agent-hud", 9.7, 126, "Fm", "pulse", start=0.8, hits=hits, seed=115)
 
 
+@track
+def search_showcase():
+    hits = [(0.6, "whoosh")] + [(0.8 + k * 2.4 + i * 0.08, "tick") for k in range(3) for i in range(6)] + [(1.6 + k * 2.4, "pop") for k in range(3)] + [(8.6, "impact")]
+    basic("search-showcase", 9.8, 120, "C", "house", start=0.8, hits=hits, seed=116)
+
+
+@track
+def brief_to_deck():
+    hits = [(0.6 + i * 0.75, "tick") for i in range(4)] + [(3.4, "click")] + [(3.8 + i * 0.35, "whoosh") for i in range(4)] + [(6.0, "riser"), (8.8, "impact")]
+    basic("brief-to-deck", 9.8, 116, "Am", "funk", start=0.6, hits=hits, seed=117)
+
+
+@track
+def one_second():
+    hits = [(0.6, "click")] + [(0.6 + i * 1.9, "tick") for i in range(1, 4)] + [(8.2, "bell"), (9.4, "chime")]
+    basic("one-second", 10.6, 72, "Dm", "half", start=0.6, hits=hits, seed=118)
+
+
+@track
+def type_portrait():
+    hits = [(0.4, "riser"), (8.6, "impact")]
+    basic("type-portrait", 9.8, 100, "Eb", "pulse", start=0.4, hits=hits, seed=119)
+
+
+@track
+def chain_pitch():
+    hits = [(0.4 + i * 1.9, "thud") for i in range(4)] + [(0.9 + i * 1.9, "snap") for i in range(1, 4)] + [(9.0, "impact")]
+    basic("chain-pitch", 9.8, 124, "Fm", "trap", start=0.4, hits=hits, seed=120)
+
+
+@track
+def liquid_reel():
+    hits = [(0.6 + i * 1.9 + 0.95, "pop") for i in range(4)] + [(9.3, "impact")]
+    basic("liquid-reel", 10.5, 126, "Gm", "house", start=0.6, hits=hits, seed=121)
+
+
+@track
+def tile_flip_reel():
+    hits = [(0.4 + i * 1.8, "whoosh") for i in range(5)] + [(8.6, "chime")]
+    basic("tile-flip-reel", 10.5, 133, "Am", "break", start=0.4, hits=hits, seed=122)
+
+
+@track
+def one_line_reel():
+    hits = [(0.3, "riser")] + [(1.6 + i * 1.7, "whoosh") for i in range(4)] + [(7.4, "chime")]
+    basic("one-line-reel", 9.5, 106, "C", "pulse", start=0.3, hits=hits, seed=123)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
