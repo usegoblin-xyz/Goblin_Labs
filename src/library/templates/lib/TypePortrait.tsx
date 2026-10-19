@@ -26,17 +26,14 @@ export default function TypePortrait({ brand: b, content: c, audio }: TemplatePr
 
   return (
     <AbsoluteFill style={{ background: pal.dark ? "#0a0a0c" : pal.bg, overflow: "hidden", fontFamily: ff }}>
-      <div style={{ position: "absolute", inset: 0, opacity: 1 - outro }}>
+      <div style={{ position: "absolute", inset: 0, opacity: 1 - outro, clipPath: `inset(${(1 - reveal) * 100}% 0 0 0)`, transform: `scaleX(${1 + turn})` }}>
         <Svg>
           <defs>
             <clipPath id="tp-head">
-              <path d={head} transform={`translate(960 540) scale(${1 + turn} 1) translate(-960 -540)`} />
-            </clipPath>
-            <clipPath id="tp-reveal">
-              <rect x={0} y={1080 - reveal * 1080} width={1920} height={1080} />
+              <path d={head} />
             </clipPath>
           </defs>
-          <g clipPath="url(#tp-reveal)">
+          <g>
             {/* faint field */}
             {Array.from({ length: rows }, (_, r) => {
               const dir = r % 2 ? 1 : -1;

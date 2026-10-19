@@ -881,6 +881,54 @@ def book_shelf_reel():
     basic("book-shelf-reel", 9.6, 108, "C", "pulse", start=1.0, hits=hits, seed=131)
 
 
+@track
+def drone_flight():
+    hits = [(0.0, "riser"), (2.6, "whoosh"), (5.2, "whoosh"), (7.8, "riser"), (8.8, "impact")]
+    basic("drone-flight", 10.2, 100, "Dm", "pulse", start=0.2, hits=hits, seed=132)
+
+
+@track
+def split_panels():
+    hits = [(0.6, "snap"), (2.0, "snap"), (3.6, "snap"), (6.4, "whoosh"), (7.9, "impact")]
+    basic("split-panels", 9.3, 120, "C", "house", start=0.6, hits=hits, seed=133)
+
+
+@track
+def glitch_reel():
+    hits = [(i * 1.4, "impact") for i in range(5)] + [(0.7 + i * 1.4, "tick") for i in range(4)]
+    basic("glitch-reel", 8.0, 128, "Fm", "break", start=0.0, hits=hits, seed=134)
+
+
+@track
+def flashcard_review():
+    hits = [(1.3 + i * 2.0, "snap") for i in range(3)] + [(2.2 + i * 2.0, "whoosh") for i in range(3)] + [(7.0, "chime"), (9.4, "impact")]
+    basic("flashcard-review", 10.4, 112, "Eb", "funk", start=0.8, hits=hits, seed=135)
+
+
+@track
+def dot_matrix_board():
+    hits = [(0.0, "riser"), (4.0, "tick"), (5.8, "chime"), (7.6, "bell")]
+    basic("dot-matrix-board", 10.1, 118, "Am", "pulse", start=0.9, hits=hits, seed=136)
+
+
+@track
+def overthinking():
+    hits = [(1.0 + i * 0.85, "tick") for i in range(5)] + [(5.6, "riser"), (6.6, "whoosh"), (7.8, "chime")]
+    basic("overthinking", 10.1, 90, "Gm", "half", start=0.6, hits=hits, seed=137)
+
+
+@track
+def hypno_eye():
+    hits = [(1.2, "riser"), (3.6, "snap"), (5.0, "chime")]
+    basic("hypno-eye", 9.1, 120, "Eb", "house", start=0.0, hits=hits, seed=138)
+
+
+@track
+def quote_deck():
+    hits = [(0.1, "whoosh"), (0.5, "tick"), (0.9, "tick")] + [(1.4 + i * 1.6, "snap") for i in range(4)] + [(7.8, "whoosh"), (9.2, "impact")]
+    basic("quote-deck", 10.2, 108, "C", "funk", start=1.4, hits=hits, seed=139)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
