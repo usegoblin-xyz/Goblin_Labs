@@ -1122,6 +1122,54 @@ def quick_design():
     basic("quick-design", 9.4, 128, "C", "break", start=0.0, hits=hits, seed=171)
 
 
+@track
+def black_hole_time():
+    hits = [(0.0, "riser"), (2.0, "whoosh"), (5.4, "thud"), (7.6, "chime")]
+    basic("black-hole-time", 9.9, 76, "Dm", "half", start=2.0, hits=hits, seed=172)
+
+
+@track
+def available_for_work():
+    hits = [(0.6, "chime"), (1.2, "whoosh"), (2.6, "snap"), (3.2, "snap"), (3.8, "pop"), (4.05, "pop"), (4.3, "pop"), (5.8, "pop"), (6.7, "click"), (8.6, "impact")]
+    basic("available-for-work", 10.0, 118, "C", "funk", start=0.6, hits=hits, seed=173)
+
+
+@track
+def chapter_map():
+    hits = [(0.2, "pop")] + [(1.0 + i * 0.3, "tick") for i in range(6)] + [(5.2, "whoosh"), (5.9, "chime"), (8.8, "impact")]
+    basic("chapter-map", 9.8, 104, "Eb", "pulse", start=1.0, hits=hits, seed=174)
+
+
+@track
+def launch_day_live():
+    hits = [(0.0, "impact"), (0.8, "impact"), (1.6, "impact"), (2.4, "riser"), (2.4, "impact"), (4.4, "riser"), (6.1, "bell"), (8.8, "impact")]
+    basic("launch-day-live", 10.0, 128, "Am", "house", start=2.4, hits=hits, seed=175)
+
+
+@track
+def kaleido():
+    hits = [(i * 2.0, "chime") for i in range(4)] + [(7.6, "whoosh")]
+    basic("kaleido", 10.1, 118, "Gm", "house", start=0.0, hits=hits, seed=176)
+
+
+@track
+def newsletter_issue():
+    hits = [(0.1, "thud"), (0.9, "snap"), (1.3, "whoosh"), (5.4, "whoosh"), (6.2, "riser"), (9.0, "impact")]
+    basic("newsletter-issue", 10.0, 108, "C", "funk", start=1.3, hits=hits, seed=177)
+
+
+@track
+def blue_editorial():
+    hits = [(0.1, "whoosh"), (2.15, "whoosh"), (2.6, "snap"), (4.75, "whoosh"), (5.2, "snap"), (7.8, "riser"), (8.0, "impact")]
+    basic("blue-editorial", 10.1, 96, "Eb", "break", start=0.1, hits=hits, seed=178)
+
+
+@track
+def outline_to_page():
+    hits = [(0.4 + i * 0.6, "tick") for i in range(8)] + [(5.8, "click"), (8.8, "impact")]
+    basic("outline-to-page", 10.0, 112, "Dm", "pulse", start=0.4, hits=hits, seed=179)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
