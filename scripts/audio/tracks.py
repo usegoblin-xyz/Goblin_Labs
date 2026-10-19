@@ -929,6 +929,54 @@ def quote_deck():
     basic("quote-deck", 10.2, 108, "C", "funk", start=1.4, hits=hits, seed=139)
 
 
+@track
+def ownership_map():
+    hits = [(0.2, "pop"), (1.8, "whoosh"), (2.6, "thud"), (3.6, "riser"), (4.2, "pop"), (4.35, "pop"), (4.5, "pop"), (6.4, "snap"), (9.0, "impact")]
+    basic("ownership-map", 10.0, 112, "Dm", "funk", start=0.2, hits=hits, seed=140)
+
+
+@track
+def cube_roll():
+    hits = [(0.6 + i * 1.25, "thud") for i in range(5)]
+    basic("cube-roll", 8.3, 96, "Fm", "half", start=0.6, hits=hits, seed=141)
+
+
+@track
+def particle_sphere():
+    hits = [(0.0, "riser"), (2.6, "whoosh"), (4.6, "impact"), (5.4, "riser"), (6.8, "chime")]
+    basic("particle-sphere", 9.5, 124, "Am", "house", start=0.0, hits=hits, seed=142)
+
+
+@track
+def hello_intro():
+    hits = [(0.1, "pop"), (0.6, "whoosh")] + [(1.8 + i * 0.75, "snap") for i in range(5)] + [(6.4, "pop"), (8.4, "chime")]
+    basic("hello-intro", 9.8, 118, "C", "funk", start=0.6, hits=hits, seed=143)
+
+
+@track
+def poster_breakout():
+    hits = [(0.3, "riser"), (2.0, "whoosh"), (2.2, "snap"), (2.8, "impact"), (5.0, "whoosh")]
+    basic("poster-breakout", 9.0, 126, "Gm", "break", start=2.0, hits=hits, seed=144)
+
+
+@track
+def career_metro():
+    hits = [(0.8, "whoosh"), (1.8, "chime"), (3.4, "chime"), (5.0, "chime"), (6.6, "bell"), (8.8, "impact")]
+    basic("career-metro", 10.0, 108, "Eb", "pulse", start=0.8, hits=hits, seed=145)
+
+
+@track
+def terminal_bloom():
+    hits = [(0.2, "pop"), (1.0, "riser"), (1.9, "whoosh")] + [(2.8 + i * 0.25, "snap") for i in range(5)] + [(8.4, "impact")]
+    basic("terminal-bloom", 9.6, 128, "Fm", "trap", start=1.9, hits=hits, seed=146)
+
+
+@track
+def cocktail_build():
+    hits = [(0.6, "click"), (0.75, "click"), (0.9, "click"), (1.05, "click"), (1.6, "whoosh"), (3.0, "whoosh"), (4.4, "whoosh"), (5.6, "tick"), (7.0, "whoosh")]
+    basic("cocktail-build", 9.7, 100, "Dm", "funk", start=0.6, hits=hits, seed=147)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
