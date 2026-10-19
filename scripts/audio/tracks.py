@@ -440,6 +440,56 @@ def shard_reveal():
     s.write(f"{OUT}/shard-reveal.wav")
 
 
+@track
+def thread_finder():
+    hits = [(1.0, "pop"), (3.6, "whoosh"), (4.3, "pop")] + [(4.6 + i * 0.1, "tick") for i in range(16)] + [(6.1, "click"), (6.2, "chime"), (8.2, "impact")]
+    basic("thread-finder", 10, 118, "Am", "pulse", start=0.4, hits=hits, seed=60)
+
+
+@track
+def brand_studio():
+    basic("brand-studio", 11, 124, "Eb", "house", start=0.2, hits=[(3.0, "whoosh"), (5.0, "whoosh"), (7.0, "thud"), (7.2, "thud"), (7.4, "thud"), (9.4, "impact")], seed=61)
+
+
+@track
+def ai_timeline():
+    hits = [(0.6 + i * 1.45, "bell") for i in range(6)] + [(9.6, "whoosh"), (10.0, "impact")]
+    basic("ai-timeline", 11, 112, "Dm", "pulse", start=0.6, hits=hits, seed=62)
+
+
+@track
+def stats_reel():
+    basic("stats-reel", 10.5, 128, "Fm", "trap", start=0.0, hits=[(0.0, "impact"), (3.0, "whoosh"), (4.9, "snap"), (6.0, "pop"), (7.2, "impact"), (9.2, "chime")], seed=63)
+
+
+@track
+def markdown_live():
+    hits = [(0.4 + i * 0.32, "tick") for i in range(18)] + [(6.6, "pop"), (7.0, "click"), (7.4, "whoosh"), (8.6, "chime")]
+    basic("markdown-live", 10, 116, "C", "pulse", start=0.4, hits=hits, seed=64)
+
+
+@track
+def million_milestone():
+    basic("million-milestone", 9.5, 126, "C", "house", start=0.6, hits=[(0.6, "riser"), (4.6, "impact"), (4.7, "chime"), (7.6, "whoosh"), (8.0, "bell")], seed=65)
+
+
+@track
+def inbox_zero():
+    hits = [(1.2 + i * 0.75, "whoosh") for i in range(7)] + [(6.6, "chime"), (8.6, "impact")]
+    basic("inbox-zero", 10, 120, "Gm", "break", start=1.2, hits=hits, seed=66)
+
+
+@track
+def ignition():
+    s = Song(10, bpm=80, seed=67)
+    harmony(s, 0, 6.0, "Dm", stabs=(0,), padlevel=0.14, stablevel=0.05, basslevel=0.15)
+    s.put("fx", riser(5.8, 100, 3000), 0.2, 0.35)
+    s.put("fx", impact(2.0), 6.9, 0.9)
+    s.put("fx", bell(74, 2.5), 6.95, 0.4)
+    harmony(s, 7.2, 10, "Dm", stabs=(0,), padlevel=0.1, stablevel=0.08, basslevel=0.2)
+    s.write(f"{OUT}/ignition.wav")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
