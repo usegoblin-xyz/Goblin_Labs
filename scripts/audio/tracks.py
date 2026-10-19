@@ -977,6 +977,54 @@ def cocktail_build():
     basic("cocktail-build", 9.7, 100, "Dm", "funk", start=0.6, hits=hits, seed=147)
 
 
+@track
+def arena_versus():
+    hits = [(0.3, "tick"), (1.0, "whoosh"), (4.0, "click"), (4.4, "chime"), (5.4, "whoosh"), (6.2, "riser"), (8.8, "impact")]
+    basic("arena-versus", 10.0, 122, "Am", "break", start=1.0, hits=hits, seed=148)
+
+
+@track
+def aperture_reel():
+    hits = [(0.3 + i * 1.6, "snap") for i in range(5)] + [(1.6 + i * 1.6, "click") for i in range(4)]
+    basic("aperture-reel", 9.2, 112, "Dm", "half", start=0.3, hits=hits, seed=149)
+
+
+@track
+def stock_analysis():
+    hits = [(0.1, "whoosh"), (0.8, "riser"), (2.0, "tick"), (2.6, "tick"), (3.2, "tick"), (4.0, "thud"), (5.6, "chime"), (8.6, "impact")]
+    basic("stock-analysis", 9.8, 116, "Gm", "pulse", start=0.8, hits=hits, seed=150)
+
+
+@track
+def stretch_type():
+    hits = [(i * 2.0, "impact") for i in range(4)]
+    basic("stretch-type", 9.1, 120, "Fm", "funk", start=0.0, hits=hits, seed=151)
+
+
+@track
+def guide_library():
+    hits = [(0.1, "riser"), (1.8, "tick"), (2.5, "whoosh"), (3.4, "whoosh")] + [(4.1 + i * 0.6, "pop") for i in range(4)] + [(7.2, "whoosh"), (9.0, "impact")]
+    basic("guide-library", 10.0, 118, "C", "house", start=0.1, hits=hits, seed=152)
+
+
+@track
+def glass_launch():
+    hits = [(0.6, "riser"), (1.2, "chime"), (3.4, "pop"), (3.9, "pop"), (4.4, "pop"), (5.6, "bell"), (8.9, "chime")]
+    basic("glass-launch", 10.0, 92, "Eb", "half", start=0.6, hits=hits, seed=153)
+
+
+@track
+def speech_blocks():
+    hits = [(1.0, "impact")] + [(2.6 + i * 0.45, "thud") for i in range(4)] + [(4.7, "riser"), (5.3, "impact"), (7.0, "chime")]
+    basic("speech-blocks", 9.7, 96, "Am", "half", start=0.8, hits=hits, seed=154)
+
+
+@track
+def demo_builder():
+    hits = [(0.4, "bell"), (1.1, "click"), (1.6, "click"), (2.1, "click"), (2.7, "whoosh")] + [(3.6 + i * 0.7, "pop") for i in range(3)] + [(5.9, "whoosh"), (6.5, "chime"), (8.8, "impact")]
+    basic("demo-builder", 10.0, 120, "C", "funk", start=0.4, hits=hits, seed=155)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
