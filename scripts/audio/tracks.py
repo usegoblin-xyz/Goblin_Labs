@@ -1224,6 +1224,55 @@ def lids_down():
     basic("lids-down", 10.4, 80, "Eb", "half", start=0.4, hits=hits, seed=187)
 
 
+@track
+def code_canvas():
+    at = [0.5, 1.6, 2.7, 3.8, 4.9, 6.0]
+    hits = [(a + k * 0.07, "tick") for a in at for k in range(7)] + [(a + 0.55, "pop") for a in at[:5]] + [(6.55, "impact"), (7.9, "chime")]
+    basic("code-canvas", 10.0, 120, "C", "pulse", start=0.5, hits=hits, seed=190)
+
+
+@track
+def bauhaus_grid():
+    hits = [(0.9 + k * 0.5, "click") for k in range(14)] + [(8.0, "impact"), (8.7, "chime")]
+    basic("bauhaus-grid", 10.0, 120, "Dm", "house", start=0.9, hits=hits, seed=191)
+
+
+@track
+def fold_reel():
+    hits = [(0.3, "thud"), (0.6, "whoosh")] + [(2.6 + k * 0.45, "snap") for k in range(8)] + [(6.5, "whoosh"), (7.8, "thud"), (8.6, "chime")]
+    basic("fold-reel", 10.0, 110, "Eb", "funk", start=0.55, hits=hits, seed=192)
+
+
+@track
+def dashboard_remix():
+    hits = [(0.15 + i * 0.18, "pop") for i in range(4)] + [(2.9, "whoosh"), (3.25, "impact"), (4.55, "whoosh"), (5.05, "pop"), (6.2, "whoosh"), (8.0, "chime")]
+    basic("dashboard-remix", 10.0, 120, "Am", "break", start=0.0, hits=hits, seed=193)
+
+
+@track
+def scan_to_text():
+    hits = [(1.6, "snap"), (1.85, "click"), (2.25, "whoosh"), (3.0, "pop"), (5.4, "click"), (5.55, "whoosh"), (6.85, "click"), (6.95, "chime"), (8.1, "bell")]
+    basic("scan-to-text", 10.0, 116, "C", "pulse", start=0.0, hits=hits, seed=194)
+
+
+@track
+def monolith_reel():
+    hits = [(0.1 + i * 0.12, "thud") for i in range(6)] + [(1.3 + k * 0.38, "whoosh") for k in range(6)] + [(3.6, "riser"), (8.0, "impact"), (9.0, "bell")]
+    basic("monolith-reel", 10.0, 100, "Fm", "half", start=0.1, hits=hits, seed=195)
+
+
+@track
+def shop_mascot():
+    hits = [(1.1, "pop"), (1.8, "pop")] + [(2.2 + k * 0.08, "tick") for k in range(11)] + [(3.2, "click"), (4.0, "pop"), (4.6, "pop"), (4.75, "pop"), (4.9, "pop"), (6.0, "click"), (6.1, "chime"), (7.4, "whoosh"), (8.0, "pop"), (8.6, "chime")]
+    basic("shop-mascot", 10.0, 118, "C", "funk", start=0.6, hits=hits, seed=196)
+
+
+@track
+def query_console():
+    hits = [(0.2 + k * 0.06, "tick") for k in range(9)] + [(0.85, "chime")] + [(2.1 + k * 0.07, "tick") for k in range(24)] + [(3.95, "click")] + [(4.15 + i * 0.12, "snap") for i in range(4)] + [(5.4, "whoosh"), (6.75, "impact"), (7.2, "impact"), (7.65, "impact"), (8.1, "chime")]
+    basic("query-console", 10.0, 124, "Gm", "break", start=2.0, hits=hits, seed=197)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
