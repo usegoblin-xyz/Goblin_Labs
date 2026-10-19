@@ -1711,6 +1711,47 @@ def festival_lineup():
     s.write(f"{OUT}/festival-lineup.wav")
 
 
+@track
+def lighthouse_keeper():
+    s = Song(10.0, bpm=60, seed=238)
+    rng = np.random.default_rng(11)
+    def noise(d):
+        return rng.standard_normal(int(d * SR))
+    storm = lp(noise(7.8), 1800) * env(7.8, 0.3, 1.6)
+    s.put("fx", storm, 0.0, 0.16)
+    s.put("fx", hp(lp(noise(7.8), 7000), 2500) * env(7.8, 0.3, 1.6), 0.0, 0.05)
+    thunder = lp(noise(2.2), 220) * env(2.2, 0.01, 1.8)
+    s.put("fx", thunder, 0.8, 0.9)
+    crack = np.zeros(int(1.4 * SR))
+    for k in range(40):
+        i = int(rng.uniform(0, 1.35) * SR)
+        crack[i:i + 200] += rng.standard_normal(200) * np.linspace(1, 0, 200)
+    s.put("fx", crack, 1.6, 0.25)
+    def horn(d):
+        n = int(d * SR)
+        tt = np.arange(n) / SR
+        x = saw(98, d) * 0.6 + saw(98 * 1.5, d) * 0.3
+        return lp(x, 600) * env(d, 0.15, 0.4)
+    s.put("fx", horn(1.4), 2.0, 0.5)
+    for k in range(14):
+        s.put("fx", thud(70), 3.05 + k * 0.114, 0.35)
+    s.put("fx", hp(noise(0.25), 2000) * env(0.25, 0.005, 0.2), 4.8, 0.3)
+    s.put("fx", FX["whoosh"](), 4.95, 0.5)
+    s.put("fx", FX["riser"](), 4.7, 0.2)
+    harmony(s, 5.6, 10.0, "Dm", padlevel=0.1, stablevel=0.0, basslevel=0.12)
+    s.put("fx", horn(0.5), 6.8, 0.45)
+    s.put("fx", horn(0.5), 7.35, 0.45)
+    for i, m in enumerate([62, 65, 69, 72, 74]):
+        s.put("mus", bell(m, 1.6), 7.8 + i * 0.35, 0.1)
+    for i in range(3):
+        n = int(0.25 * SR)
+        tt = np.arange(n) / SR
+        f = 2200 - 900 * tt / 0.25
+        gull = np.sin(2 * np.pi * np.cumsum(f) / SR) * env(0.25, 0.01, 0.15)
+        s.put("fx", gull, 8.4 + i * 0.45, 0.06)
+    s.write(f"{OUT}/lighthouse-keeper.wav")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []

@@ -4352,6 +4352,23 @@ const ENTRIES: Entry[] = [
     soundtrack: "tracks/festival-lineup.wav",
     lazy: () => import("./templates/lib/FestivalLineup"),
   },
+  {
+    id: "lighthouse-keeper",
+    title: "Lighthouse Keeper",
+    outcome: "A silent short where sound tells half the story: a horn in a storm, footsteps up the stairs, a lamp lit, and dawn",
+    category: "Story",
+    tags: ["short film", "silent", "story", "sound design", "cinematic"],
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    durationInFrames: 300,
+    defaults: {"title": "The Keeper"},
+    fields: [
+      { key: "title", label: "Title", type: "text" }
+    ],
+    soundtrack: "tracks/lighthouse-keeper.wav",
+    lazy: () => import("./templates/lib/LighthouseKeeper"),
+  },
   // @catalog-end
 ];
 
