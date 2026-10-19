@@ -204,6 +204,48 @@ def beat_bounce():
     basic("beat-bounce", 8, 120, "C", "half", start=1.0, hits=hits, seed=19)
 
 
+@track
+def chunk_promo():
+    basic("chunk-promo", 8.5, 124, "Am", "house", start=0.3, hits=[(2.0, "riser"), (3.1, "impact"), (3.8, "pop"), (3.92, "pop"), (4.04, "pop"), (4.16, "pop"), (4.28, "pop"), (5.0, "whoosh"), (6.4, "chime")], seed=20)
+
+
+@track
+def overlay_explainer():
+    basic("overlay-explainer", 12, 112, "Dm", "pulse", start=1.0, hits=[(1.0, "whoosh"), (3.0, "pop"), (5.2, "pop"), (5.6, "riser"), (6.4, "click"), (7.4, "pop"), (10.0, "whoosh"), (10.4, "chime")], seed=21)
+
+
+@track
+def book_distill():
+    basic("book-distill", 11.5, 118, "Eb", "half", start=1.8, hits=[(0.8, "whoosh"), (1.8, "riser"), (4.6, "pop"), (5.1, "pop"), (5.6, "pop"), (6.1, "pop"), (6.6, "bell"), (9.6, "whoosh"), (10.0, "impact")], seed=22)
+
+
+@track
+def gen_grid():
+    hits = [(0.75, "snap"), (1.7, "snap"), (2.65, "snap"), (3.3, "riser"), (5.0, "impact"), (8.0, "whoosh"), (8.6, "chime")]
+    basic("gen-grid", 10, 132, "Fm", "trap", start=3.2, hits=hits, seed=23)
+
+
+@track
+def mascot_reel():
+    hits = [(1.2, "pop"), (3.2, "pop"), (5.2, "pop"), (7.6, "thud"), (7.7, "chime")] + [(t0, "whoosh") for t0 in (2.3, 4.3, 6.7)]
+    basic("mascot-reel", 10, 118, "C", "funk", start=0.3, hits=hits, seed=24)
+
+
+@track
+def photon_journey():
+    basic("photon-journey", 14, 96, "Dm", "half", start=4.2, hits=[(0.6, "riser"), (4.2, "impact"), (6.2, "whoosh"), (10.2, "whoosh"), (11.2, "chime"), (12.2, "bell")], seed=25)
+
+
+@track
+def anniversary_dots():
+    basic("anniversary-dots", 9.5, 126, "C", "house", start=1.2, hits=[(0.4, "riser"), (3.6, "impact"), (3.7, "chime"), (7.2, "whoosh"), (7.6, "bell")], seed=26)
+
+
+@track
+def remake_compare():
+    basic("remake-compare", 11.5, 120, "Am", "break", start=0.4, hits=[(0.4, "pop"), (2.6, "snap"), (4.8, "snap"), (6.0, "pop"), (6.3, "pop"), (7.4, "whoosh"), (9.6, "impact")], seed=27)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
