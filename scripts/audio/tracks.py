@@ -737,6 +737,54 @@ def net_worth():
     basic("net-worth", 9.8, 118, "Am", "funk", start=2.2, hits=hits, seed=107)
 
 
+@track
+def pixel_history():
+    hits = [(0.6 + i * 1.8, "chime") for i in range(5)] + [(10.2, "bell")]
+    basic("pixel-history", 11.2, 128, "C", "pulse", start=0.3, hits=hits, seed=108)
+
+
+@track
+def pixel_duel():
+    hits = [(0.2, "whoosh"), (0.4, "whoosh"), (1.0, "snap"), (1.2, "snap"), (2.4, "impact"), (3.8, "impact"), (5.2, "impact"), (5.6, "riser"), (8.1, "bell")]
+    basic("pixel-duel", 9.5, 140, "Am", "break", start=0.2, hits=hits, seed=109)
+
+
+@track
+def hands_off():
+    hits = [(1.0, "whoosh")] + [(2.2 + i * 0.55, "tick") for i in range(6)] + [(6.0, "chime"), (8.6, "impact")]
+    basic("hands-off", 9.8, 110, "Eb", "funk", start=1.0, hits=hits, seed=110)
+
+
+@track
+def recruiter_intro():
+    hits = [(0.3, "riser"), (1.5, "whoosh"), (3.4, "pop"), (3.6, "pop"), (3.8, "pop")] + [(4.8 + i * 0.3, "snap") for i in range(5)] + [(9.0, "impact")]
+    basic("recruiter-intro", 10.0, 116, "Dm", "house", start=0.3, hits=hits, seed=111)
+
+
+@track
+def loom_weave():
+    hits = [(0.3, "riser")] + [(1.6 + i * 0.9, "tick") for i in range(6)] + [(7.4, "whoosh"), (9.8, "bell")]
+    basic("loom-weave", 10.7, 88, "Gm", "half", start=0.3, hits=hits, seed=112)
+
+
+@track
+def wholesale_pitch():
+    hits = [(0.0, "thud")] + [(1.0 + i * 0.1, "tick") for i in range(12)] + [(2.6, "pop"), (2.95, "pop"), (3.3, "pop"), (4.4, "riser"), (5.6, "chime"), (9.0, "impact")]
+    basic("wholesale-pitch", 9.8, 120, "C", "house", start=1.0, hits=hits, seed=113)
+
+
+@track
+def skill_radar():
+    hits = [(0.3, "whoosh"), (1.3, "pop")] + [(1.6 + i * 0.4, "tick") for i in range(6)] + [(4.4, "riser"), (5.6, "whoosh"), (8.8, "impact")]
+    basic("skill-radar", 9.7, 118, "Am", "break", start=0.3, hits=hits, seed=114)
+
+
+@track
+def agent_hud():
+    hits = [(0.0, "riser"), (0.8, "snap"), (1.0, "snap"), (1.2, "snap"), (1.4, "snap"), (4.0, "bell"), (5.1, "click"), (6.6, "chime"), (8.8, "impact")]
+    basic("agent-hud", 9.7, 126, "Fm", "pulse", start=0.8, hits=hits, seed=115)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
