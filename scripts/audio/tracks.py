@@ -381,6 +381,65 @@ def transcript_ad():
     basic("transcript-ad", 10, 122, "C", "house", start=1.6, hits=hits, seed=51)
 
 
+@track
+def beat_sync():
+    basic("beat-sync", 9.5, 120, "Am", "house", start=0.0, hits=[(8.0, "impact"), (8.05, "chime")], seed=52)
+
+
+@track
+def connector_hub():
+    hits = [(1.0 + i * 0.5, "click") for i in range(6)] + [(7.6, "whoosh"), (8.0, "chime")]
+    basic("connector-hub", 9.5, 118, "C", "pulse", start=0.4, hits=hits, seed=53)
+
+
+@track
+def dance_figure():
+    basic("dance-figure", 9, 128, "Fm", "funk", start=0.5, hits=[(8.0, "impact")], seed=54)
+
+
+@track
+def bad_motion():
+    s = Song(9.5, bpm=100, seed=55)
+    harmony(s, 0, 4.2, "C", stabs=(0, 2, 4, 6, 8, 10, 12, 14), padlevel=0.12, stablevel=0.3, basslevel=0.3)
+    groove(s, 0, 4.2, "house", 0.9)
+    for k in range(6):
+        s.put("fx", bell(84 + k * 2, 0.6), 1.0 + k * 0.4, 0.3)
+    s.put("fx", riser(0.3, 3000, 300), 4.15, 0.6)  # record scratch
+    s.put("fx", thud(70), 4.2, 0.8)
+    harmony(s, 5.6, 9.5, "Am", stabs=(0,), padlevel=0.06, stablevel=0.1, basslevel=0.25)
+    groove(s, 5.8, 9.5, "pulse", 0.6)
+    s.put("fx", impact(), 7.8, 0.45)
+    s.write(f"{OUT}/bad-motion.wav")
+
+
+@track
+def photo_prints():
+    hits = [(1.2 + i * 0.18, "tick") for i in range(9)] + [(2.8, "click")] + [(3.0 + i * 0.12, "whoosh") for i in range(0, 9, 3)] + [(5.2, "whoosh"), (8.0, "chime")]
+    basic("photo-prints", 9.5, 120, "Eb", "house", start=2.8, hits=hits, seed=56)
+
+
+@track
+def recursion_zoom():
+    hits = [(0.8 + i * 1.7 + 0.8, "whoosh") for i in range(4)] + [(7.6, "thud"), (9.6, "chime")]
+    basic("recursion-zoom", 11, 110, "Dm", "half", start=0.8, hits=hits, seed=57)
+
+
+@track
+def visa_stamp():
+    hits = [(0.3, "whoosh")] + [(1.4 + i * 0.55, "thud") for i in range(5)] + [(4.2, "whoosh"), (6.2, "chime"), (7.6, "impact")]
+    basic("visa-stamp", 9.5, 109, "Gm", "break", start=1.4, hits=hits, seed=58)
+
+
+@track
+def shard_reveal():
+    s = Song(9.5, bpm=90, seed=59)
+    harmony(s, 0, 9.5, "Eb", stabs=(0,), padlevel=0.12, stablevel=0.06, basslevel=0.0)
+    s.put("fx", riser(3.6, 200, 4000), 3.6, 0.4)
+    s.put("fx", impact(), 7.4, 0.6)
+    s.put("fx", bell(87, 2.0), 7.4, 0.35)
+    s.write(f"{OUT}/shard-reveal.wav")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
