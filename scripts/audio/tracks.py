@@ -288,6 +288,52 @@ def data_to_visual():
     basic("data-to-visual", 10, 124, "Gm", "break", start=1.6, hits=[(1.6, "whoosh"), (2.4, "pop"), (4.0, "whoosh"), (5.6, "impact"), (8.4, "chime")], seed=35)
 
 
+@track
+def update_reel():
+    basic("update-reel", 9, 120, "C", "house", start=0.4, hits=[(1.0, "tick"), (1.3, "tick"), (1.6, "chime"), (3.0, "pop"), (4.1, "pop"), (5.2, "pop"), (7.8, "impact")], seed=36)
+
+
+@track
+def film_strip():
+    hits = [(1.2 + i * 0.9, "snap") for i in range(5)] + [(6.0, "whoosh"), (7.2, "impact")]
+    basic("film-strip", 9, 128, "Am", "break", start=1.2, hits=hits, seed=37)
+
+
+@track
+def resume_pro():
+    hits = [(1.2 + i * 0.22, "tick") for i in range(12)] + [(5.6, "whoosh"), (6.0, "chime"), (8.6, "impact")]
+    basic("resume-pro", 10, 118, "Eb", "pulse", start=1.0, hits=hits, seed=38)
+
+
+@track
+def git_explained():
+    hits = [(n, "pop") for n in (1.0, 1.6, 3.0, 3.6, 4.6, 5.2, 7.2)] + [(6.4, "impact"), (8.8, "chime")]
+    basic("git-explained", 10.5, 112, "Dm", "pulse", start=0.8, hits=hits, seed=39)
+
+
+@track
+def whiteboard():
+    basic("whiteboard", 10.5, 104, "C", "half", start=1.0, hits=[(1.6, "tick"), (3.2, "tick"), (4.8, "tick"), (6.6, "whoosh"), (8.6, "chime")], seed=40)
+
+
+@track
+def releases_recap():
+    hits = [(1.0 + i * 1.3, "whoosh") for i in range(5)] + [(6.8, "impact"), (7.8, "chime")]
+    basic("releases-recap", 10.5, 126, "Fm", "break", start=0.0, hits=hits, seed=41)
+
+
+@track
+def case_stack():
+    hits = [(1.3 + i * 1.5, "whoosh") for i in range(4)] + [(7.3, "impact"), (7.8, "chime")]
+    basic("case-stack", 9, 122, "Gm", "house", start=0.2, hits=hits, seed=42)
+
+
+@track
+def word_app_reel():
+    hits = [(i * 2.4, "impact") for i in range(3)] + [(i * 2.4 + 0.7, "whoosh") for i in range(3)] + [(7.2, "chime")]
+    basic("word-app-reel", 9.5, 128, "C", "trap", start=0.0, hits=hits, seed=43)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
