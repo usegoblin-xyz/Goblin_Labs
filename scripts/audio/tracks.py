@@ -1525,6 +1525,94 @@ def space_cartoon():
     basic("space-cartoon", 10.0, 120, "C", "funk", start=1.5, end=7.6, hits=hits, seed=221)
 
 
+@track
+def reading_app():
+    hits = [(0.3, "whoosh"), (2.0, "click"), (2.3, "pop"), (4.4, "click"), (4.8, "whoosh"), (5.6, "pop"), (7.6, "chime")]
+    basic("reading-app", 10.0, 100, "Fm", "half", start=0.2, hits=hits, seed=222)
+
+
+@track
+def brand_image_gen():
+    hits = [(0.2, "whoosh")] + [(0.6 + i * 0.07, "tick") for i in range(20)] + [(2.4, "click"), (2.8, "riser")] + [(3.4 + i * 0.18, "pop") for i in range(6)] + [(5.4, "click"), (6.0, "whoosh"), (7.0, "snap"), (8.2, "chime")]
+    basic("brand-image-gen", 10.0, 118, "Am", "house", start=0.2, hits=hits, seed=223)
+
+
+@track
+def backlink_audit():
+    hits = [(0.05, "impact")] + [(0.4 + i * 0.09, "tick") for i in range(10)] + [(1.6, "riser"), (3.7, "thud"), (3.9, "thud"), (4.2, "whoosh"), (5.6, "snap"), (8.0, "impact")]
+    basic("backlink-audit", 10.0, 140, "Eb", "break", start=0.0, hits=hits, seed=224)
+
+
+@track
+def sketchbook_critters():
+    hits = [(0.4 + i * 0.4, "tick") for i in range(10)] + [(4.2, "bell"), (5.0, "pop"), (5.6, "click"), (6.0, "whoosh"), (8.0, "whoosh"), (8.6, "chime")]
+    basic("sketchbook-critters", 10.0, 96, "C", "funk", start=4.2, hits=hits, seed=225)
+
+
+@track
+def shadow_theatre_home():
+    s = Song(10.0, bpm=72, seed=226)
+    B = s.beat
+    harmony(s, 0, 10.0, "Dm", padlevel=0.12, stablevel=0.0, basslevel=0.12)
+    rng = np.random.default_rng(5)
+    rain = rng.standard_normal(int(4.8 * SR)) * 0.5
+    rain = hp(lp(rain, 5000), 900) * env(4.8, 0.6, 0.6)
+    s.put("fx", rain, 0.0, 0.18)
+    for k in range(9):
+        s.put("fx", thud() * 0.4, 0.6 + k * 0.42, 0.12)
+    s.put("fx", FX["bell"](), 4.3, 0.25)
+    s.put("fx", FX["whoosh"](), 4.8, 0.2)
+    mel = [62, 65, 69, 67, 65, 69, 74, 72]
+    for i, m in enumerate(mel):
+        s.put("mus", pluck(m, 1.2), 5.6 + i * B * 0.5, 0.18)
+    s.put("fx", FX["chime"](), 7.6, 0.3)
+    s.write(f"{OUT}/shadow-theatre-home.wav")
+
+
+@track
+def letter_tile_friends():
+    hits = [(0.9, "thud"), (1.6, "pop"), (1.85, "pop"), (2.3, "chime"), (3.2, "thud"), (3.45, "thud"), (3.9, "chime"), (4.6, "pop"), (4.85, "pop"), (5.3, "chime"), (5.6, "bell"), (6.2, "impact"), (7.4, "whoosh"), (8.3, "snap")]
+    basic("letter-tile-friends", 10.0, 112, "C", "funk", start=1.6, hits=hits, seed=227)
+
+
+@track
+def ring_escape():
+    s = Song(10.0, bpm=120, seed=228)
+    N = 12
+    esc = [0.7 + k * 0.62 - k * k * 0.008 for k in range(N)]
+    scale = [60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84, 86, 88, 91]
+    prev = 0.15
+    n = 0
+    for k in range(N):
+        span = (esc[k] - prev) / 3
+        for j in (1, 2):
+            s.put("mus", bell(scale[n % len(scale)]), prev + span * j, 0.22)
+            n += 1
+        s.put("fx", FX["snap"](), esc[k], 0.3)
+        s.put("mus", pluck(scale[min(k + 2, len(scale) - 1)] - 12, 0.6), esc[k], 0.25)
+        prev = esc[k]
+    harmony(s, 0.6, esc[-1], "C", padlevel=0.07, stablevel=0.0, basslevel=0.2)
+    s.put("fx", FX["riser"](), esc[-1] - 1.0, 0.25)
+    s.put("fx", FX["impact"](), esc[-1] + 0.9, 0.6)
+    harmony(s, esc[-1] + 0.9, 10.0, "C", stabs=(0,), padlevel=0.1, stablevel=0.14, basslevel=0.2)
+    s.write(f"{OUT}/ring-escape.wav")
+
+
+@track
+def token_bucket():
+    CAP, RATE, L, last = 8, 2, 4.0, 0.0
+    arr = [1.0, 1.8, 2.6, 3.2] + [4.0 + i * 0.075 for i in range(14)] + [5.6, 6.1, 6.6, 7.1, 7.6]
+    hits = [(0.1, "whoosh")]
+    for a in arr:
+        L = min(CAP, L + (a - last) * RATE); last = a
+        if L >= 1:
+            L -= 1; hits.append((a, "click"))
+        else:
+            hits.append((a, "thud"))
+    hits += [(3.9, "riser"), (8.4, "impact")]
+    basic("token-bucket", 10.0, 110, "Dm", "pulse", start=0.0, end=8.4, hits=hits, seed=229)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
