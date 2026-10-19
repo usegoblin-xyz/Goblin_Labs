@@ -833,6 +833,54 @@ def one_line_reel():
     basic("one-line-reel", 9.5, 106, "C", "pulse", start=0.3, hits=hits, seed=123)
 
 
+@track
+def orbit_rings():
+    hits = [(0.3 + i * 0.4, "whoosh") for i in range(4)] + [(3.6, "riser"), (7.0, "impact")]
+    basic("orbit-rings", 8.7, 124, "Fm", "house", start=0.3, hits=hits, seed=124)
+
+
+@track
+def baby_tracker():
+    hits = [(0.2, "chime"), (1.2, "bell"), (3.0, "whoosh")] + [(3.8 + i * 0.4, "pop") for i in range(4)] + [(7.0, "chime"), (9.0, "bell")]
+    basic("baby-tracker", 10.4, 80, "C", "half", start=3.0, hits=hits, seed=125)
+
+
+@track
+def gradient_flow():
+    hits = [(0.0, "riser"), (7.2, "whoosh"), (8.0, "chime")]
+    basic("gradient-flow", 10.1, 96, "Eb", "pulse", start=0.4, hits=hits, seed=126)
+
+
+@track
+def dub_swap():
+    hits = [(0.8 + i * 1.8, "click") for i in range(4)] + [(8.7, "impact")]
+    basic("dub-swap", 9.9, 118, "Am", "funk", start=0.8, hits=hits, seed=127)
+
+
+@track
+def service_explainer():
+    hits = [(0.55, "thud"), (2.4, "whoosh"), (2.9, "riser"), (4.7, "pop"), (5.3, "pop"), (5.9, "pop"), (6.9, "whoosh"), (9.4, "impact")]
+    basic("service-explainer", 10.6, 112, "C", "house", start=0.3, hits=hits, seed=128)
+
+
+@track
+def ink_brush():
+    hits = [(0.4 + i * 1.9, "whoosh") for i in range(3)] + [(6.4, "thud"), (9.0, "bell")]
+    basic("ink-brush", 10.0, 84, "Dm", "half", start=0.4, hits=hits, seed=129)
+
+
+@track
+def instant_pay():
+    hits = [(1.0, "impact"), (1.15, "whoosh"), (1.8, "chime"), (4.0, "whoosh"), (4.25, "whoosh"), (4.5, "whoosh"), (8.2, "impact")]
+    basic("instant-pay", 9.4, 128, "Gm", "trap", start=1.0, hits=hits, seed=130)
+
+
+@track
+def book_shelf_reel():
+    hits = [(0.1, "whoosh")] + [(1.0 + i * 1.9, "snap") for i in range(3)] + [(2.2 + i * 1.9, "pop") for i in range(3)] + [(8.4, "impact")]
+    basic("book-shelf-reel", 9.6, 108, "C", "pulse", start=1.0, hits=hits, seed=131)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
