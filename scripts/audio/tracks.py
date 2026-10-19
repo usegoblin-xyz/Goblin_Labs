@@ -173,6 +173,37 @@ def skill_launch():
     basic("skill-launch", 13, 118, "Am", "pulse", start=0.0, hits=[(1.7, "tick"), (1.95, "tick"), (2.2, "tick"), (4.4, "whoosh"), (7.2, "impact"), (11.0, "chime")], seed=13)
 
 
+@track
+def keyframe_reel():
+    basic("keyframe-reel", 10, 120, "C", "pulse", start=0.6, hits=[(0.6, "tick"), (2.6, "tick"), (4.6, "tick"), (6.6, "tick"), (8.6, "tick"), (8.7, "whoosh"), (9.0, "chime")], seed=14)
+
+
+@track
+def today_is():
+    basic("today-is", 8, 124, "Fm", "house", start=2.6, hits=[(0.25, "riser"), (2.6, "impact"), (3.0, "pop"), (5.2, "whoosh"), (5.7, "chime")], seed=15)
+
+
+@track
+def css_release():
+    basic("css-release", 9.5, 116, "Am", "pulse", start=0.3, hits=[(1.3, "pop"), (2.4, "pop"), (3.5, "pop"), (4.6, "pop"), (5.8, "pop"), (6.9, "whoosh"), (7.2, "impact"), (7.7, "chime")], seed=16)
+
+
+@track
+def growth_promo():
+    basic("growth-promo", 9.5, 128, "C", "house", start=0.8, hits=[(0.0, "whoosh"), (2.6, "bell"), (3.8, "bell"), (5.0, "bell"), (7.2, "whoosh"), (7.6, "impact")], seed=17)
+
+
+@track
+def site_build():
+    basic("site-build", 10, 122, "Eb", "funk", start=0.4, hits=[(0.4, "thud"), (0.62, "thud"), (0.84, "thud"), (1.06, "thud"), (3.0, "riser"), (5.2, "click"), (5.4, "chime"), (6.4, "whoosh"), (8.1, "impact")], seed=18)
+
+
+@track
+def beat_bounce():
+    hits = [(1.0 + 0.5 * i, "thud") for i in range(9)] + [(5.0, "whoosh"), (6.0, "impact"), (6.1, "chime")]
+    basic("beat-bounce", 8, 120, "C", "half", start=1.0, hits=hits, seed=19)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
