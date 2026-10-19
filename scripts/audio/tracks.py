@@ -246,6 +246,48 @@ def remake_compare():
     basic("remake-compare", 11.5, 120, "Am", "break", start=0.4, hits=[(0.4, "pop"), (2.6, "snap"), (4.8, "snap"), (6.0, "pop"), (6.3, "pop"), (7.4, "whoosh"), (9.6, "impact")], seed=27)
 
 
+@track
+def math_reel():
+    basic("math-reel", 11, 108, "Dm", "pulse", start=0.4, hits=[(3.4, "whoosh"), (6.2, "whoosh"), (6.3, "bell"), (9.4, "whoosh"), (9.6, "chime")], seed=28)
+
+
+@track
+def easing_lab():
+    basic("easing-lab", 10.5, 120, "C", "funk", start=0.8, hits=[(0.8, "whoosh"), (3.0, "whoosh"), (5.4, "pop"), (6.3, "pop"), (7.2, "pop"), (8.1, "pop"), (9.2, "impact")], seed=29)
+
+
+@track
+def referral_promo():
+    basic("referral-promo", 10, 122, "Eb", "house", start=0.3, hits=[(1.2, "pop"), (2.2, "click"), (3.0, "whoosh"), (4.2, "chime"), (4.6, "riser"), (8.0, "impact")], seed=30)
+
+
+@track
+def flow_network():
+    basic("flow-network", 10, 116, "Am", "pulse", start=0.3, hits=[(0.3, "impact"), (1.0, "whoosh"), (1.8, "tick"), (2.4, "riser"), (7.6, "whoosh"), (8.0, "chime")], seed=31)
+
+
+@track
+def rank_climb():
+    hits = [(0.4 + i * 0.1, "tick") for i in range(9)] + [(2.0 + i * 0.5, "pop") for i in range(9)] + [(6.0, "chime"), (7.8, "impact")]
+    basic("rank-climb", 9.5, 120, "Fm", "house", start=1.6, hits=hits, seed=32)
+
+
+@track
+def history_timeline():
+    hits = [(2.0 + i * 1.5, "bell") for i in range(6)] + [(11.4, "whoosh"), (11.8, "impact")]
+    basic("history-timeline", 13.5, 100, "Dm", "half", start=1.6, hits=hits, seed=33)
+
+
+@track
+def retouch_slider():
+    basic("retouch-slider", 9.5, 118, "C", "pulse", start=0.6, hits=[(1.4, "click"), (2.4, "click"), (3.4, "click"), (4.4, "click"), (5.4, "whoosh"), (8.0, "chime")], seed=34)
+
+
+@track
+def data_to_visual():
+    basic("data-to-visual", 10, 124, "Gm", "break", start=1.6, hits=[(1.6, "whoosh"), (2.4, "pop"), (4.0, "whoosh"), (5.6, "impact"), (8.4, "chime")], seed=35)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
