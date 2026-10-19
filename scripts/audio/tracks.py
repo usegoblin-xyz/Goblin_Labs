@@ -1170,6 +1170,60 @@ def outline_to_page():
     basic("outline-to-page", 10.0, 112, "Dm", "pulse", start=0.4, hits=hits, seed=179)
 
 
+@track
+def parent_hype():
+    hits = [(0.1 + i * 0.12, "pop") for i in range(8)] + [(0.8, "impact"), (2.6, "riser"), (3.4, "chime"), (5.4, "bell"), (8.4, "impact")]
+    basic("parent-hype", 9.8, 126, "C", "house", start=0.8, hits=hits, seed=180)
+
+
+@track
+def drum_type():
+    hits = [(1.2 + i * 1.4 + d * 0.15, "click") for i in range(5) for d in range(3)]
+    basic("drum-type", 9.3, 120, "Fm", "break", start=0.0, hits=hits, seed=181)
+
+
+@track
+def life_cycle():
+    hits = [(i * 1.4, "chime") for i in range(6)] + [(8.4, "bell")]
+    basic("life-cycle", 10.1, 92, "C", "pulse", start=0.0, hits=hits, seed=182)
+
+
+@track
+def dna_helix():
+    hits = [(0.4, "pop"), (1.2, "riser"), (3.6, "bell"), (5.2, "whoosh"), (9.0, "impact")]
+    basic("dna-helix", 10.0, 112, "Dm", "pulse", start=1.2, hits=hits, seed=183)
+
+
+@track
+def principles_box():
+    hits = []
+    for k in range(4):
+        hits += [(k * 2.0 + 0.45, "whoosh"), (k * 2.0 + 1.1, "thud")]
+    hits += [(8.0, "chime")]
+    basic("principles-box", 9.1, 108, "Eb", "funk", start=0.0, hits=hits, seed=184)
+
+
+@track
+def tiling_windows():
+    hits = [(0.4 + i * 0.8, "snap") for i in range(5)] + [(4.6, "whoosh"), (5.6, "whoosh"), (6.8, "whoosh"), (8.6, "impact")]
+    basic("tiling-windows", 9.6, 122, "Am", "break", start=0.4, hits=hits, seed=185)
+
+
+@track
+def neon_signs():
+    hits = []
+    for k in range(4):
+        hits += [(k * 2.0 + j * 0.08, "tick") for j in range(5)]
+    hits += [(6.0, "chime")]
+    basic("neon-signs", 9.9, 96, "Fm", "half", start=0.4, hits=hits, seed=186)
+
+
+@track
+def lids_down():
+    hits = [(0.4, "riser"), (2.0, "chime"), (3.0, "whoosh"), (5.25, "thud"), (5.6, "bell"), (9.2, "impact")]
+    basic("lids-down", 10.4, 80, "Eb", "half", start=0.4, hits=hits, seed=187)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
