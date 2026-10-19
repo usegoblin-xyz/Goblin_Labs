@@ -534,6 +534,57 @@ def music_app_film():
     basic("music-app-film", 11.5, 118, "Am", "house", start=0.0, hits=[(2.6, "whoosh"), (3.6, "click"), (8.2, "whoosh"), (10.2, "impact")], seed=75)
 
 
+@track
+def stencil_type():
+    basic("stencil-type", 9, 122, "Fm", "house", start=0.0, hits=[(2.2, "whoosh"), (4.8, "whoosh"), (7.8, "impact")], seed=76)
+
+
+@track
+def agent_clicks():
+    hits = [(0.3 + i * 0.05, "tick") for i in range(20)] + [(t0, "click") for t0 in (2.3, 3.95, 5.55, 7.15)] + [(7.2, "chime"), (9.0, "impact")]
+    basic("agent-clicks", 10, 120, "Am", "pulse", start=1.4, hits=hits, seed=77)
+
+
+@track
+def founder_page():
+    hits = [(0.3 + i * 0.55, "pop") for i in range(3)] + [(2.0 + i * 0.12, "tick") for i in range(4)] + [(6.4, "whoosh"), (7.6, "impact")]
+    basic("founder-page", 9.5, 124, "C", "house", start=0.3, hits=hits, seed=78)
+
+
+@track
+def sunset_dogfight():
+    s = Song(10.5, bpm=84, seed=79)
+    harmony(s, 0, 10.5, "Eb", stabs=(0, 8), padlevel=0.14, stablevel=0.08, basslevel=0.18)
+    s.put("fx", whoosh(1.5, 600), 1.0, 0.2)
+    s.put("fx", whoosh(1.5, 700), 4.0, 0.2)
+    s.put("fx", bell(79, 2.0), 7.0, 0.3)
+    s.write(f"{OUT}/sunset-dogfight.wav")
+
+
+@track
+def agent_pipeline():
+    hits = [(0.2, "pop"), (1.3, "whoosh")] + [(2.0 + i * 1.3, "tick") for i in range(4)] + [(3.0 + i * 1.3, "pop") for i in range(4)] + [(7.3, "chime"), (8.8, "impact")]
+    basic("agent-pipeline", 10, 118, "Dm", "pulse", start=1.3, hits=hits, seed=80)
+
+
+@track
+def brainrot_pov():
+    hits = [(i * 60 / 140 / 2, "snap") for i in range(0, 40, 2)] + [(8.6, "riser"), (9.0, "chime")]
+    basic("brainrot-pov", 10, 140, "Gm", "trap", start=0.0, end=8.6, hits=hits, seed=81)
+
+
+@track
+def energy_landscape():
+    hits = [(2.6 + k * 0.25, "pop") for k in range(6)] + [(6.4, "whoosh"), (9.6, "chime")]
+    basic("energy-landscape", 10.5, 100, "C", "half", start=1.0, hits=hits, seed=82)
+
+
+@track
+def decades_timeline():
+    hits = [(1.4 + i * 1.2, "tick") for i in range(7)] + [(9.6, "whoosh"), (10.0, "impact")]
+    basic("decades-timeline", 11.5, 112, "Gm", "pulse", start=1.0, hits=hits, seed=83)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
