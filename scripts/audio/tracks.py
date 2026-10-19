@@ -641,6 +641,54 @@ def api_key():
     basic("api-key", 9.5, 120, "Am", "pulse", start=1.4, hits=hits, seed=91)
 
 
+@track
+def powers_zoom():
+    hits = [(0.8, "riser")] + [(0.8 + i * 1.7, "whoosh") for i in range(1, 6)] + [(10.6, "impact")]
+    basic("powers-zoom", 12.0, 100, "Eb", "half", start=0.8, hits=hits, seed=92)
+
+
+@track
+def type_slam():
+    hits = [(0.4 + i * 1.0, "impact") for i in range(6)] + [(6.4, "thud")]
+    basic("type-slam", 8.3, 120, "Fm", "trap", start=0.4, hits=hits, seed=93)
+
+
+@track
+def dev_portfolio():
+    hits = [(0.3 + i * 0.07, "tick") for i in range(10)] + [(1.0, "chime"), (1.5, "whoosh"), (3.6, "whoosh"), (5.2, "pop"), (7.0, "whoosh"), (9.2, "impact")]
+    basic("dev-portfolio", 10.5, 118, "C", "funk", start=1.4, hits=hits, seed=94)
+
+
+@track
+def paper_launch():
+    hits = [(0.2, "whoosh"), (1.2, "whoosh"), (2.0, "snap"), (3.6, "pop"), (4.05, "pop"), (4.5, "pop"), (5.4, "riser"), (8.6, "bell")]
+    basic("paper-launch", 10.0, 104, "C", "pulse", start=0.2, hits=hits, seed=95)
+
+
+@track
+def type_form_space():
+    hits = [(0.2, "whoosh"), (2.95, "whoosh"), (6.25, "whoosh"), (9.55, "whoosh"), (10.1, "impact")]
+    basic("type-form-space", 11.6, 122, "Gm", "break", start=0.2, hits=hits, seed=96)
+
+
+@track
+def step_race():
+    hits = [(3.0, "whoosh"), (3.8, "riser"), (8.0, "chime"), (8.05, "pop"), (9.6, "bell")]
+    basic("step-race", 11.0, 96, "C", "half", start=2.6, hits=hits, seed=97)
+
+
+@track
+def bento_grid():
+    hits = [(0.2 + i * 0.16, "pop") for i in range(6)] + [(3.4 + j * 1.5, "whoosh") for j in range(4)] + [(5.5, "click"), (10.8, "impact")]
+    basic("bento-grid", 12.0, 120, "Am", "house", start=0.2, hits=hits, seed=98)
+
+
+@track
+def project_carousel():
+    hits = [(0.0, "riser"), (1.2, "whoosh"), (2.7, "whoosh"), (4.2, "whoosh"), (5.7, "whoosh"), (7.9, "impact")]
+    basic("project-carousel", 9.5, 124, "Dm", "house", start=1.2, hits=hits, seed=99)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
