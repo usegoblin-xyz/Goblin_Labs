@@ -585,6 +585,62 @@ def decades_timeline():
     basic("decades-timeline", 11.5, 112, "Gm", "pulse", start=1.0, hits=hits, seed=83)
 
 
+@track
+def usage_billing():
+    basic("usage-billing", 9.5, 120, "Am", "house", start=0.6, hits=[(0.4, "whoosh"), (5.8, "chime"), (7.6, "whoosh"), (8.0, "impact")], seed=84)
+
+
+@track
+def form_builder():
+    hits = [(0.3 + i * 0.05, "tick") for i in range(12)] + [(1.4 + i, "pop") for i in range(3)] + [(4.6, "click"), (4.7, "chime"), (5.0, "whoosh"), (8.2, "impact")]
+    basic("form-builder", 10, 118, "C", "pulse", start=0.3, hits=hits, seed=85)
+
+
+@track
+def summary_layers():
+    hits = [(1.6 + i * 1.8, "whoosh") for i in range(3)] + [(6.9, "chime"), (8.8, "impact")]
+    basic("summary-layers", 10.5, 110, "Eb", "half", start=1.6, hits=hits, seed=86)
+
+
+@track
+def portrait_reel():
+    hits = [(0.3 + i * 0.6, "thud") for i in range(6)] + [(5.2, "whoosh"), (8.4, "impact")]
+    basic("portrait-reel", 9.5, 124, "Fm", "break", start=0.3, hits=hits, seed=87)
+
+
+@track
+def badge_unlock():
+    s = Song(9.5, bpm=110, seed=88)
+    harmony(s, 0, 3.0, "Eb", stabs=(0,), padlevel=0.1, stablevel=0.06, basslevel=0.0)
+    s.put("fx", riser(1.9, 300, 6000), 0.8, 0.4)
+    s.put("fx", click(), 2.7, 0.8)
+    s.put("fx", whoosh(0.8, 1500), 3.0, 0.4)
+    s.put("fx", impact(), 3.8, 0.6)
+    for k in range(6):
+        s.put("fx", bell(84 + k * 3, 1.2), 3.85 + k * 0.08, 0.25)
+    harmony(s, 3.8, 9.5, "Eb", padlevel=0.06, stablevel=0.18, basslevel=0.3)
+    groove(s, 3.8, 9.5, "house", 0.8)
+    s.write(f"{OUT}/badge-unlock.wav")
+
+
+@track
+def do_dont():
+    hits = [(1.2 + i * 2.2, "thud") for i in range(3)] + [(1.8 + i * 2.2, "snap") for i in range(3)] + [(2.0 + i * 2.2, "chime") for i in range(3)] + [(8.0, "impact")]
+    basic("do-dont", 9.5, 116, "C", "pulse", start=1.2, hits=hits, seed=89)
+
+
+@track
+def model_router():
+    hits = [(0.3 + i * 0.03, "tick") for i in range(20)] + [(1.4, "whoosh"), (2.8, "whoosh"), (3.5, "thud"), (3.9, "whoosh"), (4.6, "chime"), (8.0, "impact")]
+    basic("model-router", 9.5, 124, "Dm", "break", start=1.4, hits=hits, seed=90)
+
+
+@track
+def api_key():
+    hits = [(1.2, "click"), (1.4, "riser"), (2.55, "click"), (2.7, "chime")] + [(3.4 + i * 0.06, "tick") for i in range(20)] + [(4.9, "pop"), (7.8, "impact")]
+    basic("api-key", 9.5, 120, "Am", "pulse", start=1.4, hits=hits, seed=91)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
