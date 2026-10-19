@@ -490,6 +490,50 @@ def ignition():
     s.write(f"{OUT}/ignition.wav")
 
 
+@track
+def technique_sampler():
+    hits = [(i * 1.4, "whoosh") for i in range(6)] + [(8.4, "impact")]
+    basic("technique-sampler", 9.5, 128, "Fm", "break", start=0.0, hits=hits, seed=68)
+
+
+@track
+def spot_the_cat():
+    hits = [(1.4 + i * 1.3, "bell") for i in range(5)] + [(8.0, "chime"), (9.8, "impact")]
+    basic("spot-the-cat", 11, 96, "C", "half", start=0.6, hits=hits, seed=69)
+
+
+@track
+def engineering_reel():
+    hits = [(0.0, "impact"), (2.6, "whoosh")] + [(3.25 + i * 0.55, "pop") for i in range(4)] + [(5.0, "chime"), (5.2, "whoosh"), (7.4, "whoosh"), (8.0, "riser"), (10.2, "impact")]
+    basic("engineering-reel", 11, 126, "Am", "break", start=0.0, hits=hits, seed=70)
+
+
+@track
+def motion_principles():
+    hits = [(i * 1.8, "pop") for i in range(6)] + [(0.45, "thud"), (1.35, "thud"), (10.8, "chime")]
+    basic("motion-principles", 11.5, 112, "C", "pulse", start=0.0, hits=hits, seed=71)
+
+
+@track
+def rhythm_grid():
+    basic("rhythm-grid", 9, 124, "Eb", "house", start=0.0, hits=[(7.74, "impact")], seed=72)
+
+
+@track
+def chart_dance():
+    basic("chart-dance", 12.5, 120, "Gm", "funk", start=0.0, hits=[(3.0, "snap"), (5.0, "whoosh"), (8.0, "whoosh"), (9.8, "riser"), (11.2, "impact")], seed=73)
+
+
+@track
+def data_center():
+    basic("data-center", 13, 100, "Dm", "pulse", start=0.4, hits=[(1.6, "whoosh"), (5.0, "whoosh"), (6.4, "riser"), (7.8, "whoosh"), (8.6, "tick"), (10.0, "whoosh"), (11.8, "impact")], seed=74)
+
+
+@track
+def music_app_film():
+    basic("music-app-film", 11.5, 118, "Am", "house", start=0.0, hits=[(2.6, "whoosh"), (3.6, "click"), (8.2, "whoosh"), (10.2, "impact")], seed=75)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
