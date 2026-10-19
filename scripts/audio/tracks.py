@@ -1613,6 +1613,104 @@ def token_bucket():
     basic("token-bucket", 10.0, 110, "Dm", "pulse", start=0.0, end=8.4, hits=hits, seed=229)
 
 
+@track
+def stirred_cocktail():
+    hits = [(0.85, "click"), (1.65, "click"), (2.45, "click"), (3.0, "pop"), (3.1, "pop"), (3.2, "pop")] + [(3.7 + i * 0.25, "tick") for i in range(7)] + [(5.0, "thud"), (5.75, "whoosh"), (6.9, "snap"), (7.8, "whoosh"), (8.1, "chime")]
+    basic("stirred-cocktail", 10.0, 96, "Dm", "funk", start=0.4, hits=hits, seed=230)
+
+
+@track
+def ugc_ad_gen():
+    hits = [(0.1, "impact"), (0.6, "pop"), (1.5, "whoosh"), (2.3, "thud"), (2.6, "click"), (2.82, "click"), (3.04, "click"), (3.4, "whoosh")] + [(3.6 + i * 0.22, "pop") for i in range(6)] + [(5.8, "whoosh"), (7.6, "whoosh"), (7.8, "impact"), (8.7, "chime")]
+    basic("ugc-ad-gen", 10.0, 124, "Am", "house", start=0.0, hits=hits, seed=231)
+
+
+@track
+def stop_motion_guardian():
+    s = Song(10.0, bpm=96, seed=232)
+    B = s.beat
+    harmony(s, 0, 3.4, "C", padlevel=0.06, stablevel=0.12, basslevel=0.25)
+    groove(s, 0, 3.4, "funk", 0.6)
+    harmony(s, 3.4, 5.0, "Am", padlevel=0.1, stablevel=0.0, basslevel=0.3)
+    s.put("fx", FX["riser"](), 4.0, 0.25)
+    for k in range(3):
+        s.put("fx", FX["pop"](), 5.4 + k * 0.25, 0.4)
+    harmony(s, 5.0, 7.9, "C", padlevel=0.06, stablevel=0.14, basslevel=0.25)
+    groove(s, 5.0, 7.9, "funk", 0.7)
+    s.put("fx", FX["chime"](), 7.4, 0.3)
+    harmony(s, 7.9, 10.0, "Fm", padlevel=0.1, stablevel=0.0, basslevel=0.0)
+    for i, m in enumerate([72, 79, 77, 84]):
+        s.put("mus", bell(m), 8.0 + i * 0.4, 0.12)
+    for k in range(int(10 * 12)):
+        if k % 6 == 0:
+            s.put("fx", FX["tick"](), k / 12, 0.05)
+    s.write(f"{OUT}/stop-motion-guardian.wav")
+
+
+@track
+def agent_fund():
+    hits = [(0.2, "impact"), (0.8, "whoosh"), (2.0, "whoosh"), (2.2, "impact")] + [(2.5 + i * 0.12, "pop") for i in range(4)] + [(4.4, "riser"), (5.4, "snap"), (5.6, "click"), (6.6, "click"), (7.1, "chime"), (8.0, "whoosh"), (8.3, "impact")]
+    basic("agent-fund", 10.0, 120, "Gm", "pulse", start=0.2, hits=hits, seed=233)
+
+
+@track
+def bug_who_hid():
+    s = Song(10.0, bpm=110, seed=234)
+    B = s.beat
+    s.put("fx", FX["thud"](), 0.4, 0.4)
+    for i, m in enumerate([67, 71, 74]):
+        s.put("mus", pluck(m, 0.2), 1.2 + i * 0.1, 0.2)
+    harmony(s, 1.2, 2.6, "C", padlevel=0.04, stablevel=0.12, basslevel=0.2)
+    groove(s, 2.6, 4.2, "break", 0.9)
+    harmony(s, 2.6, 4.2, "Am", padlevel=0.0, stablevel=0.18, basslevel=0.35)
+    for k in range(10):
+        s.put("fx", FX["tick"](), 2.6 + k * 0.15, 0.15)
+    harmony(s, 4.2, 5.3, "Am", padlevel=0.08, stablevel=0.0, basslevel=0.0)
+    s.put("fx", FX["snap"](), 5.35, 0.5)
+    s.put("fx", FX["thud"](), 5.9, 0.5)
+    harmony(s, 6.0, 7.6, "Fm", padlevel=0.1, stablevel=0.0, basslevel=0.15)
+    for k in range(18):
+        s.put("fx", FX["click"](), 6.8 + k * 0.04, 0.1)
+    s.put("fx", FX["chime"](), 7.6, 0.4)
+    harmony(s, 7.6, 10.0, "C", padlevel=0.05, stablevel=0.16, basslevel=0.3)
+    groove(s, 7.6, 10.0, "funk", 0.8)
+    s.write(f"{OUT}/bug-who-hid.wav")
+
+
+@track
+def marble_music():
+    s = Song(10.0, bpm=120, seed=235)
+    notes = [60, 62, 64, 67, 69, 72, 74, 76]
+    chains = [(1.0, [0, 2, 4, 2, 1, 3]), (1.25, [4, 5, 7, 5, 3, 1]), (4.0, [0, 4, 2, 6, 3, 5]), (4.25, [7, 3, 5, 1, 4, 2]), (7.0, [1, 3, 0]), (7.0, [5, 6, 2]), (7.0, [3, 7, 4])]
+    for st, seq in chains:
+        s.put("fx", FX["tick"](), st - 0.6, 0.08)
+        for i, bar in enumerate(seq):
+            at = st + i * 0.5
+            m = notes[bar]
+            sig = bell(m, 1.4) * 0.8
+            sig[:24000] += bell(m + 12, 0.5) * 0.15
+            s.put("mus", sig, at, 0.3, pan=(bar - 3.5) / 5)
+    s.write(f"{OUT}/marble-music.wav")
+
+
+@track
+def chat_ads():
+    hits = [(0.05, "impact"), (0.5, "whoosh")] + [(0.6 + k * 1.1, "snap") for k in range(7)] + [(0.6 + k * 1.1 + 0.35, "pop") for k in range(7)] + [(5.6, "click"), (8.3, "impact")]
+    basic("chat-ads", 10.0, 128, "Eb", "house", start=0.0, hits=hits, seed=236)
+
+
+@track
+def festival_lineup():
+    s = Song(10.0, bpm=128, seed=237)
+    B = s.beat
+    harmony(s, 0, 10.0, "Fm", padlevel=0.05, stablevel=0.2, basslevel=0.45)
+    groove(s, 0, 10.0, "house", 1.2)
+    for k in (0, 4, 6, 8, 10, 12, 17):
+        s.put("fx", FX["impact"](), k * B, 0.5)
+    s.put("fx", FX["riser"](), 15 * B, 0.3)
+    s.write(f"{OUT}/festival-lineup.wav")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
