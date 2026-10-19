@@ -1334,6 +1334,78 @@ def magnetic_shapes():
     basic("magnetic-shapes", 10.0, 108, "Gm", "funk", start=0.8, hits=hits, seed=205)
 
 
+@track
+def pendulum_wave():
+    hits = [(0.8, "chime")] + [(0.8 + k * 0.9, "tick") for k in range(8)] + [(8.0, "bell"), (8.35, "impact")]
+    basic("pendulum-wave", 10.0, 100, "Dm", "pulse", start=0.8, hits=hits, seed=206)
+
+
+@track
+def type_tunnel():
+    s = Song(10.0, bpm=128, seed=207)
+    harmony(s, 0, 2.0, "Fm", stabs=(0,), padlevel=0.08, stablevel=0.1, basslevel=0.0)
+    s.put("fx", FX["riser"](), 1.0, 0.4)
+    harmony(s, 2.0, 7.4, "Fm", padlevel=0.04, stablevel=0.2, basslevel=0.42)
+    groove(s, 2.0, 7.4, "house", 1.0)
+    s.put("fx", FX["impact"](), 2.0, 0.5)
+    for k in range(10):
+        s.put("fx", FX["whoosh"](), 2.2 + k * 0.5, 0.18)
+    harmony(s, 7.4, 10.0, "Fm", stabs=(0,), padlevel=0.07, stablevel=0.12, basslevel=0.2)
+    s.put("fx", FX["chime"](), 7.4, 0.5)
+    s.write(f"{OUT}/type-tunnel.wav")
+
+
+@track
+def talking_head():
+    hits = [(0.3, "whoosh"), (2.4, "impact"), (2.4, "pop"), (4.2, "pop"), (5.7, "pop"), (6.3, "chime"), (7.8, "whoosh"), (8.2, "bell")]
+    basic("talking-head", 10.0, 104, "C", "funk", start=0.6, hits=hits, level=0.6, seed=208)
+
+
+@track
+def train_seasons():
+    s = Song(10.0, bpm=84, seed=209)
+    harmony(s, 0, 10.0, "C", stabs=(0, 6, 8), bassline=(0, 8), padlevel=0.07, stablevel=0.12, basslevel=0.22)
+    for k in range(13):
+        s.put("drm", thud(70), 0.05 + k * 0.8, 0.35)
+        s.put("drm", thud(80), 0.2 + k * 0.8, 0.25)
+    for at in (2.2, 4.4, 6.6):
+        s.put("fx", FX["chime"](), at, 0.3)
+    s.put("fx", FX["bell"](), 8.5, 0.4)
+    s.write(f"{OUT}/train-seasons.wav")
+
+
+@track
+def derivative_explainer():
+    hits = [(0.3, "whoosh"), (1.2, "pop"), (1.5, "pop"), (4.4, "chime"), (5.0, "whoosh"), (7.8, "bell")]
+    basic("derivative-explainer", 10.0, 96, "C", "pulse", start=1.2, hits=hits, seed=210)
+
+
+@track
+def pelican_bicycle():
+    hits = [(6.35, "bell"), (6.55, "bell"), (7.6, "chime")]
+    basic("pelican-bicycle", 10.0, 112, "C", "funk", start=0.0, hits=hits, seed=211)
+
+
+@track
+def agents_day():
+    hits = [(0.3, "chime"), (0.8, "thud"), (1.7, "pop"), (1.95, "pop")] + [(1.9 + k * 0.18, "tick") for k in range(7)] + [(3.4, "thud"), (4.0, "pop"), (4.8, "chime"), (6.0, "whoosh"), (6.8, "pop"), (8.2, "riser"), (8.8, "bell")]
+    basic("agents-day", 10.0, 110, "Eb", "funk", start=0.8, end=7.6, hits=hits, seed=212)
+
+
+@track
+def crypto_hype():
+    s = Song(10.0, bpm=128, seed=213)
+    harmony(s, 0, 10.0, "Gm", stabs=(0, 3, 6, 10, 13), padlevel=0.04, stablevel=0.24, basslevel=0.5)
+    groove(s, 0, 19 * s.beat, "trap", 1.1)
+    for k in range(19):
+        s.put("drm", kick(punch=2.2), k * s.beat, 0.9)
+    for k in (5, 11, 17):
+        s.put("fx", FX["impact"](), k * s.beat, 0.6)
+    s.put("fx", FX["riser"](), 15 * s.beat, 0.4)
+    s.put("fx", FX["impact"](), 19 * s.beat, 0.7)
+    s.write(f"{OUT}/crypto-hype.wav")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
