@@ -1025,6 +1025,55 @@ def demo_builder():
     basic("demo-builder", 10.0, 120, "C", "funk", start=0.4, hits=hits, seed=155)
 
 
+@track
+def slice_reel():
+    hits = [(0.5 + i * 1.5 + 1.05, "whoosh") for i in range(4)] + [(0.5 + i * 1.5 + 1.5, "impact") for i in range(4)]
+    basic("slice-reel", 8.6, 120, "Am", "break", start=0.5, hits=hits, seed=156)
+
+
+@track
+def pixel_moon_night():
+    hits = [(0.0, "riser"), (2.6, "chime"), (3.5, "chime"), (5.2, "bell")]
+    basic("pixel-moon-night", 9.9, 88, "C", "half", start=1.0, hits=hits, seed=157)
+
+
+@track
+def focus_timer():
+    hits = [(0.2 + i * 0.28, "pop") for i in range(6)] + [(2.2, "click"), (2.4, "whoosh"), (3.4, "riser"), (7.0, "chime"), (9.0, "impact")]
+    basic("focus-timer", 10.0, 98, "Eb", "pulse", start=2.4, hits=hits, seed=158)
+
+
+@track
+def studio_intro():
+    hits = [(0.0, "riser"), (0.8, "thud"), (1.05, "thud"), (1.3, "thud"), (2.8, "whoosh"), (4.0, "tick"), (5.0, "tick"), (6.0, "tick"), (6.6, "riser"), (8.8, "impact")]
+    basic("studio-intro", 10.0, 118, "Dm", "house", start=0.8, hits=hits, seed=159)
+
+
+@track
+def research_intro():
+    hits = [(0.3, "whoosh"), (1.6, "chime")] + [(2.7 + i * 0.2, "pop") for i in range(6)] + [(6.2, "bell")]
+    basic("research-intro", 8.5, 96, "Gm", "half", start=0.3, hits=hits, seed=160)
+
+
+@track
+def road_flow():
+    hits = [(0.0, "riser"), (1.9, "whoosh"), (3.9, "whoosh"), (5.9, "whoosh"), (7.2, "thud"), (8.0, "chime")]
+    basic("road-flow", 9.9, 126, "Fm", "house", start=0.0, hits=hits, seed=161)
+
+
+@track
+def swatch_fan():
+    hits = [(0.3, "whoosh")] + [(1.4 + i * 1.2, "snap") for i in range(5)] + [(7.6, "whoosh"), (8.2, "chime")]
+    basic("swatch-fan", 9.5, 112, "C", "funk", start=0.3, hits=hits, seed=162)
+
+
+@track
+def reflex_tap():
+    times = [312, 268, 241, 219, 197, 183, 164]
+    hits = [(0.6 + i * 0.75 - i * i * 0.012, "pop") for i in range(7)] + [(0.6 + i * 0.75 - i * i * 0.012 + times[i] / 1000, "click") for i in range(7)] + [(6.4, "whoosh"), (7.4, "impact")]
+    basic("reflex-tap", 9.1, 130, "Am", "trap", start=0.6, hits=hits, seed=163)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
