@@ -1406,6 +1406,125 @@ def crypto_hype():
     s.write(f"{OUT}/crypto-hype.wav")
 
 
+@track
+def anime_hype():
+    s = Song(10.0, bpm=128, seed=214)
+    B = s.beat
+    harmony(s, 0, 3 * B, "Gm", stabs=(0,), padlevel=0.09, stablevel=0.1, basslevel=0.0)
+    s.put("fx", FX["riser"](), 1.6 * B, 0.4)
+    harmony(s, 3 * B, 15 * B, "Gm", padlevel=0.04, stablevel=0.26, basslevel=0.5)
+    groove(s, 3 * B, 15 * B, "trap", 1.1)
+    for k in (3, 10, 15):
+        s.put("fx", FX["impact"](), k * B, 0.7)
+    for k in (4, 4.6, 5.2):
+        s.put("fx", FX["whoosh"](), k * B, 0.3)
+    harmony(s, 15 * B, 10.0, "Gm", stabs=(0,), padlevel=0.08, stablevel=0.14, basslevel=0.2)
+    s.write(f"{OUT}/anime-hype.wav")
+
+
+@track
+def game_launch():
+    hits = [(0.1, "impact")] + [(0.5 + i * 0.35, "pop") for i in range(3)] + [(2.5 + k * 1.2, "click") for k in range(5)] + [(2.5 + k * 1.2 + 0.6, "tick") for k in range(4)] + [(4.4, "whoosh"), (5.8, "snap"), (6.5, "snap"), (7.6, "whoosh"), (7.9, "chime")]
+    basic("game-launch", 10.0, 132, "C", "house", start=0.1, hits=hits, seed=215)
+
+
+@track
+def scroll_sections():
+    hits = [(a, "whoosh") for a in (0.3, 2.0, 3.4, 4.6, 6.0, 6.8)] + [(5.2, "pop"), (8.2, "impact"), (8.6, "chime")]
+    basic("scroll-sections", 10.0, 110, "Am", "pulse", start=0.3, hits=hits, seed=216)
+
+
+@track
+def ascii_drop():
+    s = Song(10.0, bpm=140, seed=217)
+    B = s.beat
+    bar = s.bar
+    drop = bar * 2
+    # build: half-time drums, pad, riser
+    harmony(s, 0, drop, "Fm", stabs=(0,), bassline=(0,), padlevel=0.08, stablevel=0.08, basslevel=0.15)
+    for k in range(int(drop / B)):
+        if k % 4 == 0:
+            s.put("drm", kick(punch=2.0), k * B, 0.9)
+        if k % 4 == 2:
+            s.put("drm", snare(), k * B, 0.7)
+        s.put("drm", hat(), k * B + B / 2, 0.18, pan=0.3)
+    s.put("fx", FX["riser"](), drop - 1.6, 0.5)
+    s.put("fx", riser(1.6, 400, 9000), drop - 1.6, 0.35)
+    # drop: wobble bass from two filtered saws crossfaded by an LFO
+    n = int((bar * 2) * SR)
+    tt = np.arange(n) / SR
+    f0 = midi(29)
+    raw = saw(f0, bar * 2) + 0.6 * saw(f0 * 1.005, bar * 2) + 0.8 * sine(f0 / 2, bar * 2)
+    dark = lp(raw, 180)
+    bright = lp(raw, 2400)
+    lfo = 0.5 + 0.5 * np.sin(2 * np.pi * (140 / 60) * 0.75 * tt)
+    wob = np.tanh((dark * (1 - lfo) + bright * lfo) * 1.8)
+    s.put("mus", wob, drop, 0.55)
+    for k in range(int(bar * 2 / B)):
+        at = drop + k * B
+        if k % 4 == 0:
+            s.put("drm", kick(punch=2.4), at, 1.0)
+        if k % 4 == 2:
+            s.put("drm", snare(), at, 0.85)
+            s.put("drm", clap(), at, 0.5)
+        s.put("drm", hat(), at + B / 2, 0.22, pan=0.3)
+    s.put("fx", FX["impact"](), drop, 0.8)
+    # break + outro
+    for k in range(int((8.57 - drop - bar * 2) / B)):
+        at = drop + bar * 2 + k * B
+        if k % 2 == 0:
+            s.put("drm", kick(), at, 0.6)
+    harmony(s, 8.57, 10.0, "Fm", stabs=(0,), bassline=(0,), padlevel=0.08, stablevel=0.12, basslevel=0.2)
+    s.put("fx", FX["chime"](), 8.57, 0.5)
+    s.write(f"{OUT}/ascii-drop.wav")
+
+
+@track
+def blueprint_plane():
+    hits = [(0.4 + k * 0.32, "tick") for k in range(9)] + [(3.0, "chime"), (4.2, "whoosh"), (5.1, "riser"), (5.8, "thud"), (6.4, "whoosh"), (8.1, "bell")]
+    basic("blueprint-plane", 10.0, 96, "C", "pulse", start=4.2, hits=hits, seed=218)
+
+
+@track
+def fire_kata():
+    hits = []
+    for a in (1.3, 2.5, 3.7, 4.9, 6.2):
+        hits += [(a - 0.3, "whoosh"), (a, "impact")]
+    hits += [(7.6, "bell")]
+    basic("fire-kata", 10.0, 90, "Dm", "half", start=0.2, hits=hits, seed=219)
+
+
+@track
+def pixel_coin_wizard():
+    s = Song(10.0, bpm=132, seed=220)
+    B = s.beat
+    mel = [72, 76, 79, 84, 79, 76, 72, 76, 77, 81, 84, 89, 84, 81, 77, 81]
+    for k in range(int(10.0 / (B / 2))):
+        m = mel[k % len(mel)]
+        sig = square(midi(m), B / 2 * 0.9, 0.25) * env(int(B / 2 * 0.9 * SR) / SR, 0.002, 0.08)
+        s.put("mus", sig, k * B / 2, 0.08)
+    for k in range(int(10.0 / B)):
+        s.put("mus", square(midi(36 + [0, 0, 5, 7][k // 4 % 4]), B * 0.9, 0.5) * env(B * 0.9, 0.002, 0.2), k * B, 0.07)
+        if k % 2 == 0:
+            s.put("drm", kick(), k * B, 0.5)
+        s.put("drm", hat(), k * B + B / 2, 0.12)
+    def coin():
+        return np.concatenate([square(midi(83), 0.06, 0.5), square(midi(88), 0.14, 0.5) * env(0.14, 0.001, 0.06)])
+    s.put("fx", riser(0.6, 400, 4000), 1.9, 0.3)
+    s.put("fx", np.concatenate([square(f, 0.02, 0.5) for f in np.geomspace(1800, 300, 18)]), 2.5, 0.25)
+    for i in range(22):
+        s.put("fx", coin(), 3.3 + i * 0.12 + 0.9, 0.2)
+    s.put("fx", FX["chime"](), 6.0, 0.4)
+    s.put("fx", np.concatenate([square(f, 0.03, 0.5) for f in np.geomspace(300, 1200, 8)]), 7.0, 0.25)
+    s.write(f"{OUT}/pixel-coin-wizard.wav")
+
+
+@track
+def space_cartoon():
+    hits = [(0.0, "impact")] + [(1.6 + i * 0.55 + 0.45, "whoosh") for i in range(4)] + [(4.2, "riser"), (5.3, "thud"), (5.8, "pop"), (6.2, "pop"), (6.9, "chime"), (7.6, "whoosh"), (8.5, "bell")]
+    basic("space-cartoon", 10.0, 120, "C", "funk", start=1.5, end=7.6, hits=hits, seed=221)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
