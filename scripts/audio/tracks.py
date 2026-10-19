@@ -1074,6 +1074,54 @@ def reflex_tap():
     basic("reflex-tap", 9.1, 130, "Am", "trap", start=0.6, hits=hits, seed=163)
 
 
+@track
+def responsive_site():
+    hits = [(0.8, "whoosh"), (2.6, "snap"), (5.2, "snap"), (7.6, "whoosh"), (8.8, "impact")]
+    basic("responsive-site", 9.8, 118, "C", "house", start=0.8, hits=hits, seed=164)
+
+
+@track
+def workout_plan():
+    hits = [(i * 1.0, "thud") for i in range(3)] + [(2.6, "impact"), (5.2, "impact"), (5.4, "tick"), (5.8, "tick"), (6.2, "tick"), (6.6, "tick"), (7.2, "impact"), (9.0, "impact")]
+    basic("workout-plan", 9.8, 120, "Fm", "trap", start=0.0, hits=hits, seed=165)
+
+
+@track
+def style_twin():
+    hits = [(0.2, "thud"), (1.0, "riser")] + [(2.5 + i * 0.4, "pop") for i in range(6)] + [(5.6, "whoosh"), (8.8, "impact")]
+    basic("style-twin", 9.8, 116, "Eb", "funk", start=1.0, hits=hits, seed=166)
+
+
+@track
+def clay_bounce():
+    hits = [(i * 2.0, "pop") for i in range(4)] + [(8.0, "chime")]
+    basic("clay-bounce", 10.1, 112, "C", "funk", start=0.0, hits=hits, seed=167)
+
+
+@track
+def last_light():
+    hits = [(0.6, "chime"), (7.0, "riser"), (8.0, "bell")]
+    basic("last-light", 10.9, 72, "Dm", "half", start=2.8, hits=hits, seed=168)
+
+
+@track
+def moon_pavilion():
+    hits = [(0.0, "chime"), (3.0, "bell"), (8.0, "chime")]
+    basic("moon-pavilion", 10.9, 68, "Eb", "half", start=4.0, hits=hits, seed=169)
+
+
+@track
+def type_dissolve():
+    hits = [(0.0, "riser"), (1.5, "whoosh"), (3.7, "whoosh"), (5.9, "whoosh"), (7.2, "chime")]
+    basic("type-dissolve", 9.1, 110, "Am", "pulse", start=0.0, hits=hits, seed=170)
+
+
+@track
+def quick_design():
+    hits = [(0.0, "click")] + [(1.0 + i * 0.6, "snap") for i in range(4)] + [(3.6, "bell"), (4.4, "whoosh"), (8.4, "impact")]
+    basic("quick-design", 9.4, 128, "C", "break", start=0.0, hits=hits, seed=171)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
