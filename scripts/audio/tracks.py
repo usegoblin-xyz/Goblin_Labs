@@ -1273,6 +1273,67 @@ def query_console():
     basic("query-console", 10.0, 124, "Gm", "break", start=2.0, hits=hits, seed=197)
 
 
+@track
+def sketch_to_spec():
+    hits = [(a, "tick") for a in (0.5, 0.9, 1.15, 1.4, 1.6, 1.95, 2.25, 2.45)] + [(2.8, "whoosh")] + [(3.9 + i * 0.3, "click") for i in range(4)] + [(6.0 + i * 0.2, "pop") for i in range(3)] + [(8.0, "chime")]
+    basic("sketch-to-spec", 10.0, 112, "C", "pulse", start=0.4, hits=hits, seed=198)
+
+
+@track
+def spirograph_reel():
+    hits = [(0.3, "bell"), (2.8, "bell"), (4.8, "bell"), (6.8, "riser"), (7.9, "impact"), (8.0, "chime")]
+    basic("spirograph-reel", 10.0, 96, "Dm", "pulse", start=0.3, hits=hits, seed=199)
+
+
+@track
+def portfolio_zoom():
+    hits = [(0.1 + k * 0.07, "pop") for k in range(8)] + [(1.2, "whoosh"), (2.0, "snap"), (3.6, "whoosh"), (4.4, "snap"), (5.8, "whoosh"), (6.6, "whoosh"), (7.5, "impact")]
+    basic("portfolio-zoom", 10.0, 120, "Am", "house", start=1.2, hits=hits, seed=200)
+
+
+@track
+def lead_alert():
+    hits = [(0.2 + i * 0.1, "pop") for i in range(4)]
+    for i, sc in enumerate([92, 41, 85, 63, 97, 38, 88, 72, 94, 55]):
+        hits += [(1.55 + i * 0.45, "tick"), (2.35 + i * 0.45, "chime" if sc >= 80 else "click")]
+    hits += [(7.5, "impact")]
+    basic("lead-alert", 10.0, 122, "C", "house", start=1.0, hits=hits, seed=201)
+
+
+@track
+def oscilloscope_studio():
+    hits = [(0.1, "riser"), (0.6, "bell"), (2.4, "snap"), (4.0, "snap"), (5.6, "snap"), (6.9, "whoosh"), (7.3, "impact")]
+    basic("oscilloscope-studio", 10.0, 100, "Fm", "half", start=0.6, hits=hits, seed=202)
+
+
+@track
+def riso_studio():
+    hits = []
+    for at in (0.3, 2.1, 3.9, 5.7, 7.5):
+        hits += [(at, "whoosh"), (at + 0.35, "thud"), (at + 0.65, "thud")]
+    hits += [(8.3, "chime")]
+    basic("riso-studio", 10.0, 120, "Eb", "funk", start=0.3, hits=hits, seed=203)
+
+
+@track
+def lyric_video():
+    s = Song(10.0, bpm=120, seed=204)
+    harmony(s, 0, 10.0, "Am", padlevel=0.05, stablevel=0.22, basslevel=0.4)
+    groove(s, 0.4, 8.55, "house", 1.0)
+    for at in (0.4, 1.75, 3.1, 4.45, 5.8, 7.15):
+        s.put("fx", FX["whoosh"](), at - 0.08, 0.35)
+        for k in range(5):
+            s.put("mus", pluck(PROGS["Am"][0][1][k % 3] + 12 + (k % 2) * 5, 0.22, 3000), at + k * 0.25, 0.18, pan=0.25 if k % 2 else -0.25)
+    s.put("fx", FX["impact"](), 8.55, 0.5)
+    s.write(f"{OUT}/lyric-video.wav")
+
+
+@track
+def magnetic_shapes():
+    hits = [(0.8, "thud"), (3.0, "thud")] + [(a, "whoosh") for a in (2.0, 4.0, 5.0, 6.0)] + [(7.2, "snap"), (7.6, "impact"), (8.5, "chime")]
+    basic("magnetic-shapes", 10.0, 108, "Gm", "funk", start=0.8, hits=hits, seed=205)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     ids = sys.argv[1:] or []
