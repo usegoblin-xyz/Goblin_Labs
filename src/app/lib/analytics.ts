@@ -26,7 +26,7 @@ type Events = {
   library_searched: { query: string; results: number };
   category_filtered: { category: string };
   render_clicked: { template: string };
-  props_copied: { template: string };
+  prompt_copied: { template: string };
   waitlist_joined: { source: string };
 };
 

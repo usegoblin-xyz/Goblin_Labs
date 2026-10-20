@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { Copy, Film, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/app/components/ui/dialog";
-import type { Brand } from "../brand";
+import { FONTS, MOTIONS, type Brand } from "../brand";
 import type { Template } from "../kit";
 import { aspectLabel, seconds } from "../registry";
 import { LivePlayer } from "./LivePlayer";
@@ -16,17 +16,45 @@ type Props = {
   onWaitlist: () => void;
 };
 
+// A ready-to-paste prompt that describes this template in the viewer's brand
+// kit and copy, for making the video with Claude and Remotion.
+function buildPrompt(t: Template, brand: Brand, content: Record<string, string | number>) {
+  const copyLines = t.fields
+    .map((f) => {
+      const v = content[f.key] ?? t.defaults[f.key];
+      return v === undefined || v === "" ? null : `- ${f.label}: ${v}`;
+    })
+    .filter(Boolean);
+  return [
+    `Create a ${seconds(t)}-second ${aspectLabel(t)} motion graphic video (${t.width}x${t.height}, ${t.fps} fps) with Remotion: "${t.title}".`,
+    "",
+    `What it shows: ${t.outcome}.`,
+    `Style tags: ${t.tags.join(", ")}.`,
+    "",
+    "Brand kit (use only these, never hard-code other colours or fonts):",
+    `- Brand name: ${brand.name}`,
+    `- Background: ${brand.background}`,
+    `- Text: ${brand.foreground}`,
+    `- Primary: ${brand.primary}`,
+    `- Accent: ${brand.accent}`,
+    `- Font: ${FONTS[brand.font].label}`,
+    `- Motion feel: ${MOTIONS[brand.motion].label}`,
+    ...(copyLines.length ? ["", "On-screen copy:", ...copyLines] : []),
+    "",
+    "Make every frame a pure function of time so it renders the same every time. End on the brand name. Add a soundtrack whose hits land on the cuts.",
+  ].join("\n");
+}
+
 const inputCls =
   "w-full rounded-lg border border-white/12 bg-white/[0.04] px-3 py-2 text-[14px] text-white outline-none placeholder:text-white/30 focus:border-[#22A03A]";
 
 export function TemplateDialog({ template: t, brand, content, onContent, onClose, onWaitlist }: Props) {
   const copy = async () => {
     if (!t) return;
-    const json = JSON.stringify({ template: t.id, brand, content }, null, 2);
     try {
-      await navigator.clipboard.writeText(json);
-      track("props_copied", { template: t.id });
-      toast.success("Props copied", { description: "Paste them into your Remotion project." });
+      await navigator.clipboard.writeText(buildPrompt(t, brand, content));
+      track("prompt_copied", { template: t.id });
+      toast.success("Prompt copied", { description: "Paste it into Claude to make this video in your brand." });
     } catch {
       toast.error("Couldn't copy to the clipboard");
     }
@@ -101,7 +129,7 @@ export function TemplateDialog({ template: t, brand, content, onContent, onClose
                     onClick={copy}
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[13px] text-white/80 transition-colors hover:border-white/40 hover:text-white"
                   >
-                    <Copy className="h-3.5 w-3.5" /> Copy props
+                    <Copy className="h-3.5 w-3.5" /> Copy prompt
                   </button>
                   <button
                     onClick={() => onContent({ ...(t.defaults as Record<string, string | number>) })}
