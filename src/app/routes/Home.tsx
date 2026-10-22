@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, Bookmark, Search } from "lucide-react";
 import { toast } from "sonner";
 import goblinLogo from "@/assets/goblin-logo.png";
 import { DEFAULT_BRAND, type Brand } from "@/library/brand";
@@ -8,11 +8,21 @@ import { CATEGORIES, TEMPLATES, aspectLabel, matches, seconds } from "@/library/
 import { BrandBar } from "@/library/ui/BrandBar";
 import { LivePlayer } from "@/library/ui/LivePlayer";
 import { TemplateDialog } from "@/library/ui/TemplateDialog";
+import { LibrarySidebar, type Format } from "@/library/ui/LibrarySidebar";
 import { captureContact } from "@/app/lib/leads";
 import { track } from "@/app/lib/analytics";
 
 type Content = Record<string, string | number>;
 const BRAND_KEY = "goblin_brand_kit";
+const SAVED_KEY = "goblin.saved";
+
+function loadSaved(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(SAVED_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
 
 function loadBrand(): Brand {
   try {
@@ -35,6 +45,19 @@ export default function Home() {
   const [overrides, setOverrides] = useState<Record<string, Content>>({});
   const [category, setCategory] = useState<"All" | Category>("All");
   const [query, setQuery] = useState("");
+  const [format, setFormat] = useState<Format>("any");
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [saved, setSaved] = useState<string[]>(loadSaved);
+  const toggleSave = (id: string) =>
+    setSaved((s) => {
+      const next = s.includes(id) ? s.filter((x) => x !== id) : [...s, id];
+      try {
+        localStorage.setItem(SAVED_KEY, JSON.stringify(next));
+      } catch {
+        /* storage blocked: saved for this visit only */
+      }
+      return next;
+    });
   const [open, setOpen] = useState<Template | null>(null);
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -50,13 +73,35 @@ export default function Home() {
 
   const contentFor = (t: Template): Content => overrides[t.id] ?? (t.defaults as Content);
   const shown = useMemo(
-    () => TEMPLATES.filter((t) => (category === "All" || t.category === category) && matches(t, query)),
-    [category, query],
+    () =>
+      TEMPLATES.filter(
+        (t) =>
+          (category === "All" || t.category === category) &&
+          (format === "any" || aspectLabel(t) === format) &&
+          (!savedOnly || saved.includes(t.id)) &&
+          matches(t, query),
+      ),
+    [category, query, format, savedOnly, saved],
   );
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const t of TEMPLATES) c[t.category] = (c[t.category] ?? 0) + 1;
+    return c;
+  }, []);
+  const formatCounts = useMemo(() => {
+    const c: Record<Format, number> = { any: TEMPLATES.length, "16:9": 0, "9:16": 0, "1:1": 0 };
+    for (const t of TEMPLATES) c[aspectLabel(t) as Format]++;
+    return c;
+  }, []);
+  const pickCategory = (c: "All" | Category) => {
+    track("category_filtered", { category: c });
+    setCategory(c);
+    setSavedOnly(false);
+  };
   const hero = TEMPLATES[0];
   const PAGE = 24;
   const [limit, setLimit] = useState(PAGE);
-  useEffect(() => setLimit(PAGE), [category, query]);
+  useEffect(() => setLimit(PAGE), [category, query, format, savedOnly]);
 
   const openTemplate = (t: Template) => {
     track("template_opened", { template: t.id, category: t.category });
@@ -167,20 +212,48 @@ export default function Home() {
       </section>
 
       {/* Brand kit — sticky so every change is visible against the grid */}
-      <div className="z-30 mx-auto md:sticky md:top-14 max-w-[1240px] px-4 pt-2 sm:px-6">
+      <div id="brand-kit" className="z-30 mx-auto md:sticky md:top-14 max-w-[1240px] px-4 pt-2 sm:px-6">
         <BrandBar brand={brand} onChange={setBrand} />
       </div>
 
       {/* Library */}
       <section id="library" className="mx-auto max-w-[1240px] scroll-mt-36 px-4 pt-12 pb-20 sm:px-6">
+        <div className="flex gap-8">
+        <LibrarySidebar
+          query={query}
+          onQuery={setQuery}
+          category={category}
+          onCategory={pickCategory}
+          categories={CATEGORIES.filter((c): c is Category => c !== "All")}
+          counts={counts}
+          total={TEMPLATES.length}
+          format={format}
+          onFormat={setFormat}
+          formatCounts={formatCounts}
+          savedOnly={savedOnly}
+          onSaved={() => {
+            setSavedOnly(true);
+            setCategory("All");
+          }}
+          savedCount={saved.length}
+          onBrandKit={() => window.scrollTo({ top: (document.getElementById("brand-kit")?.offsetTop ?? 0) - 80, behavior: "smooth" })}
+          onRender={goWaitlist}
+        />
+        <div className="min-w-0 flex-1">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-[28px] font-semibold tracking-tight sm:text-[34px]">The library</h2>
+            <h2 className="text-[28px] font-semibold tracking-tight sm:text-[34px]">
+              {savedOnly ? "Saved" : category === "All" ? "The library" : category}
+            </h2>
             <p className="mt-1 text-[15px] text-white/55">
-              {TEMPLATES.length} templates, each restyled live by your brand kit. Click one to edit the copy.
+              {savedOnly
+                ? saved.length
+                  ? `${shown.length} saved template${shown.length === 1 ? "" : "s"}.`
+                  : "Nothing saved yet. Tap the bookmark on any template to keep it here."
+                : `${shown.length} template${shown.length === 1 ? "" : "s"}${format !== "any" ? ` in ${format}` : ""}, each restyled live by your brand kit. Click one to edit the copy.`}
             </p>
           </div>
-          <label className="relative block sm:w-[300px]">
+          <label className="relative block sm:w-[300px] lg:hidden">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/40" />
             <input
               value={query}
@@ -192,16 +265,13 @@ export default function Home() {
           </label>
         </div>
 
-        <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+        <div className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
           {CATEGORIES.map((c) => (
             <button
               key={c}
-              onClick={() => {
-                track("category_filtered", { category: c });
-                setCategory(c);
-              }}
+              onClick={() => pickCategory(c)}
               className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition-colors ${
-                category === c
+                category === c && !savedOnly
                   ? "border-white bg-white font-medium text-black"
                   : "border-white/12 text-white/65 hover:border-white/35 hover:text-white"
               }`}
@@ -213,7 +283,7 @@ export default function Home() {
 
         {shown.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-white/15 p-10 text-center text-white/55">
-            Nothing matches “{query}” yet.{" "}
+            {savedOnly && !query ? "Nothing saved yet." : <>Nothing matches “{query}” yet.</>}{" "}
             <button onClick={goWaitlist} className="text-[#22A03A] underline-offset-4 hover:underline">
               Tell us what you need
             </button>{" "}
@@ -221,12 +291,12 @@ export default function Home() {
           </div>
         ) : (
           <>
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
             {shown.slice(0, limit).map((t) => (
+              <div key={t.id} className="group relative">
               <button
-                key={t.id}
                 onClick={() => openTemplate(t)}
-                className="group overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] text-left transition-colors hover:border-white/30"
+                className="block w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] text-left transition-colors hover:border-white/30"
               >
                 <LivePlayer template={t} brand={brand} content={contentFor(t)} className="aspect-video w-full" />
                 <div className="p-4">
@@ -241,6 +311,18 @@ export default function Home() {
                   <p className="mt-1 text-[13px] leading-snug text-white/55">{t.outcome}</p>
                 </div>
               </button>
+              <button
+                onClick={() => toggleSave(t.id)}
+                aria-label={saved.includes(t.id) ? `Remove ${t.title} from saved` : `Save ${t.title}`}
+                className={`absolute top-3 right-3 rounded-lg border p-1.5 backdrop-blur-md transition-opacity ${
+                  saved.includes(t.id)
+                    ? "border-[#22A03A]/60 bg-black/70 text-[#5fd67a] opacity-100"
+                    : "border-white/15 bg-black/60 text-white/80 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                }`}
+              >
+                <Bookmark className="h-4 w-4" fill={saved.includes(t.id) ? "currentColor" : "none"} />
+              </button>
+              </div>
             ))}
           </div>
           {shown.length > limit && (
@@ -255,6 +337,8 @@ export default function Home() {
           )}
           </>
         )}
+        </div>
+        </div>
       </section>
 
       {/* How it works */}
