@@ -11,6 +11,7 @@ import { Audio, Composition, staticFile } from "remotion";
 import { CameraMotionBlur } from "@remotion/motion-blur";
 import { DEFAULT_BRAND, type Brand } from "../src/library/brand";
 import { TEMPLATES } from "../src/library/registry";
+import { GoblinLaunch } from "./GoblinLaunch";
 
 type Props = { brand: Brand; content: Record<string, string | number>; templateId: string; blur: number };
 type Comp = React.ComponentType<{ brand: Brand; content: Record<string, string | number>; audio?: boolean }>;
@@ -50,6 +51,7 @@ export function Root() {
           <Composition key={t.id} {...common} lazyComponent={() => t.lazy!().then((m) => ({ default: withRender(m.default as Comp, t.soundtrack) })) as never} />
         );
       })}
+      <Composition id="goblin-launch" component={GoblinLaunch as never} width={1920} height={1080} fps={60} durationInFrames={915} defaultProps={{ blur: 0 } as never} />
     </>
   );
 }

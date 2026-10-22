@@ -168,10 +168,19 @@ const doodle = {
 };
 
 type Pal = { p: string; on: string; side: string };
-type P = { t: number; b: Brand; c: C; pal: Pal; ff: string; initial: string };
+type P = { t: number; b: Brand; c: C; pal: Pal; ff: string; initial: string; glyph?: string };
+
+// Optional logo glyph: an SVG path in a 0–100 box that replaces the initial.
+function Glyph({ d, size, color, opacity = 1 }: { d: string; size: number; color: string; opacity?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" style={{ opacity, overflow: "visible" }}>
+      <path d={d} fill={color} fillRule="evenodd" transform="translate(50 50) scale(0.74) translate(-50 -50)" />
+    </svg>
+  );
+}
 
 // Brand mark: rounded square with the brand initial.
-function Mark({ x, y, size, r, pal, initial, ff, letter = 1, rot = 0, s = 1 }: { x: number; y: number; size: number; r: number; pal: Pal; initial: string; ff: string; letter?: number; rot?: number; s?: number }) {
+function Mark({ x, y, size, r, pal, initial, ff, letter = 1, rot = 0, s = 1, glyph }: { x: number; y: number; size: number; r: number; pal: Pal; initial: string; ff: string; letter?: number; rot?: number; s?: number; glyph?: string }) {
   return (
     <div
       style={{
@@ -188,7 +197,8 @@ function Mark({ x, y, size, r, pal, initial, ff, letter = 1, rot = 0, s = 1 }: {
         justifyContent: "center",
       }}
     >
-      {letter > 0 && (
+      {letter > 0 && glyph && <Glyph d={glyph} size={size} color={pal.on} opacity={letter} />}
+      {letter > 0 && !glyph && (
         <span style={{ fontFamily: ff, fontWeight: 800, fontSize: size * 0.62, lineHeight: 1, color: pal.on, opacity: letter, transform: "translateY(-2%)" }}>{initial}</span>
       )}
     </div>
@@ -311,7 +321,7 @@ function WordMorph({ t, c, pal, ff }: P) {
 const M2 = 340;
 const M3 = 110; // mark size while it travels through the images
 
-function Construct({ t, pal, initial, ff }: P) {
+function Construct({ t, pal, initial, ff, glyph }: P) {
   const u = t - b(4);
   const iris = kf(u, [[0, 1400], [0.32, M2 / 2]]);
   const sq = expInOut(seg(u, 0.3, 0.32));
@@ -360,14 +370,24 @@ function Construct({ t, pal, initial, ff }: P) {
             ))}
           </Svg>
           <div style={{ position: "absolute", left: CX - size / 2, top: CY - size / 2, width: size, height: size, borderRadius: radius, background: pal.p }} />
-          {letterFill > 0 && (
+          {glyph && letterFill > 0 && (
+            <Svg>
+              <path d={glyph} fill={pal.on} fillRule="evenodd" opacity={letterFill} transform={`translate(${CX - M2 / 2} ${CY - M2 / 2}) scale(${M2 / 100}) translate(50 50) scale(0.74) translate(-50 -50)`} />
+            </Svg>
+          )}
+          {glyph && letterDraw > 0 && letterFill < 1 && collapse < 0.3 && (
+            <Svg>
+              <path d={glyph} fill="none" stroke={pal.on} strokeWidth={4 / ((M2 / 100) * 0.74)} pathLength={1} strokeDasharray={1} strokeDashoffset={1 - letterDraw} opacity={1 - collapse * 3} transform={`translate(${CX - M2 / 2} ${CY - M2 / 2}) scale(${M2 / 100}) translate(50 50) scale(0.74) translate(-50 -50)`} />
+            </Svg>
+          )}
+          {!glyph && letterFill > 0 && (
             <Svg>
               <text x={CX} y={CY + M2 * 0.62 * 0.36} textAnchor="middle" fontFamily={ff} fontSize={M2 * 0.62} style={{ fontWeight: 800 }} fill={pal.on} opacity={letterFill}>
                 {initial}
               </text>
             </Svg>
           )}
-          {letterDraw > 0 && letterFill < 1 && collapse < 0.3 && (
+          {!glyph && letterDraw > 0 && letterFill < 1 && collapse < 0.3 && (
             <Svg>
               <text x={CX} y={CY + M2 * 0.62 * 0.36} textAnchor="middle" fontFamily={ff} fontSize={M2 * 0.62} style={{ fontWeight: 800 }} fill="none" stroke={pal.on} strokeWidth={4} strokeDasharray={1400} strokeDashoffset={1400 * (1 - letterDraw)} opacity={1 - collapse * 3}>
                 {initial}
@@ -414,7 +434,8 @@ function Construct({ t, pal, initial, ff }: P) {
                       justifyContent: "center",
                     }}
                   >
-                    {front && <span style={{ fontFamily: ff, fontWeight: 800, fontSize: size3 * 0.62, lineHeight: 1, color: pal.on, transform: "translateY(-2%)" }}>{initial}</span>}
+                    {front && glyph && <Glyph d={glyph} size={size3} color={pal.on} />}
+                    {front && !glyph && <span style={{ fontFamily: ff, fontWeight: 800, fontSize: size3 * 0.62, lineHeight: 1, color: pal.on, transform: "translateY(-2%)" }}>{initial}</span>}
                   </div>
                 );
               })}
@@ -447,7 +468,7 @@ const SHOTS: Shot[] = [
 ];
 const CUT = b(0.5);
 
-function Hands({ t, pal, initial, ff }: P) {
+function Hands({ t, pal, initial, ff, glyph }: P) {
   const u = t - b(8);
   const shot = Math.min(SHOTS.length - 1, Math.floor(u / CUT));
   const su = u - shot * CUT;
@@ -468,7 +489,7 @@ function Hands({ t, pal, initial, ff }: P) {
       <Svg>
         <Paint d={S.d(CX, CY)} color={pal.p} width={10} p={expOut(seg(su, 0.02, 0.16))} out={toDot} />
       </Svg>
-      <Mark x={mx} y={CY} size={size} r={r} pal={pal} initial={initial} ff={ff} letter={eye ? 0 : 1 - toDot * 2} rot={S.rot * (1 - toDot)} s={pop} />
+      <Mark x={mx} y={CY} size={size} r={r} pal={pal} initial={initial} ff={ff} letter={eye ? 0 : 1 - toDot * 2} rot={S.rot * (1 - toDot)} s={pop} glyph={glyph} />
     </>
   );
 }
@@ -715,7 +736,7 @@ function Headline({ t, c, pal, ff }: P) {
 const CUBE = 420;
 const TURNS = [0.38, 0.62, 0.85, 1.09, 1.32];
 
-function Cube({ t, c, pal, ff, initial }: P) {
+function Cube({ t, c, pal, ff, initial, glyph }: P) {
   const u = t - 11.1;
   const s = TURNS.reduce((a, t0) => a + expInOut(seg(u, t0, 0.2)), 0);
   const tilt = kf(u, [[0.02, 0], [0.34, -16], [1.3, -16], [1.52, 0]]);
@@ -773,7 +794,8 @@ function Cube({ t, c, pal, ff, initial }: P) {
                   </span>
                 )}
                 {"img" in st && <Pic n={st.img} x={CUBE / 2} y={CUBE + 4} h={CUBE * 1.05} ay={1} />}
-                {"mark" in st && <span style={{ fontFamily: ff, fontWeight: 800, fontSize: CUBE * 0.62, lineHeight: 1, color: pal.on, transform: "translateY(-2%)" }}>{initial}</span>}
+                {"mark" in st && glyph && <Glyph d={glyph} size={CUBE} color={pal.on} />}
+                {"mark" in st && !glyph && <span style={{ fontFamily: ff, fontWeight: 800, fontSize: CUBE * 0.62, lineHeight: 1, color: pal.on, transform: "translateY(-2%)" }}>{initial}</span>}
               </div>
             );
           })}
@@ -788,7 +810,7 @@ function Cube({ t, c, pal, ff, initial }: P) {
 }
 
 // ---- 8. logo lockup (12.66 – end) -----------------------------------------------------
-function Lockup({ t, b: brand, pal, ff, initial }: P) {
+function Lockup({ t, b: brand, pal, ff, initial, glyph }: P) {
   const u = t - 12.66;
   const name = brand.name.trim() || "Goblin";
   const fs = Math.min(150, 980 / Math.max(0.1, textWidth(name, 1, 800, 0, ff)));
@@ -809,7 +831,7 @@ function Lockup({ t, b: brand, pal, ff, initial }: P) {
   const cursor = u > 0.4 && u < 0.6 + 0.05 * name.length;
   return (
     <>
-      <Mark x={mx} y={my} size={size} r={r} pal={pal} initial={initial} ff={ff} s={hit} />
+      <Mark x={mx} y={my} size={size} r={r} pal={pal} initial={initial} ff={ff} s={hit} glyph={glyph} />
       <Svg>
         {name.split("").map((ch, i) =>
           i < typed ? (
@@ -825,7 +847,7 @@ function Lockup({ t, b: brand, pal, ff, initial }: P) {
 }
 
 // ---- composition ---------------------------------------------------------------------
-export function EditorialAd({ brand, content, audio }: TemplateProps<C>) {
+export function EditorialAd({ brand, content, audio, glyph }: TemplateProps<C> & { glyph?: string }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;
@@ -833,7 +855,7 @@ export function EditorialAd({ brand, content, audio }: TemplateProps<C>) {
   const pal: Pal = { p, on: onColor(p), side: shade(p, 0.62) };
   const ff = font(brand);
   const initial = (brand.name.trim()[0] ?? "G").toUpperCase();
-  const props: P = { t, b: brand, c: content, pal, ff, initial };
+  const props: P = { t, b: brand, c: content, pal, ff, initial, glyph };
 
   let scene: ReactNode;
   if (t < b(4)) scene = <WordMorph {...props} />;
