@@ -42,7 +42,7 @@ const str = (v: unknown, max = 300) =>
 // ceiling at 16 functions; folding read+write into one keeps us under it.
 // The read view exposes lead PII (names, emails, companies), so it is never
 // public. Callers must be signed in; if LEADS_OPERATOR_IDS is set (comma-
-// separated Clerk user ids) only those operators pass. The public site never
+// separated user ids) only those operators pass. The public site never
 // calls this GET — only the operator dashboard does — so gating it is invisible
 // to visitors.
 async function authorizeOperator(req: VercelRequest): Promise<boolean> {

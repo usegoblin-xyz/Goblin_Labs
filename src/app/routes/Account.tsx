@@ -1,34 +1,6 @@
 import { useEffect, useState } from "react";
-import { UserProfile, useAuth, useUser } from "@clerk/clerk-react";
+import { authClient, useAuth, useUser } from "@/app/lib/auth";
 import { Link } from "react-router";
-
-// Clerk UserProfile themed to the dark goblin look.
-const profileAppearance = {
-  variables: {
-    colorPrimary: "#22a03a",
-    colorBackground: "#0d1512",
-    colorInputBackground: "#141d18",
-    colorText: "#f3f5f2",
-    colorTextSecondary: "#9aa79d",
-    colorInputText: "#f3f5f2",
-    colorDanger: "#ef6b5e",
-    borderRadius: "0.75rem",
-    fontFamily: "Inter, system-ui, sans-serif",
-  },
-  elements: {
-    rootBox: "w-full",
-    cardBox: "w-full shadow-none border border-white/10 rounded-2xl",
-    card: "bg-[#0d1512]",
-    navbar: "bg-[#0b120e] border-r border-white/10",
-    navbarButton: "!text-[#9aa79d] hover:!text-white",
-    headerTitle: "!text-white",
-    headerSubtitle: "!text-[#9aa79d]",
-    profileSectionTitleText: "!text-white",
-    formButtonPrimary:
-      "!bg-[#22a03a] hover:!bg-[#178a2e] !text-white !shadow-none normal-case",
-    badge: "!bg-[#22a03a]/15 !text-[#4cd166]",
-  },
-} as const;
 
 type MyPersona = {
   anamPersonaId: string;
@@ -118,14 +90,28 @@ export default function Account() {
             {user?.firstName ? `Hi, ${user.firstName}` : "Your account"}
           </h1>
           <p className="mt-1 text-[14px] text-muted-foreground">
-            Manage your profile, security, and connected accounts. Grab embed
+            Your profile, plus embed
             codes for the personas you&rsquo;ve deployed.
           </p>
         </div>
 
-        {/* Profile management (Clerk) */}
-        <section className="mb-12">
-          <UserProfile routing="path" path="/account" appearance={profileAppearance} />
+        {/* Profile */}
+        <section className="mb-12 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="text-[15px] font-semibold">{user?.fullName || "Your profile"}</div>
+              <div className="text-[13px] text-muted-foreground">{user?.primaryEmailAddress.emailAddress}</div>
+            </div>
+            <button
+              onClick={async () => {
+                await authClient.signOut();
+                window.location.href = "/";
+              }}
+              className="rounded-full border border-white/15 px-4 py-1.5 text-[13px] text-foreground/80 hover:border-white/30 hover:text-foreground"
+            >
+              Sign out
+            </button>
+          </div>
         </section>
 
         {/* Embeddable personas */}
