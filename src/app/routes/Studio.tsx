@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
-import { useAuth, useUser, UserButton } from "@clerk/clerk-react";
+import { useAuth, useUser, UserButton } from "@/app/lib/auth";
 import { motion } from "motion/react";
 import {
   ArrowLeft,

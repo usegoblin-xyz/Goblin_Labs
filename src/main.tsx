@@ -1,19 +1,12 @@
 import { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router";
-import { ClerkProvider } from "@clerk/clerk-react";
 import Home from "./app/routes/Home.tsx";
 import { Toaster } from "./app/components/ui/sonner";
 import "./styles/index.css";
 import { initAnalytics } from "./app/lib/analytics";
 
 initAnalytics();
-
-// Publishable key is public by design (it ships in the bundle either way).
-// Env var wins so prod can rotate it without a code change.
-const CLERK_PK =
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ??
-  "pk_live_Y2xlcmsudXNlZ29ibGluLnh5eiQ";
 
 // Heavy routes load only when visited.
 // Previous Goblin Labs homepage (personas), kept reachable during the pivot.
@@ -28,7 +21,7 @@ const SupportDemo = lazy(() => import("./app/routes/SupportDemo.tsx"));
 const LeadGenDemo = lazy(() => import("./app/routes/LeadGenDemo.tsx"));
 
 createRoot(document.getElementById("root")!).render(
-  <ClerkProvider publishableKey={CLERK_PK} afterSignOutUrl="/">
+  <>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -115,5 +108,5 @@ createRoot(document.getElementById("root")!).render(
       </Routes>
     </BrowserRouter>
     <Toaster />
-  </ClerkProvider>,
+  </>,
 );

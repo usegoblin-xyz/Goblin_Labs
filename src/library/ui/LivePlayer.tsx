@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Player, type PlayerRef } from "@remotion/player";
+import type { ComponentType, Ref } from "react";
+import { Player as RemotionPlayer, type PlayerRef } from "@remotion/player";
+
+// Remotion's Player props are typed against zod 3, but the app also installs
+// zod 4 (Better Auth), which breaks that inference. The props are unchanged.
+const Player = RemotionPlayer as unknown as ComponentType<Record<string, unknown> & { ref?: Ref<PlayerRef> }>;
 import type { Brand } from "../brand";
 import type { Template } from "../kit";
 

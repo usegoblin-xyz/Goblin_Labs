@@ -1,6 +1,6 @@
 // GET  /api/personas-mine        -> list the signed-in user's personas
 // POST /api/personas-mine        -> save a deployed persona { anamPersonaId, name, vertical }
-// Ownership records live in Mongo (goblinlabs.personas), keyed by Clerk user id.
+// Ownership records live in Mongo (goblinlabs.personas), keyed by user id (Better Auth; records made before the switch carry Clerk ids).
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserId } from "./_auth.js";
 import { getClient } from "./_rag.js";

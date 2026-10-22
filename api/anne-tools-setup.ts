@@ -1,6 +1,6 @@
 // POST /api/anne-tools-setup — idempotent. Creates the Zendesk webhook tools
 // at Anam (if missing), attaches them to Anne, and upgrades her prompt to a
-// support role. Clerk-authenticated; triggered from the demo page.
+// support role. Requires a signed-in user; triggered from the demo page.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserId } from "./_auth.js";
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth } from "@/app/lib/auth";
 import { toast } from "sonner";
 import { Copy, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/app/components/ui/dialog";
@@ -51,9 +51,9 @@ const inputCls =
   "w-full rounded-lg border border-white/12 bg-white/[0.04] px-3 py-2 text-[14px] text-white outline-none placeholder:text-white/30 focus:border-[#22A03A]";
 
 export function TemplateDialog({ template: t, brand, content, onContent, onClose }: Props) {
-  const { isSignedIn: clerkSignedIn } = useAuth();
+  const { isSignedIn: accountSignedIn } = useAuth();
   const [emailSignup, setEmailSignup] = useState(hasEmailSignup);
-  const isSignedIn = !!clerkSignedIn || emailSignup;
+  const isSignedIn = !!accountSignedIn || emailSignup;
   const [gate, setGate] = useState(false);
   const [used, setUsed] = useState(copiesUsed);
 

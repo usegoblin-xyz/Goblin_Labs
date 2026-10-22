@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { useAuth, UserButton } from "@clerk/clerk-react";
+import { useAuth, UserButton } from "@/app/lib/auth";
 import { createClient, AnamEvent } from "@anam-ai/js-sdk";
 import { Loader2, PhoneOff, Sparkles, Wrench, Check, Trash2 } from "lucide-react";
 import { VIRTUAL_PERSONAS } from "@/app/lib/anam";

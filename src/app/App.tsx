@@ -11,7 +11,7 @@ import {
   Twitter,
   X,
 } from "lucide-react";
-import { useAuth, useUser, UserButton } from "@clerk/clerk-react";
+import { useAuth, useUser, UserButton } from "@/app/lib/auth";
 import { ImageWithFallback } from "@/app/components/figma/ImageWithFallback";
 import goblinLogo from "@/assets/goblin-logo.png";
 
