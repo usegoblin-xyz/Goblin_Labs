@@ -104,6 +104,18 @@ Copy keys into `.env.local`, which is git-ignored and never committed.
 `VITE_POSTHOG_KEY` turns on product analytics. Without it, analytics does
 nothing.
 
+Sign-in uses [Better Auth](https://better-auth.com) (`api/_betterauth.ts`,
+served at `/api/auth/*`), with accounts in Supabase Postgres:
+
+| Variable | What it is |
+|---|---|
+| `DATABASE_URL` | Postgres connection string for the auth database |
+| `BETTER_AUTH_SECRET` | Signing secret for sessions |
+| `BETTER_AUTH_URL` | Site URL in production (previews infer it) |
+| `BETTER_AUTH_API_KEY` | Better Auth Infrastructure dashboard, read by `dash()` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in, optional |
+| `VITE_GOOGLE_AUTH` | Set to `1` to show the Google button once the above are set |
+
 ## Legacy
 
 Goblin started as a lab building real-time AI personas. The persona pages
