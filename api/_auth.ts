@@ -1,21 +1,14 @@
-// Clerk JWT verification for API routes. Uses Clerk's public JWKS, so no
-// secret key is needed server-side for verification.
+// Session lookup for API routes: reads the Better Auth session cookie that the
+// browser sends with same-origin requests.
 import type { VercelRequest } from "@vercel/node";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { fromNodeHeaders } from "better-auth/node";
+import { auth } from "./_betterauth.js";
 
-const ISSUER =
-  process.env.CLERK_ISSUER ?? "https://clerk.usegoblin.xyz";
-
-const JWKS = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
-
-// Returns the Clerk user id, or null if the request isn't authenticated.
+// Returns the signed-in user's id, or null if the request isn't authenticated.
 export async function getUserId(req: VercelRequest): Promise<string | null> {
-  const auth = req.headers.authorization ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, JWKS, { issuer: ISSUER });
-    return typeof payload.sub === "string" ? payload.sub : null;
+    const session = await auth.api.getSession({ headers: fromNodeHeaders(req.headers) });
+    return session?.user.id ?? null;
   } catch {
     return null;
   }

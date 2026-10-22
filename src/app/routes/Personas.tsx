@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { useAuth, UserButton, useUser } from "@clerk/clerk-react";
+import { useAuth, UserButton, useUser } from "@/app/lib/auth";
 import { ArrowRight, Copy, Check, Loader2 } from "lucide-react";
 
 type PersonaRow = {
