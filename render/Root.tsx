@@ -51,7 +51,7 @@ export function Root() {
           <Composition key={t.id} {...common} lazyComponent={() => t.lazy!().then((m) => ({ default: withRender(m.default as Comp, t.soundtrack) })) as never} />
         );
       })}
-      <Composition id="goblin-launch" component={GoblinLaunch as never} width={1920} height={1080} fps={60} durationInFrames={915} defaultProps={{ blur: 0 } as never} />
+      <Composition id="goblin-launch" component={GoblinLaunch as never} width={1920} height={1080} fps={60} durationInFrames={990} defaultProps={{ blur: 0 } as never} />
     </>
   );
 }
