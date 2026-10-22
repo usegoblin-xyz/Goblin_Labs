@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
-import { Copy, Film, RotateCcw } from "lucide-react";
+import { Copy, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/app/components/ui/dialog";
 import { FONTS, MOTIONS, type Brand } from "../brand";
 import type { Template } from "../kit";
@@ -16,7 +16,6 @@ type Props = {
   content: Record<string, string | number>;
   onContent: (c: Record<string, string | number>) => void;
   onClose: () => void;
-  onWaitlist: () => void;
 };
 
 // A ready-to-paste prompt that describes this template in the viewer's brand
@@ -51,7 +50,7 @@ function buildPrompt(t: Template, brand: Brand, content: Record<string, string |
 const inputCls =
   "w-full rounded-lg border border-white/12 bg-white/[0.04] px-3 py-2 text-[14px] text-white outline-none placeholder:text-white/30 focus:border-[#22A03A]";
 
-export function TemplateDialog({ template: t, brand, content, onContent, onClose, onWaitlist }: Props) {
+export function TemplateDialog({ template: t, brand, content, onContent, onClose }: Props) {
   const { isSignedIn: clerkSignedIn } = useAuth();
   const [emailSignup, setEmailSignup] = useState(hasEmailSignup);
   const isSignedIn = !!clerkSignedIn || emailSignup;
@@ -143,21 +142,12 @@ export function TemplateDialog({ template: t, brand, content, onContent, onClose
               </div>
 
               <div className="mt-6 flex flex-col gap-2 pt-2 lg:mt-auto">
-                <button
-                  onClick={() => {
-                    track("render_clicked", { template: t.id });
-                    onWaitlist();
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#22A03A] px-5 py-2.5 text-[13px] font-semibold text-black transition-opacity hover:opacity-90"
-                >
-                  <Film className="h-4 w-4" /> Render MP4 · join the waitlist
-                </button>
                 <div className="flex gap-2">
                   <button
                     onClick={copy}
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-2 text-[13px] text-white/80 transition-colors hover:border-white/40 hover:text-white"
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[#22A03A] px-5 py-2.5 text-[13px] font-semibold text-black transition-opacity hover:opacity-90"
                   >
-                    <Copy className="h-3.5 w-3.5" /> Copy prompt
+                    <Copy className="h-4 w-4" /> Copy prompt
                   </button>
                   <button
                     onClick={() => onContent({ ...(t.defaults as Record<string, string | number>) })}
