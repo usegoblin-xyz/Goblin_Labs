@@ -4,7 +4,6 @@ import {
   Bookmark,
   BookOpen,
   Clapperboard,
-  Film,
   LayoutGrid,
   Lightbulb,
   Monitor,
@@ -46,7 +45,6 @@ type Props = {
   onSaved: () => void;
   savedCount: number;
   onBrandKit: () => void;
-  onRender: () => void;
 };
 
 function Item({ icon, label, count, active, onClick, badge }: { icon: ReactNode; label: string; count?: number; active?: boolean; onClick: () => void; badge?: string }) {
@@ -125,7 +123,6 @@ export function LibrarySidebar(p: Props) {
         <Heading>Build</Heading>
         <div className="space-y-0.5">
           <Item icon={<Palette className={ic} />} label="Brand kit" onClick={p.onBrandKit} />
-          <Item icon={<Film className={ic} />} label="Render MP4" badge="Soon" onClick={p.onRender} />
           <Item icon={<Wand2 className={ic} />} label="How it works" onClick={() => document.getElementById("how")?.scrollIntoView({ behavior: "smooth" })} />
         </div>
       </div>

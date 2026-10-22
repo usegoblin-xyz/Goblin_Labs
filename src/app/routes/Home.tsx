@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Bookmark, Search } from "lucide-react";
-import { toast } from "sonner";
 import goblinLogo from "@/assets/goblin-logo.png";
 import { DEFAULT_BRAND, type Brand } from "@/library/brand";
 import type { Category, Template } from "@/library/kit";
@@ -9,7 +8,6 @@ import { BrandBar } from "@/library/ui/BrandBar";
 import { LivePlayer } from "@/library/ui/LivePlayer";
 import { TemplateDialog } from "@/library/ui/TemplateDialog";
 import { LibrarySidebar, type Format } from "@/library/ui/LibrarySidebar";
-import { captureContact } from "@/app/lib/leads";
 import { track } from "@/app/lib/analytics";
 
 type Content = Record<string, string | number>;
@@ -37,7 +35,7 @@ function loadBrand(): Brand {
 const STEPS = [
   { n: "01", title: "Set your brand once", body: "Name, colors, font and motion feel. Every template reads from the same kit." },
   { n: "02", title: "Pick by outcome", body: "Launch intro, feature drop, changelog, traction post. Fill in your copy." },
-  { n: "03", title: "Render and post", body: "Export an MP4 in 16:9, square or vertical. Rendering opens to the waitlist first." },
+  { n: "03", title: "Copy the prompt", body: "Paste it into Claude and get the video, built in your brand, ready to post." },
 ];
 
 export default function Home() {
@@ -59,9 +57,6 @@ export default function Home() {
       return next;
     });
   const [open, setOpen] = useState<Template | null>(null);
-  const [email, setEmail] = useState("");
-  const [sending, setSending] = useState(false);
-  const emailRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
@@ -121,33 +116,6 @@ export default function Home() {
     return () => clearTimeout(id);
   }, [query, shown.length]);
 
-  const goWaitlist = () => {
-    setOpen(null);
-    setTimeout(() => {
-      document.getElementById("waitlist")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      emailRef.current?.focus({ preventScroll: true });
-    }, 150);
-  };
-
-  const join = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Enter a valid email");
-      return;
-    }
-    setSending(true);
-    try {
-      await captureContact("motion-waitlist", { email, company: brand.name, need: "Motion library waitlist" });
-      track("waitlist_joined", { source: "homepage" });
-      toast.success("You're on the list", { description: "We'll email you when rendering opens." });
-      setEmail("");
-    } catch {
-      toast.error("Something went wrong. Try again in a moment.");
-    } finally {
-      setSending(false);
-    }
-  };
-
   return (
     <div className="min-h-full bg-black text-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       {/* Nav */}
@@ -164,12 +132,12 @@ export default function Home() {
             <a href="#how" className="hidden rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white sm:inline">
               How it works
             </a>
-            <button
-              onClick={goWaitlist}
+            <a
+              href="#library"
               className="rounded-full bg-[#22A03A] px-4 py-1.5 text-[13px] font-semibold text-black hover:opacity-90"
             >
-              Join waitlist
-            </button>
+              Browse templates
+            </a>
           </nav>
         </div>
       </header>
@@ -198,12 +166,6 @@ export default function Home() {
               >
                 Browse the library <ArrowRight className="h-4 w-4" />
               </a>
-              <button
-                onClick={goWaitlist}
-                className="rounded-full border border-white/20 px-6 py-3 text-[14px] font-medium text-white/85 hover:border-white/50"
-              >
-                Get early access
-              </button>
             </div>
           </div>
           <button
@@ -242,7 +204,6 @@ export default function Home() {
           }}
           savedCount={saved.length}
           onBrandKit={() => window.scrollTo({ top: (document.getElementById("brand-kit")?.offsetTop ?? 0) - 80, behavior: "smooth" })}
-          onRender={goWaitlist}
         />
         <div className="min-w-0 flex-1">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -288,11 +249,7 @@ export default function Home() {
 
         {shown.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-white/15 p-10 text-center text-white/55">
-            {savedOnly && !query ? "Nothing saved yet." : <>Nothing matches “{query}” yet.</>}{" "}
-            <button onClick={goWaitlist} className="text-[#22A03A] underline-offset-4 hover:underline">
-              Tell us what you need
-            </button>{" "}
-            and we'll build it.
+            {savedOnly && !query ? "Nothing saved yet." : <>Nothing matches “{query}” yet. Try another word, like launch, chart or story.</>}
           </div>
         ) : (
           <>
@@ -362,39 +319,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Waitlist */}
-      <section id="waitlist" className="border-t border-white/8">
-        <div className="mx-auto max-w-[720px] px-4 py-20 text-center sm:px-6">
-          <h2 className="text-[32px] leading-tight font-semibold tracking-tight sm:text-[40px]">
-            Get rendering first
-          </h2>
-          <p className="mx-auto mt-3 max-w-[480px] text-[15px] text-white/60">
-            MP4 export and saved brand kits are coming soon. Join the waitlist and we'll send you early access.
-          </p>
-          <form onSubmit={join} className="mx-auto mt-7 flex max-w-[440px] flex-col gap-2 sm:flex-row">
-            <input
-              ref={emailRef}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              aria-label="Email"
-              className="h-11 flex-1 rounded-full border border-white/15 bg-white/[0.04] px-5 text-[14px] outline-none placeholder:text-white/35 focus:border-[#22A03A]"
-            />
-            <button
-              disabled={sending}
-              className="h-11 rounded-full bg-[#22A03A] px-6 text-[14px] font-semibold text-black hover:opacity-90 disabled:opacity-60"
-            >
-              {sending ? "Joining…" : "Join waitlist"}
-            </button>
-          </form>
-        </div>
-      </section>
-
       <footer className="border-t border-white/8">
         <div className="mx-auto flex max-w-[1240px] flex-col gap-2 px-4 py-8 text-[12px] text-white/40 sm:flex-row sm:justify-between sm:px-6">
           <span>© 2026 Goblin Labs</span>
-          <span>Previews render live in your browser with Remotion.</span>
         </div>
       </footer>
 
@@ -404,7 +331,6 @@ export default function Home() {
         content={open ? contentFor(open) : {}}
         onContent={(c) => open && setOverrides((o) => ({ ...o, [open.id]: c }))}
         onClose={() => setOpen(null)}
-        onWaitlist={goWaitlist}
       />
     </div>
   );
