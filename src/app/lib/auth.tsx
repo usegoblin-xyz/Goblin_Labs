@@ -10,6 +10,10 @@ export const authClient = createAuthClient({
   plugins: [dashClient()],
 });
 
+// Google sign-in shows only once its OAuth credentials are configured
+// (set VITE_GOOGLE_AUTH=1 alongside GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).
+const GOOGLE_ENABLED = import.meta.env.VITE_GOOGLE_AUTH === "1";
+
 type SessionUser = { id: string; name: string; email: string; image?: string | null };
 
 export function useAuth() {
@@ -137,6 +141,8 @@ export function AuthForm({
 
   return (
     <div>
+      {GOOGLE_ENABLED && (
+      <>
       <button
         type="button"
         onClick={google}
@@ -149,6 +155,8 @@ export function AuthForm({
       <div className={`my-4 flex items-center gap-3 text-[12px] ${dark ? "text-white/35" : "text-[#9aa197]"}`}>
         <span className={`h-px flex-1 ${dark ? "bg-white/12" : "bg-[#e7e6e1]"}`} /> or <span className={`h-px flex-1 ${dark ? "bg-white/12" : "bg-[#e7e6e1]"}`} />
       </div>
+      </>
+      )}
       <form onSubmit={submit} className="space-y-3">
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" autoComplete="email" aria-label="Email" className={input} />
         <input
