@@ -5,6 +5,8 @@ into lines with the character timestamps and each line placed on its scene.
 Needs ELEVENLABS_API_KEY in the environment (kept in .env.local, never committed):
     set -a; . ./.env.local; set +a
     python3 scripts/goblin-launch-audio.py [voice_id]
+Or mix a finished take as one unbroken track (no cuts, so it flows as read):
+    python3 scripts/goblin-launch-audio.py --take public/launch/goblin-launch-vo.wav [--offset 0.35]
 Writes public/launch/goblin-launch-mix.wav: the Editorial Brand Film soundtrack,
 ducked under each line, with the voice on top.
 """
@@ -53,6 +55,50 @@ def tts(text: str):
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", mp3, "-ar", str(SR), "-ac", "1", wav], check=True)
         a, _ = sf.read(wav)
     return a, d["alignment"]
+
+
+def mix_and_write(vo: np.ndarray, spans):
+    n = int(DUR * SR)
+    m, msr = sf.read("public/editorial-ad/editorial-ad-128bpm.wav")
+    assert msr == SR
+    mus = np.zeros((n, 2))
+    mus[: min(n, len(m))] = m[:n]
+    vo = vo[:n] if len(vo) >= n else np.pad(vo, (0, n - len(vo)))
+    duck = np.ones(n)
+    for s0, s1 in spans:
+        duck[max(0, int((s0 - 0.08) * SR)): min(n, int((s1 + 0.15) * SR))] = 0.4
+    w = int(0.06 * SR)
+    duck = np.convolve(duck, np.ones(w) / w, mode="same")
+    vo = vo / np.max(np.abs(vo)) * 0.9
+    mix = mus * duck[:, None] * 0.85 + np.stack([vo, vo], 1)
+    mix = mix / np.max(np.abs(mix)) * 0.89
+    sf.write("public/launch/goblin-launch-mix.wav", mix, SR, subtype="PCM_16")
+    print("wrote public/launch/goblin-launch-mix.wav")
+
+
+if "--take" in sys.argv:
+    take = sys.argv[sys.argv.index("--take") + 1]
+    offset = float(sys.argv[sys.argv.index("--offset") + 1]) if "--offset" in sys.argv else 0.35
+    a, asr = sf.read(take)
+    if a.ndim > 1:
+        a = a.mean(axis=1)
+    assert asr == SR, "resample the take to 48 kHz first (ffmpeg -ar 48000)"
+    vo = np.concatenate([np.zeros(int(offset * SR)), a])
+    # duck wherever the voice is speaking, found from its loudness
+    hop = int(0.02 * SR)
+    env = np.array([np.sqrt(np.mean(vo[i:i + hop] ** 2)) for i in range(0, len(vo), hop)])
+    on = env > 0.02 * env.max()
+    spans, start = [], None
+    for k, v in enumerate(on):
+        if v and start is None:
+            start = k
+        if not v and start is not None:
+            spans.append((start * hop / SR, k * hop / SR))
+            start = None
+    if start is not None:
+        spans.append((start * hop / SR, len(vo) / SR))
+    mix_and_write(vo, spans)
+    sys.exit(0)
 
 
 full = " ".join(t for _, t in LINES)
