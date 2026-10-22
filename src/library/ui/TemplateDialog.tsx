@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import { Copy, Film, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/app/components/ui/dialog";
@@ -5,6 +7,7 @@ import { FONTS, MOTIONS, type Brand } from "../brand";
 import type { Template } from "../kit";
 import { aspectLabel, seconds } from "../registry";
 import { LivePlayer } from "./LivePlayer";
+import { FREE_COPIES, SignUpGate, copiesUsed, countCopy, hasEmailSignup } from "./SignUpGate";
 import { track } from "@/app/lib/analytics";
 
 type Props = {
@@ -49,10 +52,34 @@ const inputCls =
   "w-full rounded-lg border border-white/12 bg-white/[0.04] px-3 py-2 text-[14px] text-white outline-none placeholder:text-white/30 focus:border-[#22A03A]";
 
 export function TemplateDialog({ template: t, brand, content, onContent, onClose, onWaitlist }: Props) {
+  const { isSignedIn: clerkSignedIn } = useAuth();
+  const [emailSignup, setEmailSignup] = useState(hasEmailSignup);
+  const isSignedIn = !!clerkSignedIn || emailSignup;
+  const [gate, setGate] = useState(false);
+  const [used, setUsed] = useState(copiesUsed);
+
+  // Close the gate once the sign-up completes.
+  useEffect(() => {
+    if (isSignedIn && gate) {
+      setGate(false);
+      track("signup_completed", { source: "prompt_gate" });
+      toast.success("You're in", { description: "Copy as many prompts as you like." });
+    }
+  }, [isSignedIn, gate]);
+
   const copy = async () => {
     if (!t) return;
+    if (!isSignedIn && used >= FREE_COPIES) {
+      setGate(true);
+      track("signup_gate_shown", { template: t.id });
+      return;
+    }
     try {
       await navigator.clipboard.writeText(buildPrompt(t, brand, content));
+      if (!isSignedIn) {
+        countCopy();
+        setUsed((n) => n + 1);
+      }
       track("prompt_copied", { template: t.id });
       toast.success("Prompt copied", { description: "Paste it into Claude to make this video in your brand." });
     } catch {
@@ -63,6 +90,7 @@ export function TemplateDialog({ template: t, brand, content, onContent, onClose
   return (
     <Dialog open={!!t} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[92vh] gap-0 overflow-y-auto border-white/12 bg-[#080808] p-0 text-white sm:max-w-[1180px]">
+        {gate && !isSignedIn && <SignUpGate onClose={() => setGate(false)} onEmailSignup={() => setEmailSignup(true)} />}
         {t && (
           <div className="grid lg:grid-cols-[1fr_340px]">
             <div className="border-b border-white/10 p-4 sm:p-6 lg:border-r lg:border-b-0">
@@ -139,6 +167,11 @@ export function TemplateDialog({ template: t, brand, content, onContent, onClose
                     <RotateCcw className="h-3.5 w-3.5" /> Reset
                   </button>
                 </div>
+                {!isSignedIn && (
+                  <p className="text-center text-[11px] text-white/40">
+                    {used < FREE_COPIES ? `${FREE_COPIES - used} free prompt ${FREE_COPIES - used === 1 ? "copy" : "copies"} left, then sign up free` : "Sign up free for unlimited prompt copies"}
+                  </p>
+                )}
               </div>
             </div>
           </div>
