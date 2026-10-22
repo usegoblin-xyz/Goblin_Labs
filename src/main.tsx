@@ -5,6 +5,7 @@ import Home from "./app/routes/Home.tsx";
 import { Toaster } from "./app/components/ui/sonner";
 import "./styles/index.css";
 import { initAnalytics } from "./app/lib/analytics";
+import { AnalyticsIdentity } from "./app/lib/auth";
 
 initAnalytics();
 
@@ -108,5 +109,6 @@ createRoot(document.getElementById("root")!).render(
       </Routes>
     </BrowserRouter>
     <Toaster />
+    <AnalyticsIdentity />
   </>,
 );
