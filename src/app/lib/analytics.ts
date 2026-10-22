@@ -27,6 +27,8 @@ type Events = {
   category_filtered: { category: string };
   render_clicked: { template: string };
   prompt_copied: { template: string };
+  signup_gate_shown: { template: string };
+  signup_completed: { source: string };
   waitlist_joined: { source: string };
 };
 
