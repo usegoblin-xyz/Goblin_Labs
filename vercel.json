@@ -5,7 +5,17 @@
     }
   },
   "rewrites": [
-    { "source": "/api/leads", "destination": "/api/lead-capture" },
-    { "source": "/((?!api/).*)", "destination": "/" }
+    {
+      "source": "/api/auth/:path*",
+      "destination": "/api/auth?__ba=:path*"
+    },
+    {
+      "source": "/api/leads",
+      "destination": "/api/lead-capture"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/"
+    }
   ]
 }
