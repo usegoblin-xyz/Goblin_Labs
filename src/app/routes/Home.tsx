@@ -102,6 +102,11 @@ export default function Home() {
   const PAGE = 24;
   const [limit, setLimit] = useState(PAGE);
   useEffect(() => setLimit(PAGE), [category, query, format, savedOnly]);
+  // Changing a filter from far down the grid brings the top of the library back into view.
+  useEffect(() => {
+    const el = document.getElementById("library");
+    if (el && el.getBoundingClientRect().top < 0) window.scrollTo({ top: el.offsetTop - 140, behavior: "smooth" });
+  }, [category, format, savedOnly]);
 
   const openTemplate = (t: Template) => {
     track("template_opened", { template: t.id, category: t.category });
