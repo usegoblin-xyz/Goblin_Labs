@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createAuthClient } from "better-auth/react";
 import { dashClient } from "@better-auth/infra/client";
 import { LogOut, User as UserIcon } from "lucide-react";
+import { identifyUser, resetUser, track } from "./analytics";
 
 export const authClient = createAuthClient({
   baseURL: typeof window !== "undefined" ? window.location.origin : undefined,
@@ -13,6 +14,33 @@ export const authClient = createAuthClient({
 // Google sign-in shows only once its OAuth credentials are configured
 // (set VITE_GOOGLE_AUTH=1 alongside GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).
 const GOOGLE_ENABLED = import.meta.env.VITE_GOOGLE_AUTH === "1";
+
+// Sign out everywhere: analytics identity first, then the session.
+export async function signOut() {
+  track("signed_out", {});
+  resetUser();
+  await authClient.signOut();
+}
+
+// Keeps PostHog's identity in step with the Better Auth session: identify on
+// sign-in (including after a Google redirect or a returning visit), reset when
+// the session ends. Mount once at the app root.
+export function AnalyticsIdentity() {
+  const { data, isPending } = authClient.useSession();
+  const last = useRef<string | null>(null);
+  useEffect(() => {
+    if (isPending) return;
+    const u = data?.user;
+    if (u) {
+      identifyUser({ id: u.id, email: u.email, name: u.name });
+      last.current = u.id;
+    } else if (last.current) {
+      resetUser();
+      last.current = null;
+    }
+  }, [data?.user, isPending]);
+  return null;
+}
 
 type SessionUser = { id: string; name: string; email: string; image?: string | null };
 
@@ -24,7 +52,7 @@ export function useAuth() {
     userId: data?.user.id ?? null,
     // API routes read the session cookie, so no bearer token is needed.
     getToken: async () => null as string | null,
-    signOut: () => authClient.signOut(),
+    signOut,
   };
 }
 
@@ -72,7 +100,7 @@ export function UserButton({ afterSignOutUrl = "/" }: { afterSignOutUrl?: string
           </a>
           <button
             onClick={async () => {
-              await authClient.signOut();
+              await signOut();
               window.location.href = afterSignOutUrl;
             }}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/[0.06]"
@@ -130,6 +158,7 @@ export function AuthForm({
       setError(/exist/i.test(msg) ? "That email already has an account. Sign in instead." : /invalid/i.test(msg) ? "Wrong email or password." : msg || "Something went wrong. Try again.");
       return;
     }
+    track(mode === "sign-up" ? "signed_up" : "signed_in", { method: "email" });
     onDone?.();
   };
 

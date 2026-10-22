@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { authClient, useAuth, useUser } from "@/app/lib/auth";
+import { signOut, useAuth, useUser } from "@/app/lib/auth";
 import { Link } from "react-router";
 
 type MyPersona = {
@@ -104,7 +104,7 @@ export default function Account() {
             </div>
             <button
               onClick={async () => {
-                await authClient.signOut();
+                await signOut();
                 window.location.href = "/";
               }}
               className="rounded-full border border-white/15 px-4 py-1.5 text-[13px] text-foreground/80 hover:border-white/30 hover:text-foreground"
