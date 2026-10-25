@@ -1,10 +1,12 @@
-// PostHog product analytics (posthog-js, US Cloud). Does nothing until
+// PostHog product analytics (posthog-js, US Cloud, proxied through /ingest). Does nothing until
 // VITE_POSTHOG_KEY is set, and never runs on localhost, so local dev sends no
 // test data. Signed-in users are identified by their Better Auth user id.
 import posthog from "posthog-js";
 
 const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
-const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) ?? "https://us.i.posthog.com";
+// Events go through our own domain (/ingest, a Vercel rewrite to PostHog US
+// Cloud) so ad blockers that block posthog.com don't drop them.
+const HOST = "/ingest";
 
 let ready = false;
 
@@ -17,6 +19,7 @@ export function initAnalytics() {
   if (ready || !KEY || typeof window === "undefined" || isLocal()) return;
   posthog.init(KEY, {
     api_host: HOST,
+    ui_host: "https://us.posthog.com", // links in the toolbar still open PostHog
     defaults: "2026-08-30", // latest config snapshot: SPA pageviews, autocapture, web vitals
     person_profiles: "identified_only", // anonymous visitors don't create person profiles
   });
