@@ -18,6 +18,11 @@ export const auth = betterAuth({
   database: new pg.Pool({ connectionString: env.DATABASE_URL, max: 3, ssl: { rejectUnauthorized: false } }),
   emailAndPassword: { enabled: true, autoSignIn: true, minPasswordLength: 8 },
   socialProviders: google,
+  // Account console: people can delete their own account (password, or a
+  // recent sign-in for Google-only accounts) and connect Google to an
+  // existing email account with the same address.
+  user: { deleteUser: { enabled: true } },
+  account: { accountLinking: { enabled: true, trustedProviders: ["google"] } },
   trustedOrigins: [
     "https://www.usegoblin.xyz",
     "https://usegoblin.xyz",

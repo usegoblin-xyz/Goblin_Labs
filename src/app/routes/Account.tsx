@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { signOut, useAuth, useUser } from "@/app/lib/auth";
+import { useAuth, useUser } from "@/app/lib/auth";
+import { AccountConsole } from "@/app/lib/AccountConsole";
 import { Link } from "react-router";
 
 type MyPersona = {
@@ -67,55 +68,31 @@ export default function Account() {
     );
   }
 
+  const tab = new URLSearchParams(window.location.search).get("account");
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-dashed border-white/10">
+    <div className="min-h-screen bg-black text-white">
+      <header className="border-b border-white/8">
         <div className="mx-auto flex max-w-[1000px] items-center justify-between px-4 py-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5">
             <img src="/favicon-192.png" alt="" className="h-8 w-8 rounded-lg" />
-            <span className="text-[16px] font-bold tracking-tight">Goblin Labs</span>
+            <span className="text-[16px] font-bold tracking-tight">Goblin</span>
           </Link>
-          <Link
-            to="/studio"
-            className="text-[12px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
-          >
-            Studio
+          <Link to="/" className="text-[13px] text-white/60 hover:text-white">
+            Back to library
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1000px] px-4 py-10 sm:px-6">
-        <div className="mb-8">
-          <h1 className="text-[26px] font-extrabold tracking-tight">
-            {user?.firstName ? `Hi, ${user.firstName}` : "Your account"}
-          </h1>
-          <p className="mt-1 text-[14px] text-muted-foreground">
-            Your profile, plus embed
-            codes for the personas you&rsquo;ve deployed.
-          </p>
-        </div>
+      <main className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6">
+        <h1 className="mb-5 text-[24px] font-extrabold tracking-tight">
+          {user?.firstName ? `Hi, ${user.firstName}` : "Your account"}
+        </h1>
+        <AccountConsole inline initialTab={tab === "security" || tab === "danger" ? tab : "profile"} />
 
-        {/* Profile */}
-        <section className="mb-12 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="text-[15px] font-semibold">{user?.fullName || "Your profile"}</div>
-              <div className="text-[13px] text-muted-foreground">{user?.primaryEmailAddress.emailAddress}</div>
-            </div>
-            <button
-              onClick={async () => {
-                await signOut();
-                window.location.href = "/";
-              }}
-              className="rounded-full border border-white/15 px-4 py-1.5 text-[13px] text-foreground/80 hover:border-white/30 hover:text-foreground"
-            >
-              Sign out
-            </button>
-          </div>
-        </section>
-
-        {/* Embeddable personas */}
-        <section>
+        {/* Legacy: embed codes for personas built in the old Studio */}
+        {!!personas?.length && (
+        <section className="mt-12">
           <h2 className="text-[18px] font-bold tracking-tight">Embed your personas</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">
             Drop a persona onto any website. The iframe embeds the full talk
@@ -175,6 +152,7 @@ export default function Account() {
             ))}
           </div>
         </section>
+        )}
       </main>
     </div>
   );
