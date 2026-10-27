@@ -4,6 +4,7 @@
 import { betterAuth } from "better-auth";
 import { dash } from "@better-auth/infra";
 import pg from "pg";
+import { sendApproveEmailChange, sendVerifyNewEmail } from "./_mail.js";
 
 const env = process.env;
 const google =
@@ -21,7 +22,19 @@ export const auth = betterAuth({
   // Account console: people can delete their own account (password, or a
   // recent sign-in for Google-only accounts) and connect Google to an
   // existing email account with the same address.
-  user: { deleteUser: { enabled: true } },
+  user: {
+    deleteUser: { enabled: true },
+    // Email changes are confirmed by link: the new address must click to
+    // take over, and verified accounts approve from the old inbox first.
+    changeEmail: {
+      enabled: true,
+      sendChangeEmailConfirmation: async ({ user, newEmail, url }) => sendApproveEmailChange(user.email, newEmail, url, user.name),
+    },
+  },
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => sendVerifyNewEmail(user.email, url, user.name),
+    expiresIn: 3600,
+  },
   account: { accountLinking: { enabled: true, trustedProviders: ["google"] } },
   // Failed or cancelled OAuth flows (Google sign-in/linking) land on our
   // login page with ?error=<code> instead of Better Auth's dev error page.
