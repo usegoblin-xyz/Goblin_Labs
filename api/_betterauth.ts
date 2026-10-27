@@ -27,6 +27,28 @@ export const auth = betterAuth({
   // login page with ?error=<code> instead of Better Auth's dev error page.
   // Flows can override this per call with errorCallbackURL.
   onAPIError: { errorURL: "/login" },
+  // Rate limits key on the visitor's IP. On Vercel, x-vercel-forwarded-for
+  // and x-real-ip are set by the edge and overwrite anything a client sends,
+  // so they can't be spoofed; x-forwarded-for is the last fallback.
+  advanced: {
+    ipAddress: { ipAddressHeaders: ["x-vercel-forwarded-for", "x-real-ip", "x-forwarded-for"] },
+  },
+  // Counts live in Postgres (better_auth."rateLimit"), shared by every
+  // serverless instance; in-memory counts would reset on each cold start.
+  rateLimit: {
+    enabled: true,
+    storage: "database",
+    window: 60,
+    max: 100,
+    customRules: {
+      "/sign-in/email": { window: 60, max: 5 },
+      "/sign-up/email": { window: 60, max: 5 },
+      "/change-password": { window: 60, max: 5 },
+      "/change-email": { window: 300, max: 3 },
+      "/delete-user": { window: 300, max: 5 },
+      "/get-session": false,
+    },
+  },
   trustedOrigins: [
     "https://www.usegoblin.xyz",
     "https://usegoblin.xyz",
