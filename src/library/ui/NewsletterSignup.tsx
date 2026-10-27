@@ -4,6 +4,35 @@ import { track } from "@/app/lib/analytics";
 import { useUser } from "@/app/lib/auth";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const SUBSTACK = "https://goblinlabs.substack.com";
+
+// Substack refuses sign-ups sent from our server (403), so the browser submits
+// them, the way Substack's own embed does: a plain form post into a hidden
+// iframe. It's a navigation, not a fetch, so no CORS, and the visitor stays on
+// the page. The result can't be read cross-origin; our database keeps the
+// email either way, so anything missed can be imported into Substack later.
+function subscribeOnSubstack(email: string) {
+  const name = `substack-${Date.now()}`;
+  const frame = document.createElement("iframe");
+  frame.name = name;
+  frame.style.display = "none";
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = `${SUBSTACK}/api/v1/free?nojs=true`;
+  form.target = name;
+  form.style.display = "none";
+  const fields: Record<string, string> = { email, first_url: window.location.href, current_url: window.location.href, source: "embed" };
+  for (const [k, v] of Object.entries(fields)) {
+    const i = document.createElement("input");
+    i.type = "hidden";
+    i.name = k;
+    i.value = v;
+    form.appendChild(i);
+  }
+  document.body.append(frame, form);
+  form.submit();
+  setTimeout(() => { form.remove(); frame.remove(); }, 15000);
+}
 
 // UTM tags from the landing URL, so we know which post or issue a subscriber came from.
 function utm() {
@@ -41,6 +70,7 @@ export function NewsletterSignup({ source = "footer" }: { source?: string }) {
         const d = (await r.json().catch(() => ({}))) as { error?: string };
         throw new Error(d.error || "Something went wrong. Try again in a moment.");
       }
+      subscribeOnSubstack(v);
       track("newsletter_subscribed", { source });
       setState("done");
     } catch (err) {
