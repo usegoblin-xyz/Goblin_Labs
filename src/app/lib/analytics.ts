@@ -54,6 +54,7 @@ type Events = {
   signed_up: { method: "email" | "google" };
   signed_in: { method: "email" | "google" };
   signed_out: Record<string, never>;
+  newsletter_subscribed: { source: string };
 };
 
 export function track<E extends keyof Events>(event: E, props: Events[E]) {

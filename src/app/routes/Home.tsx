@@ -8,6 +8,7 @@ import { BrandBar } from "@/library/ui/BrandBar";
 import { LivePlayer } from "@/library/ui/LivePlayer";
 import { TemplateDialog } from "@/library/ui/TemplateDialog";
 import { LibrarySidebar, type Format } from "@/library/ui/LibrarySidebar";
+import { NewsletterSignup } from "@/library/ui/NewsletterSignup";
 import { track } from "@/app/lib/analytics";
 import { UserButton, useAuth } from "@/app/lib/auth";
 
@@ -332,8 +333,14 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-white/8">
-        <div className="mx-auto flex max-w-[1240px] flex-col gap-2 px-4 py-8 text-[12px] text-white/40 sm:flex-row sm:justify-between sm:px-6">
-          <span>© 2026 Goblin Labs</span>
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+          <NewsletterSignup />
+          <div className="flex flex-col gap-2 text-[12px] text-white/40 sm:items-end">
+            <a href="https://goblinlabs.substack.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">
+              Read the newsletter
+            </a>
+            <span>© 2026 Goblin Labs</span>
+          </div>
         </div>
       </footer>
 
