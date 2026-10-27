@@ -83,7 +83,7 @@ export function NewsletterSignup({ source = "footer" }: { source?: string }) {
     <div className="max-w-[440px]">
       <h3 className="text-[15px] font-semibold text-white">Stay updated</h3>
       <p className="mt-1 text-[13px] leading-relaxed text-white/50">
-        New templates and the best founder launch videos, every two weeks. No spam, unsubscribe anytime.
+        New templates and the best founder launch videos.
       </p>
       {state === "done" ? (
         <p className="mt-4 flex items-center gap-2 text-[13.5px] text-[#5fd67a]">
