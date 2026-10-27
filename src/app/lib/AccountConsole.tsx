@@ -101,10 +101,62 @@ function ProfileTab() {
         </form>
         {msg && <Note tone={msg.tone}>{msg.text}</Note>}
       </Section>
-      <Section title="Email address" hint="The email you sign in with. Contact obi@usegoblin.xyz to change it.">
-        <div className="flex h-10 items-center rounded-lg border border-white/8 bg-white/[0.02] px-3 text-[14px] text-white/70">{user.email}</div>
-      </Section>
+      <ChangeEmail email={user.email} verified={!!user.emailVerified} />
     </>
+  );
+}
+
+// The new address gets a confirmation link; nothing changes until it's
+// clicked. Verified accounts (e.g. Google) approve from the old inbox first.
+function ChangeEmail({ email, verified }: { email: string; verified: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [next, setNext] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    const n = next.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(n)) return setMsg({ tone: "err", text: "Enter a valid email address." });
+    if (n === email.toLowerCase()) return setMsg({ tone: "err", text: "That's already your email." });
+    setBusy(true);
+    const res = await authClient.changeEmail({ newEmail: n, callbackURL: "/?account=profile" });
+    setBusy(false);
+    if (res.error) {
+      const m = res.error.message ?? "";
+      return setMsg({ tone: "err", text: /verification email|isn't enabled|email failed|internal/i.test(m) || res.error.status >= 500 ? "We couldn't send the confirmation email. Try again in a bit." : m || "Couldn't start the change. Try again." });
+    }
+    setEditing(false);
+    setNext("");
+    setMsg({
+      tone: "ok",
+      text: verified
+        ? `We sent an approval link to ${email}. Approve it there, then confirm from ${n}.`
+        : `We sent a confirmation link to ${n}. Your email changes once you click it.`,
+    });
+  };
+
+  return (
+    <Section title="Email address" hint="The email you sign in with.">
+      {!editing ? (
+        <div className="flex gap-2">
+          <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-3 text-[14px] text-white/70">
+            <span className="truncate">{email}</span>
+            {verified && <span className="shrink-0 rounded bg-[#22a03a]/15 px-1.5 py-0.5 text-[10.5px] font-semibold text-[#5fd67a]">Verified</span>}
+          </div>
+          <button type="button" onClick={() => { setEditing(true); setMsg(null); }} className={btnGhost}>Change</button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="space-y-2.5">
+          <input type="email" autoFocus value={next} onChange={(e) => { setNext(e.target.value); setMsg(null); }} placeholder="New email address" autoComplete="email" aria-label="New email address" className={input} />
+          <div className="flex gap-2">
+            <button disabled={busy || !next.trim()} className={btnPrimary}>{busy ? "Sending…" : "Send confirmation link"}</button>
+            <button type="button" onClick={() => { setEditing(false); setNext(""); setMsg(null); }} className={btnGhost}>Cancel</button>
+          </div>
+        </form>
+      )}
+      {msg && <Note tone={msg.tone}>{msg.text}</Note>}
+    </Section>
   );
 }
 
