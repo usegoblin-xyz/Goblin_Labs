@@ -23,6 +23,10 @@ export const auth = betterAuth({
   // existing email account with the same address.
   user: { deleteUser: { enabled: true } },
   account: { accountLinking: { enabled: true, trustedProviders: ["google"] } },
+  // Failed or cancelled OAuth flows (Google sign-in/linking) land on our
+  // login page with ?error=<code> instead of Better Auth's dev error page.
+  // Flows can override this per call with errorCallbackURL.
+  onAPIError: { errorURL: "/login" },
   trustedOrigins: [
     "https://www.usegoblin.xyz",
     "https://usegoblin.xyz",

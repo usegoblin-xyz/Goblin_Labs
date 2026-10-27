@@ -14,6 +14,22 @@ export const authClient = createAuthClient({
 // (set VITE_GOOGLE_AUTH=1 alongside GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).
 const GOOGLE_ENABLED = import.meta.env.VITE_GOOGLE_AUTH === "1";
 
+// Friendly text for the `error` code Better Auth adds when an OAuth flow fails
+// (it redirects to onAPIError.errorURL or a flow's errorCallbackURL).
+export function authErrorMessage(code: string | null | undefined): string {
+  if (!code) return "";
+  const c = code.toLowerCase();
+  if (c === "access_denied" || c.includes("cancel")) return "Google sign-in was cancelled. Try again, or use your email.";
+  if (c === "account_already_linked_to_different_user") return "That Google account is already linked to a different Goblin account.";
+  if (c === "email_does_not_match") return "That Google account uses a different email than your Goblin account.";
+  if (c === "unable_to_link_account") return "We couldn't link that Google account. Sign in with your email, then connect Google from your account.";
+  if (c === "email_not_found" || c === "email_not_verified") return "Your Google account didn't share a verified email. Use email and password instead.";
+  if (c === "signup_disabled") return "New sign-ups are paused right now.";
+  if (c.includes("state") || c === "please_restart_the_process" || c === "invalid_callback_request" || c === "payload_expired")
+    return "Your sign-in link expired. Please try again.";
+  return "Google sign-in didn't work. Try again, or use your email instead.";
+}
+
 // Sign out everywhere: analytics identity first, then the session.
 export async function signOut() {
   track("signed_out", {});
@@ -84,12 +100,16 @@ type ConsoleTab = "profile" | "security" | "danger";
 export function UserButton(_: { afterSignOutUrl?: string; userProfileMode?: string; userProfileUrl?: string }) {
   const { user } = useUser();
   const [open, setOpen] = useState<ConsoleTab | null>(null);
+  const [linkError, setLinkError] = useState("");
   useEffect(() => {
     const url = new URL(window.location.href);
     const t = url.searchParams.get("account");
     if (t === "profile" || t === "security" || t === "danger") {
       setOpen(t);
+      setLinkError(authErrorMessage(url.searchParams.get("error")));
       url.searchParams.delete("account");
+      url.searchParams.delete("error");
+      url.searchParams.delete("error_description");
       window.history.replaceState(null, "", url.pathname + url.search + url.hash);
     }
   }, []);
@@ -107,7 +127,7 @@ export function UserButton(_: { afterSignOutUrl?: string; userProfileMode?: stri
       </button>
       {open && (
         <Suspense fallback={null}>
-          <AccountConsole initialTab={open} onClose={() => setOpen(null)} />
+          <AccountConsole initialTab={open} initialError={linkError} onClose={() => { setOpen(null); setLinkError(""); }} />
         </Suspense>
       )}
     </>
@@ -127,17 +147,20 @@ export function AuthForm({
   callbackURL = "/",
   onDone,
   tone = "dark",
+  initialError = "",
 }: {
   initialMode?: "sign-up" | "sign-in";
   callbackURL?: string;
   onDone?: () => void;
   tone?: "dark" | "light";
+  initialError?: string;
 }) {
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
+  useEffect(() => setError(initialError), [initialError]);
   const dark = tone === "dark";
   const input = dark
     ? "h-11 w-full rounded-xl border border-white/12 bg-white/[0.05] px-3 text-[14px] text-white outline-none placeholder:text-white/30 focus:border-[#22a03a]"
@@ -165,7 +188,13 @@ export function AuthForm({
 
   const google = async () => {
     setError("");
-    const res = await authClient.signIn.social({ provider: "google", callbackURL: window.location.origin + callbackURL });
+    const res = await authClient.signIn.social({
+      provider: "google",
+      callbackURL: window.location.origin + callbackURL,
+      // Failed or cancelled Google sign-ins come back to our login page with
+      // ?error=<code>, then continue to where they started once they retry.
+      errorCallbackURL: `${window.location.origin}/login?redirect=${encodeURIComponent(callbackURL)}`,
+    });
     if (res?.error) setError("Google sign-in isn't available right now. Use your email instead.");
   };
 
