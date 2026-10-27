@@ -6,7 +6,7 @@
 import { sendEmail } from "@better-auth/infra/email";
 
 const env = process.env;
-const FROM = env.MAIL_FROM || "Goblin <hello@usegoblin.xyz>";
+const FROM = env.MAIL_FROM || "Goblin <hello@mail.usegoblin.xyz>";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
