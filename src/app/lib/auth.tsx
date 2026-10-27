@@ -1,9 +1,8 @@
 // Better Auth on the client: the auth client, small hooks shaped like the ones
 // the pages already use, a user menu, and the sign-in / sign-up form.
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { createAuthClient } from "better-auth/react";
 import { dashClient } from "@better-auth/infra/client";
-import { LogOut, User as UserIcon } from "lucide-react";
 import { identifyUser, resetUser, track } from "./analytics";
 
 export const authClient = createAuthClient({
@@ -75,41 +74,43 @@ export function useUser() {
   };
 }
 
-// Avatar button with a small menu: Account and Sign out.
-export function UserButton({ afterSignOutUrl = "/" }: { afterSignOutUrl?: string; userProfileMode?: string; userProfileUrl?: string }) {
+// Loaded on first open so the console doesn't weigh down the library page.
+const AccountConsole = lazy(() => import("./AccountConsole").then((m) => ({ default: m.AccountConsole })));
+type ConsoleTab = "profile" | "security" | "danger";
+
+// Avatar button: clicking it opens the account console (profile, security,
+// devices, delete). Coming back from connecting Google (?account=security)
+// reopens it on the Security tab.
+export function UserButton(_: { afterSignOutUrl?: string; userProfileMode?: string; userProfileUrl?: string }) {
   const { user } = useUser();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState<ConsoleTab | null>(null);
   useEffect(() => {
-    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    const url = new URL(window.location.href);
+    const t = url.searchParams.get("account");
+    if (t === "profile" || t === "security" || t === "danger") {
+      setOpen(t);
+      url.searchParams.delete("account");
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    }
   }, []);
   if (!user) return null;
   const initial = (user.fullName || user.primaryEmailAddress.emailAddress)[0]?.toUpperCase() ?? "?";
   return (
-    <div ref={ref} className="relative">
-      <button onClick={() => setOpen((o) => !o)} className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#22a03a] text-[13px] font-bold text-white" aria-label="Account menu">
-        {user.imageUrl ? <img src={user.imageUrl} alt="" className="h-full w-full object-cover" /> : initial}
+    <>
+      <button
+        onClick={() => setOpen("profile")}
+        title="Manage account"
+        className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#22a03a] text-[13px] font-bold text-white ring-white/30 transition hover:ring-2"
+        aria-label="Manage account"
+      >
+        {user.imageUrl ? <img src={user.imageUrl} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : initial}
       </button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-white/12 bg-[#0d0d0d] p-1.5 text-[13px] text-white shadow-2xl">
-          <div className="truncate px-3 py-2 text-white/50">{user.primaryEmailAddress.emailAddress}</div>
-          <a href="/account" className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/[0.06]">
-            <UserIcon className="h-4 w-4" /> Account
-          </a>
-          <button
-            onClick={async () => {
-              await signOut();
-              window.location.href = afterSignOutUrl;
-            }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/[0.06]"
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
-        </div>
+        <Suspense fallback={null}>
+          <AccountConsole initialTab={open} onClose={() => setOpen(null)} />
+        </Suspense>
       )}
-    </div>
+    </>
   );
 }
 

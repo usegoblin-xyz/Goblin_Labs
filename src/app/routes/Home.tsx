@@ -9,6 +9,7 @@ import { LivePlayer } from "@/library/ui/LivePlayer";
 import { TemplateDialog } from "@/library/ui/TemplateDialog";
 import { LibrarySidebar, type Format } from "@/library/ui/LibrarySidebar";
 import { track } from "@/app/lib/analytics";
+import { UserButton, useAuth } from "@/app/lib/auth";
 
 type Content = Record<string, string | number>;
 const BRAND_KEY = "goblin_brand_kit";
@@ -39,6 +40,7 @@ const STEPS = [
 ];
 
 export default function Home() {
+  const { isLoaded, isSignedIn } = useAuth();
   const [brand, setBrand] = useState<Brand>(loadBrand);
   const [overrides, setOverrides] = useState<Record<string, Content>>({});
   const [category, setCategory] = useState<"All" | Category>("All");
@@ -138,6 +140,16 @@ export default function Home() {
             >
               Browse templates
             </a>
+            {isLoaded &&
+              (isSignedIn ? (
+                <span className="ml-1 sm:ml-2">
+                  <UserButton />
+                </span>
+              ) : (
+                <a href="/login" className="hidden rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white sm:inline">
+                  Sign in
+                </a>
+              ))}
           </nav>
         </div>
       </header>
