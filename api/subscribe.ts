@@ -55,6 +55,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       [email, source, utm, userId],
     );
     const row = rows[0] as { id: number; substack_status: string };
+    // The browser also submits to Substack (see NewsletterSignup); this
+    // server-side try is a backup and is often refused with a 403.
     if (row.substack_status !== "subscribed") {
       const sub = await forwardToSubstack(email, page);
       await db().query(
