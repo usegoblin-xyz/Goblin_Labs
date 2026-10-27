@@ -109,7 +109,7 @@ function ProfileTab() {
 }
 
 // ---------- Security ----------
-function SecurityTab({ accounts, reload }: { accounts: Account[] | null; reload: () => void }) {
+function SecurityTab({ accounts, reload, initialError = "" }: { accounts: Account[] | null; reload: () => void; initialError?: string }) {
   const { data } = authClient.useSession();
   const currentToken = data?.session.token;
   const hasPassword = !!accounts?.some((a) => a.providerId === "credential");
@@ -122,10 +122,12 @@ function SecurityTab({ accounts, reload }: { accounts: Account[] | null; reload:
   }, []);
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
-  const [methodErr, setMethodErr] = useState("");
+  const [methodErr, setMethodErr] = useState(initialError);
   const connectGoogle = async () => {
     setMethodErr("");
-    const res = await authClient.linkSocial({ provider: "google", callbackURL: `${window.location.pathname}?account=security` });
+    const back = `${window.location.origin}${window.location.pathname}?account=security`;
+    // Success and failure both return here; a failure adds ?error=<code>.
+    const res = await authClient.linkSocial({ provider: "google", callbackURL: back, errorCallbackURL: back });
     if (res?.error) setMethodErr(res.error.message || "Couldn't connect Google.");
   };
   const disconnect = async (a: Account) => {
@@ -292,7 +294,7 @@ const TABS: { id: Tab; label: string; icon: typeof UserIcon }[] = [
   { id: "danger", label: "Delete account", icon: Trash2 },
 ];
 
-export function AccountConsole({ initialTab = "profile", onClose, inline = false }: { initialTab?: Tab; onClose?: () => void; inline?: boolean }) {
+export function AccountConsole({ initialTab = "profile", initialError = "", onClose, inline = false }: { initialTab?: Tab; initialError?: string; onClose?: () => void; inline?: boolean }) {
   const { data } = authClient.useSession();
   const user = data?.user;
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -371,7 +373,7 @@ export function AccountConsole({ initialTab = "profile", onClose, inline = false
           )}
         </div>
         {tab === "profile" && <ProfileTab />}
-        {tab === "security" && <SecurityTab accounts={accounts} reload={loadAccounts} />}
+        {tab === "security" && <SecurityTab accounts={accounts} reload={loadAccounts} initialError={initialError} />}
         {tab === "danger" && <DangerTab accounts={accounts} />}
         <button
           onClick={async () => { await signOut(); window.location.href = "/"; }}

@@ -1,10 +1,23 @@
-import { AuthForm } from "@/app/lib/auth";
+import { useEffect } from "react";
+import { AuthForm, authErrorMessage } from "@/app/lib/auth";
 import { Link, useSearchParams } from "react-router";
 
 export default function Login() {
   const [params] = useSearchParams();
-  const redirect = params.get("redirect") ?? "/";
+  // Only same-site paths, so ?redirect= can't bounce people to another site.
+  const raw = params.get("redirect") ?? "/";
+  const redirect = raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\") ? raw : "/";
   const mode = params.get("mode") === "sign-up" ? "sign-up" : "sign-in";
+  // A failed or cancelled Google sign-in lands here with ?error=<code>
+  // (onAPIError.errorURL / errorCallbackURL). Show it, then tidy the URL.
+  const oauthError = authErrorMessage(params.get("error"));
+  useEffect(() => {
+    if (!params.get("error")) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("error");
+    url.searchParams.delete("error_description");
+    window.history.replaceState(null, "", url.pathname + url.search);
+  }, [params]);
 
   return (
     <div className="grid min-h-screen w-full bg-white text-[#0d1512] lg:grid-cols-2">
@@ -36,6 +49,7 @@ export default function Login() {
             tone="light"
             initialMode={mode}
             callbackURL={redirect}
+            initialError={oauthError}
             onDone={() => {
               window.location.href = redirect;
             }}

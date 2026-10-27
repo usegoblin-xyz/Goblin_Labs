@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth, useUser } from "@/app/lib/auth";
 import { AccountConsole } from "@/app/lib/AccountConsole";
+import { authErrorMessage } from "@/app/lib/auth";
 import { Link } from "react-router";
 
 type MyPersona = {
@@ -88,7 +89,7 @@ export default function Account() {
         <h1 className="mb-5 text-[24px] font-extrabold tracking-tight">
           {user?.firstName ? `Hi, ${user.firstName}` : "Your account"}
         </h1>
-        <AccountConsole inline initialTab={tab === "security" || tab === "danger" ? tab : "profile"} />
+        <AccountConsole inline initialTab={tab === "security" || tab === "danger" ? tab : "profile"} initialError={authErrorMessage(new URLSearchParams(window.location.search).get("error"))} />
 
         {/* Legacy: embed codes for personas built in the old Studio */}
         {!!personas?.length && (
