@@ -10,6 +10,7 @@ import { TemplateDialog } from "@/library/ui/TemplateDialog";
 import { LibrarySidebar, type Format } from "@/library/ui/LibrarySidebar";
 import { NewsletterSignup } from "@/library/ui/NewsletterSignup";
 import { openCookieSettings } from "@/app/lib/CookieBanner";
+import FooterNewsletter from "@/app/components/ui/footer-newsletter";
 import { track } from "@/app/lib/analytics";
 import { UserButton, useAuth } from "@/app/lib/auth";
 
@@ -333,23 +334,52 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="border-t border-white/8">
-        <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6">
-          <NewsletterSignup />
-          <div className="flex flex-col gap-2 text-[12px] text-white/60 sm:items-end">
-            <nav className="flex flex-wrap gap-x-4 gap-y-1">
-              <a href="https://goblinlabs.substack.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">Newsletter</a>
-              <a href="/privacy" className="hover:text-white">Privacy</a>
-              <a href="/terms" className="hover:text-white">Terms</a>
-              <button type="button" onClick={openCookieSettings} className="hover:text-white">Cookie settings</button>
-            </nav>
-            <span>
-              © 2026 GoblinLabs Inc., a Delaware corporation ·{" "}
-              <a href="mailto:obi@usegoblin.xyz" className="hover:text-white">obi@usegoblin.xyz</a>
-            </span>
+      <FooterNewsletter
+        newsletter={<NewsletterSignup />}
+        aside={
+          <div className="relative w-80">
+            <div className="absolute inset-0 rotate-6 rounded-xl bg-[#22A03A]/20" aria-hidden />
+            <div className="relative overflow-hidden rounded-xl border border-white/10">
+              <LivePlayer template={hero} brand={brand} content={contentFor(hero)} className="aspect-video w-full" />
+            </div>
           </div>
-        </div>
-      </footer>
+        }
+        tagline="Launch videos that already look like your brand. Original motion templates for founders who ship."
+        columns={[
+          {
+            title: "Product",
+            links: [
+              { label: "Browse templates", href: "#library" },
+              { label: "How it works", href: "#how" },
+              { label: "Brand kit", href: "#brand-kit" },
+              { label: isSignedIn ? "Your account" : "Sign in", href: isSignedIn ? "/account" : "/login" },
+            ],
+          },
+          {
+            title: "Explore",
+            links: (["Launch", "Product", "Social", "Explainer", "Data"] as Category[]).map((c) => ({
+              label: c,
+              href: "#library",
+              onClick: () => pickCategory(c),
+            })),
+          },
+          {
+            title: "Company",
+            links: [
+              { label: "Newsletter", href: "https://goblinlabs.substack.com", external: true },
+              { label: "X / Twitter", href: "https://x.com/UseGoblin", external: true },
+              { label: "LinkedIn", href: "https://www.linkedin.com/company/goblinlabs1/", external: true },
+              { label: "Contact", href: "mailto:obi@usegoblin.xyz" },
+            ],
+          },
+        ]}
+        legal={[
+          { label: "Terms of Service", href: "/terms" },
+          { label: "Privacy Policy", href: "/privacy" },
+          { label: "Cookie settings", onClick: openCookieSettings },
+        ]}
+        copyright={<>© 2026 GoblinLabs Inc., a Delaware corporation. All rights reserved.</>}
+      />
 
       <TemplateDialog
         template={open}
