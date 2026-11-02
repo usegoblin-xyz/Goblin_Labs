@@ -27,7 +27,7 @@ function Shell({ title, children }: { title: string; children: ReactNode }) {
       <main className="legal mx-auto max-w-[760px] px-4 py-12 sm:px-6">
         <h1 className="text-[32px] font-extrabold tracking-tight">{title}</h1>
         <p className="mt-2 text-[13px] text-white/60">Last updated {UPDATED}</p>
-        <div className="mt-10 space-y-8 text-[15px] leading-[1.7] text-white/80 [&_a]:text-[#5fd67a] [&_a]:underline [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-semibold [&_h2]:text-white [&_li]:ml-5 [&_li]:list-disc [&_li]:pl-1 [&_ul]:mt-2 [&_ul]:space-y-1.5 [&_p+p]:mt-3 [&_td]:border-t [&_td]:border-white/10 [&_td]:py-2 [&_td]:pr-4 [&_td]:align-top [&_th]:pb-2 [&_th]:pr-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-white">
+        <div className="mt-10 space-y-8 text-[15px] leading-[1.7] text-white/80 [&_a]:text-[#5fd67a] [&_a]:underline [&_h2]:mb-3 [&_h2]:text-[19px] [&_h2]:font-semibold [&_h2]:text-white [&_li]:ml-5 [&_li]:list-disc [&_li]:pl-1 [&_ul]:mt-2 [&_ul]:space-y-1.5 [&_p+p]:mt-3 [&_ul+p]:mt-4 [&_div+p]:mt-4 [&_table+p]:mt-4 [&_td]:border-t [&_td]:border-white/10 [&_td]:py-2 [&_td]:pr-4 [&_td]:align-top [&_th]:pb-2 [&_th]:pr-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-white">
           {children}
         </div>
         <p className="mt-14 border-t border-white/10 pt-6 text-[13px] text-white/60">

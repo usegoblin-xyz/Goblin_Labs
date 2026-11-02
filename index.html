@@ -77,10 +77,11 @@
         Ask Mia
       </a>
       <script>
-        // The concierge launcher is for our own site — never show it inside an
-        // embedded persona (/embed/:id) running on someone else's page.
-        // Also hidden on the motion-library homepage, which isn't a persona surface.
-        if (location.pathname.indexOf("/embed/") === 0 || location.pathname === "/") {
+        // The concierge launcher belongs to the legacy persona pages only. It is
+        // hidden everywhere else: the motion library, legal pages, account and
+        // login, and embedded personas (/embed/:id) on other people's sites.
+        var legacy = /^\/(labs|studio|personas|docs|demo\/|p\/)/.test(location.pathname);
+        if (!legacy) {
           var m = document.getElementById("goblin-ask-mia");
           if (m) m.remove();
         }
