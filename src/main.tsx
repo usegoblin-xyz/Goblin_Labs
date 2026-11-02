@@ -6,6 +6,7 @@ import { Toaster } from "./app/components/ui/sonner";
 import "./styles/index.css";
 import { initAnalytics } from "./app/lib/analytics";
 import { AnalyticsIdentity } from "./app/lib/auth";
+import { CookieBanner } from "./app/lib/CookieBanner";
 
 initAnalytics();
 
@@ -20,12 +21,16 @@ const Account = lazy(() => import("./app/routes/Account.tsx"));
 const Docs = lazy(() => import("./app/routes/Docs.tsx"));
 const SupportDemo = lazy(() => import("./app/routes/SupportDemo.tsx"));
 const LeadGenDemo = lazy(() => import("./app/routes/LeadGenDemo.tsx"));
+const Privacy = lazy(() => import("./app/routes/Legal.tsx").then((m) => ({ default: m.Privacy })));
+const Terms = lazy(() => import("./app/routes/Legal.tsx").then((m) => ({ default: m.Terms })));
 
 createRoot(document.getElementById("root")!).render(
   <>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/privacy" element={<Suspense fallback={null}><Privacy /></Suspense>} />
+        <Route path="/terms" element={<Suspense fallback={null}><Terms /></Suspense>} />
         <Route
           path="/labs"
           element={
@@ -110,5 +115,6 @@ createRoot(document.getElementById("root")!).render(
     </BrowserRouter>
     <Toaster />
     <AnalyticsIdentity />
+    <CookieBanner />
   </>,
 );

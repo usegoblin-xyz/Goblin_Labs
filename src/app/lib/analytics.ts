@@ -22,8 +22,25 @@ export function initAnalytics() {
     ui_host: "https://us.posthog.com", // links in the toolbar still open PostHog
     defaults: "2026-08-30", // latest config snapshot: SPA pageviews, autocapture, web vitals
     person_profiles: "identified_only", // anonymous visitors don't create person profiles
+    // Consent: until a visitor accepts the cookie banner (or after they decline),
+    // PostHog runs cookieless — no cookies or local storage, anonymous counts only.
+    opt_out_capturing_by_default: true,
+    cookieless_mode: "on_reject",
   });
   ready = true;
+}
+
+// Cookie banner state, as PostHog records it.
+export type Consent = "granted" | "denied" | "pending";
+export function consentStatus(): Consent {
+  if (!ready) return "granted"; // analytics off (localhost / no key): nothing to ask
+  return posthog.get_explicit_consent_status();
+}
+export function acceptAnalytics() {
+  if (ready) posthog.opt_in_capturing();
+}
+export function declineAnalytics() {
+  if (ready) posthog.opt_out_capturing();
 }
 
 // Link this browser's events to the signed-in user. The id is the stable

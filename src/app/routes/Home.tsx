@@ -9,6 +9,7 @@ import { LivePlayer } from "@/library/ui/LivePlayer";
 import { TemplateDialog } from "@/library/ui/TemplateDialog";
 import { LibrarySidebar, type Format } from "@/library/ui/LibrarySidebar";
 import { NewsletterSignup } from "@/library/ui/NewsletterSignup";
+import { openCookieSettings } from "@/app/lib/CookieBanner";
 import { track } from "@/app/lib/analytics";
 import { UserButton, useAuth } from "@/app/lib/auth";
 
@@ -233,13 +234,13 @@ export default function Home() {
             </p>
           </div>
           <label className="relative block sm:w-[300px] lg:hidden">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/40" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/60" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by what you're making"
               aria-label="Search templates"
-              className="h-10 w-full rounded-full border border-white/12 bg-white/[0.04] pr-4 pl-9 text-[14px] outline-none placeholder:text-white/35 focus:border-[#22A03A]"
+              className="h-10 w-full rounded-full border border-white/12 bg-white/[0.04] pr-4 pl-9 text-[14px] outline-none placeholder:text-white/55 focus:border-[#22A03A]"
             />
           </label>
         </div>
@@ -277,7 +278,7 @@ export default function Home() {
                 <div className="p-4">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-[15px] font-semibold">{t.title}</h3>
-                    <div className="flex shrink-0 gap-1.5 text-[11px] text-white/45">
+                    <div className="flex shrink-0 gap-1.5 text-[11px] text-white/60">
                       <span>{aspectLabel(t)}</span>
                       <span>·</span>
                       <span>{seconds(t)}s</span>
@@ -306,7 +307,7 @@ export default function Home() {
                 onClick={() => setLimit((n) => n + PAGE)}
                 className="rounded-full border border-white/20 px-6 py-2.5 text-[14px] font-medium text-white/85 hover:border-white/50"
               >
-                Show more <span className="text-white/45">({shown.length - limit} left)</span>
+                Show more <span className="text-white/60">({shown.length - limit} left)</span>
               </button>
             </div>
           )}
@@ -335,11 +336,17 @@ export default function Home() {
       <footer className="border-t border-white/8">
         <div className="mx-auto flex max-w-[1240px] flex-col gap-8 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6">
           <NewsletterSignup />
-          <div className="flex flex-col gap-2 text-[12px] text-white/40 sm:items-end">
-            <a href="https://goblinlabs.substack.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">
-              Read the newsletter
-            </a>
-            <span>© 2026 Goblin Labs</span>
+          <div className="flex flex-col gap-2 text-[12px] text-white/60 sm:items-end">
+            <nav className="flex flex-wrap gap-x-4 gap-y-1">
+              <a href="https://goblinlabs.substack.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">Newsletter</a>
+              <a href="/privacy" className="hover:text-white">Privacy</a>
+              <a href="/terms" className="hover:text-white">Terms</a>
+              <button type="button" onClick={openCookieSettings} className="hover:text-white">Cookie settings</button>
+            </nav>
+            <span>
+              © 2026 GoblinLabs Inc., a Delaware corporation ·{" "}
+              <a href="mailto:obi@usegoblin.xyz" className="hover:text-white">obi@usegoblin.xyz</a>
+            </span>
           </div>
         </div>
       </footer>

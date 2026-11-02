@@ -232,7 +232,14 @@ export function AuthForm({
           {busy ? "One moment…" : mode === "sign-up" ? "Sign up" : "Sign in"}
         </button>
       </form>
-      <p className={`mt-4 text-center text-[12.5px] ${dark ? "text-white/45" : "text-[#6b7669]"}`}>
+      {mode === "sign-up" && (
+        <p className={`mt-3 text-center text-[11.5px] leading-relaxed ${dark ? "text-white/55" : "text-[#5d6b5b]"}`}>
+          By signing up you agree to the{" "}
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline">Terms</a> and{" "}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">Privacy Policy</a>, and confirm you're 13 or older.
+        </p>
+      )}
+      <p className={`mt-4 text-center text-[12.5px] ${dark ? "text-white/60" : "text-[#5d6b5b]"}`}>
         {mode === "sign-up" ? "Already have an account? " : "New here? "}
         <button type="button" onClick={() => { setMode(mode === "sign-up" ? "sign-in" : "sign-up"); setError(""); }} className="font-semibold text-[#22a03a] hover:underline">
           {mode === "sign-up" ? "Sign in" : "Create an account"}

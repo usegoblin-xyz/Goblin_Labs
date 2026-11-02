@@ -82,7 +82,7 @@ export function NewsletterSignup({ source = "footer" }: { source?: string }) {
   return (
     <div className="max-w-[440px]">
       <h3 className="text-[15px] font-semibold text-white">Stay updated</h3>
-      <p className="mt-1 text-[13px] leading-relaxed text-white/50">
+      <p className="mt-1 text-[13px] leading-relaxed text-white/60">
         New templates and the best founder launch videos.
       </p>
       {state === "done" ? (
@@ -119,6 +119,11 @@ export function NewsletterSignup({ source = "footer" }: { source?: string }) {
         </form>
       )}
       {error && <p className="mt-2 text-[12.5px] text-[#ff6b5e]">{error}</p>}
+      {state !== "done" && (
+        <p className="mt-2 text-[11.5px] text-white/55">
+          We'll email you Goblin updates. Unsubscribe anytime. See our <a href="/privacy" className="underline hover:text-white">Privacy Policy</a>.
+        </p>
+      )}
     </div>
   );
 }

@@ -55,16 +55,16 @@ function Item({ icon, label, count, active, onClick, badge }: { icon: ReactNode;
         active ? "bg-white/[0.08] font-medium text-white" : "text-white/65 hover:bg-white/[0.04] hover:text-white"
       }`}
     >
-      <span className={active ? "text-white" : "text-white/50"}>{icon}</span>
+      <span className={active ? "text-white" : "text-white/60"}>{icon}</span>
       <span className="flex-1 truncate">{label}</span>
       {badge && <span className="rounded-md bg-[#22A03A]/15 px-1.5 py-0.5 text-[11px] font-medium text-[#5fd67a]">{badge}</span>}
-      {count !== undefined && <span className="text-[12px] tabular-nums text-white/35">{count}</span>}
+      {count !== undefined && <span className="text-[12px] tabular-nums text-white/55">{count}</span>}
     </button>
   );
 }
 
 const Heading = ({ children }: { children: ReactNode }) => (
-  <div className="mt-5 mb-1 px-3 text-[12px] font-medium text-white/40">{children}</div>
+  <div className="mt-5 mb-1 px-3 text-[12px] font-medium text-white/60">{children}</div>
 );
 
 // 21st.dev-style left rail for the library: search, sections, formats, saved.
@@ -88,16 +88,16 @@ export function LibrarySidebar(p: Props) {
     <aside className="hidden w-[232px] shrink-0 lg:block">
       <div className="sticky top-[150px] max-h-[calc(100vh-170px)] overflow-y-auto pr-1 pb-6">
         <label className="relative block">
-          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/40" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/60" />
           <input
             ref={searchRef}
             value={p.query}
             onChange={(e) => p.onQuery(e.target.value)}
             placeholder="Search"
             aria-label="Search templates"
-            className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.04] pr-12 pl-9 text-[14px] outline-none placeholder:text-white/35 focus:border-[#22A03A]"
+            className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.04] pr-12 pl-9 text-[14px] outline-none placeholder:text-white/55 focus:border-[#22A03A]"
           />
-          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[12px] text-white/30">⌘K</span>
+          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[12px] text-white/55">⌘K</span>
         </label>
 
         <div className="mt-3 space-y-0.5">

@@ -12,18 +12,29 @@ const google =
     ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }
     : undefined;
 
+const pool = new pg.Pool({ connectionString: env.DATABASE_URL, max: 3, ssl: { rejectUnauthorized: false } });
+
 export const auth = betterAuth({
   // Production sets BETTER_AUTH_URL; previews infer the URL from the request.
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
-  database: new pg.Pool({ connectionString: env.DATABASE_URL, max: 3, ssl: { rejectUnauthorized: false } }),
+  database: pool,
   emailAndPassword: { enabled: true, autoSignIn: true, minPasswordLength: 8 },
   socialProviders: google,
   // Account console: people can delete their own account (password, or a
   // recent sign-in for Google-only accounts) and connect Google to an
   // existing email account with the same address.
   user: {
-    deleteUser: { enabled: true },
+    deleteUser: {
+      enabled: true,
+      // Deleting an account also removes the person's newsletter sign-up
+      // (matched by account or email), as the privacy policy promises.
+      afterDelete: async (user) => {
+        await pool
+          .query("delete from newsletter.subscribers where user_id = $1 or lower(email) = lower($2)", [user.id, user.email])
+          .catch((e) => console.error("newsletter cleanup failed", (e as Error).message));
+      },
+    },
     // Email changes are confirmed by link: the new address must click to
     // take over, and verified accounts approve from the old inbox first.
     changeEmail: {
