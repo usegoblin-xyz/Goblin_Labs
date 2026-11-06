@@ -19,3 +19,4 @@ out/
 # local frame-check harness
 check.html
 src/__check.tsx
+__pycache__/
