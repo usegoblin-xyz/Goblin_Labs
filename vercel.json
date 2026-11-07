@@ -2,8 +2,36 @@
   "functions": {
     "api/avatars.ts": {
       "maxDuration": 300
+    },
+    "api/studio-generate.ts": {
+      "maxDuration": 300,
+      "includeFiles": "src/library/**"
     }
   },
+  "headers": [
+    {
+      "source": "/sandbox.html",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data: blob:; connect-src 'none'; media-src data:; frame-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/ingest/static/:path*",

@@ -72,6 +72,10 @@ type Events = {
   signed_in: { method: "email" | "google" };
   signed_out: Record<string, never>;
   newsletter_subscribed: { source: string };
+  studio_generate: { mode: "create" | "edit" | "repair"; aspect?: string };
+  studio_generate_failed: { mode: "create" | "edit" | "repair"; status: number };
+  studio_preview_error: { auto: boolean };
+  studio_copied: { what: string };
 };
 
 export function track<E extends keyof Events>(event: E, props: Events[E]) {

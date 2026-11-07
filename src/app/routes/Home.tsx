@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Bookmark, Search } from "lucide-react";
+import { ArrowRight, Bookmark, Search, Sparkles } from "lucide-react";
 import goblinLogo from "@/assets/goblin-logo.png";
-import { DEFAULT_BRAND, type Brand } from "@/library/brand";
+import { type Brand } from "@/library/brand";
+import { loadBrand, saveBrand } from "@/library/brandStore";
 import type { Category, Template } from "@/library/kit";
 import { CATEGORIES, TEMPLATES, aspectLabel, matches, seconds } from "@/library/registry";
 import { BrandBar } from "@/library/ui/BrandBar";
@@ -15,7 +16,6 @@ import { track } from "@/app/lib/analytics";
 import { UserButton, useAuth } from "@/app/lib/auth";
 
 type Content = Record<string, string | number>;
-const BRAND_KEY = "goblin_brand_kit";
 const SAVED_KEY = "goblin.saved";
 
 function loadSaved(): string[] {
@@ -26,15 +26,6 @@ function loadSaved(): string[] {
   }
 }
 
-function loadBrand(): Brand {
-  try {
-    const raw = localStorage.getItem(BRAND_KEY);
-    if (raw) return { ...DEFAULT_BRAND, ...JSON.parse(raw) };
-  } catch {
-    /* storage blocked — fall back to default */
-  }
-  return DEFAULT_BRAND;
-}
 
 const STEPS = [
   { n: "01", title: "Set your brand once", body: "Name, colors, font and motion feel. Every template reads from the same kit." },
@@ -63,13 +54,7 @@ export default function Home() {
     });
   const [open, setOpen] = useState<Template | null>(null);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(BRAND_KEY, JSON.stringify(brand));
-    } catch {
-      /* ignore */
-    }
-  }, [brand]);
+  useEffect(() => saveBrand(brand), [brand]);
 
   const contentFor = (t: Template): Content => overrides[t.id] ?? (t.defaults as Content);
   const shown = useMemo(
@@ -136,6 +121,9 @@ export default function Home() {
             </a>
             <a href="#how" className="hidden rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white sm:inline">
               How it works
+            </a>
+            <a href="/create" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white">
+              <Sparkles className="h-3.5 w-3.5 text-[#5fd67a]" /> Create
             </a>
             <a
               href="#library"

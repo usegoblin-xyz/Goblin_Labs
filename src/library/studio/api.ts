@@ -1,0 +1,125 @@
+// Browser client for template generation (api/studio-generate.ts) and saved
+// templates (api/studio-templates.ts).
+import type { Template } from "../kit";
+
+export type StudioField = { key: string; label: string; type: "text" | "textarea"; hint?: string };
+export type StudioTemplate = {
+  id: string;
+  title: string;
+  outcome: string;
+  category: string;
+  tags: string[];
+  width: number;
+  height: number;
+  fps: number;
+  durationInFrames: number;
+  fields: StudioField[];
+  defaults: Record<string, string>;
+  code: string;
+  compiled: string;
+  prompt: string;
+  version: number;
+  updatedAt: string;
+};
+export type Version = { version: number; instruction: string; createdAt: string };
+export type Aspect = "16:9" | "9:16" | "1:1";
+
+export type GenEvent =
+  | { type: "stage"; stage: "writing" | "checking" | "fixing"; attempt: number; problems?: string[] }
+  | { type: "progress"; chars: number }
+  | { type: "done"; template: StudioTemplate }
+  | { type: "error"; message: string; problems?: string[] };
+
+export type GenRequest =
+  | { mode: "create"; prompt: string; aspect: Aspect }
+  | { mode: "edit"; id: string; instruction: string }
+  | { mode: "repair"; id: string; error: string };
+
+export class StudioError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+async function errorOf(r: Response) {
+  const body = await r.json().catch(() => ({}));
+  return new StudioError(body.error || `Request failed (${r.status})`, r.status);
+}
+
+// Streams generation events; resolves with the saved template or throws.
+export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, signal?: AbortSignal): Promise<StudioTemplate> {
+  const r = await fetch("/api/studio-generate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(req),
+    credentials: "same-origin",
+    signal,
+  });
+  if (!r.ok || !r.body) throw await errorOf(r);
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  let result: StudioTemplate | null = null;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (value) buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (!line) continue;
+      const e = JSON.parse(line) as GenEvent;
+      onEvent(e);
+      if (e.type === "done") result = e.template;
+      if (e.type === "error") throw new StudioError(e.message, 200);
+    }
+    if (done) break;
+  }
+  if (!result) throw new StudioError("The connection closed before the template was ready. Try again.", 0);
+  return result;
+}
+
+export async function listTemplates(): Promise<StudioTemplate[]> {
+  const r = await fetch("/api/studio-templates", { credentials: "same-origin" });
+  if (!r.ok) throw await errorOf(r);
+  return (await r.json()).templates;
+}
+
+export async function getTemplate(id: string): Promise<{ template: StudioTemplate; versions: Version[] }> {
+  const r = await fetch(`/api/studio-templates?id=${encodeURIComponent(id)}`, { credentials: "same-origin" });
+  if (!r.ok) throw await errorOf(r);
+  return r.json();
+}
+
+export async function restoreVersion(id: string, version: number): Promise<{ template: StudioTemplate; versions: Version[] }> {
+  const r = await fetch("/api/studio-templates", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ id, restore: version }),
+    credentials: "same-origin",
+  });
+  if (!r.ok) throw await errorOf(r);
+  return r.json();
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  const r = await fetch(`/api/studio-templates?id=${encodeURIComponent(id)}`, { method: "DELETE", credentials: "same-origin" });
+  if (!r.ok) throw await errorOf(r);
+}
+
+// The library's Template shape, for reusing the Copy prompt text.
+export function asTemplate(s: StudioTemplate): Template {
+  return {
+    id: `studio-${s.id}`,
+    title: s.title,
+    outcome: s.outcome,
+    category: (s.category as Template["category"]) || "Launch",
+    tags: s.tags,
+    width: s.width,
+    height: s.height,
+    fps: s.fps,
+    durationInFrames: s.durationInFrames,
+    defaults: s.defaults,
+    fields: s.fields,
+  };
+}

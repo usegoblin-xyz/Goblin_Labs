@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anam-ai/js-sdk": "^4.13.0",
+    "@anthropic-ai/sdk": "^1.6.0",
     "@better-auth/infra": "^0.4.22",
     "@radix-ui/react-accordion": "1.2.3",
     "@radix-ui/react-alert-dialog": "1.1.6",
@@ -67,6 +68,7 @@
     "sonner": "2.0.3",
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",
+    "typescript": "~5.6.0",
     "vaul": "1.1.2"
   },
   "devDependencies": {
@@ -85,7 +87,6 @@
     "@vercel/node": "^5.8.14",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
-    "typescript": "~5.6.0",
     "vite": "6.4.3"
   },
   "peerDependencies": {

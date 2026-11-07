@@ -20,7 +20,7 @@ type Props = {
 
 // A ready-to-paste prompt that describes this template in the viewer's brand
 // kit and copy, for making the video with Claude and Remotion.
-function buildPrompt(t: Template, brand: Brand, content: Record<string, string | number>) {
+export function buildPrompt(t: Template, brand: Brand, content: Record<string, string | number>) {
   const copyLines = t.fields
     .map((f) => {
       const v = content[f.key] ?? t.defaults[f.key];

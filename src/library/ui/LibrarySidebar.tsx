@@ -122,6 +122,7 @@ export function LibrarySidebar(p: Props) {
 
         <Heading>Build</Heading>
         <div className="space-y-0.5">
+          <Item icon={<Sparkles className={ic} />} label="Create a template" badge="New" onClick={() => (window.location.href = "/create")} />
           <Item icon={<Palette className={ic} />} label="Brand kit" onClick={p.onBrandKit} />
           <Item icon={<Wand2 className={ic} />} label="How it works" onClick={() => document.getElementById("how")?.scrollIntoView({ behavior: "smooth" })} />
         </div>
