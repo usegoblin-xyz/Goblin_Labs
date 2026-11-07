@@ -3,7 +3,8 @@
 // Ruixen "moon chat" layout (centered title, auto-growing input, quick
 // actions), recoloured to Goblin green and wired to the template generator.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowUpIcon, BarChart3, Check, Copy, ExternalLink, ListChecks, Loader2, Megaphone, Rocket, Sparkles, TrendingUp, TriangleAlert, Users } from "lucide-react";
+import { useSearchParams } from "react-router";
+import { ArrowUpIcon, BarChart3, Check, Copy, ListChecks, Loader2, Megaphone, PencilLine, Rocket, Sparkles, TrendingUp, TriangleAlert, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./button";
 import { Textarea } from "./textarea";
@@ -13,7 +14,7 @@ import { track } from "@/app/lib/analytics";
 import type { Brand } from "@/library/brand";
 import { buildPrompt } from "@/library/ui/TemplateDialog";
 import { SandboxPlayer } from "@/library/studio/SandboxPlayer";
-import { asTemplate, generate, type Aspect, type GenEvent, type GenRequest, type StudioTemplate } from "@/library/studio/api";
+import { asTemplate, generate, getTemplate, type Aspect, type GenEvent, type GenRequest, type StudioTemplate } from "@/library/studio/api";
 
 const GREEN = "#22A03A";
 const DRAFT_KEY = "goblin.chatDraft";
@@ -66,6 +67,11 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   const [aspect, setAspect] = useState<Aspect>("16:9");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState(false);
+  // Copy edits per template, made without asking Claude ("Edit text").
+  const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
+  const [editing, setEditing] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const openId = params.get("t");
   const nextId = useRef(1);
   const autoFixes = useRef(0);
   const scroller = useRef<HTMLDivElement>(null);
@@ -92,6 +98,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     const onNew = () => {
       if (busy) return;
       setTurns([]);
+      setEditing(false);
       autoFixes.current = 0;
       requestAnimationFrame(() => textareaRef.current?.focus());
     };
@@ -99,12 +106,33 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     return () => window.removeEventListener("goblin:new-chat", onNew);
   }, [busy, textareaRef]);
 
+  const contentFor = (t: StudioTemplate) => edits[t.id] ?? t.defaults;
+
+  // /?t=<id> reopens a saved template (from "Your creations") so follow-ups keep changing it.
+  useEffect(() => {
+    if (!isSignedIn || !openId || current?.id === openId || busy) return;
+    getTemplate(openId)
+      .then(({ template }) => {
+        autoFixes.current = MAX_AUTO_FIXES; // don't spend a generation on a saved template unasked
+        setEditing(false);
+        setTurns([
+          { id: nextId.current++, role: "user", text: template.prompt },
+          { id: nextId.current++, role: "assistant", steps: [], chars: 0, template, health: "testing" },
+        ]);
+      })
+      .catch(() => {
+        toast.error("Couldn't open that template");
+        setParams({}, { replace: true });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, openId]);
+
   const patch = (id: number, f: (t: Extract<Turn, { role: "assistant" }>) => Partial<Extract<Turn, { role: "assistant" }>>) =>
     setTurns((ts) => ts.map((t) => (t.id === id && t.role === "assistant" ? { ...t, ...f(t) } : t)));
 
   const run = async (req: GenRequest, userText?: string) => {
     if (!isSignedIn) {
-      window.location.href = `/login?redirect=${encodeURIComponent("/#create")}`;
+      window.location.href = `/login?redirect=${encodeURIComponent("/")}`;
       return;
     }
     const aid = nextId.current++;
@@ -125,6 +153,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     try {
       const t = await generate(req, onEvent);
       if (req.mode !== "repair") autoFixes.current = 0;
+      setParams({ t: t.id }, { replace: true });
       patch(aid, (x) => ({
         template: t,
         health: "testing",
@@ -143,7 +172,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     const text = message.trim();
     if (!text || busy) return;
     if (!isSignedIn) {
-      window.location.href = `/login?redirect=${encodeURIComponent("/#create")}`;
+      window.location.href = `/login?redirect=${encodeURIComponent("/")}`;
       return;
     }
     setMessage("");
@@ -163,7 +192,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
 
   const copy = async (t: StudioTemplate) => {
     try {
-      await navigator.clipboard.writeText(buildPrompt(asTemplate(t), brand, t.defaults));
+      await navigator.clipboard.writeText(buildPrompt(asTemplate(t), brand, contentFor(t)));
       toast.success("Prompt copied", { description: "Paste it into Claude to make this video." });
       track("studio_copied", { what: "Prompt" });
     } catch {
@@ -288,7 +317,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                         <Sparkles className="h-3.5 w-3.5" />
                       </span>
                       <div className="min-w-0 flex-1 pt-0.5">
-                        {t.steps.length === 0 && !t.error && (
+                        {t.steps.length === 0 && !t.error && !t.template && (
                           <div className="flex items-center gap-2 text-[14px] text-white/60">
                             <Loader2 className="h-4 w-4 animate-spin text-[#22A03A]" /> Starting…
                           </div>
@@ -316,7 +345,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                               fps={t.template.fps}
                               durationInFrames={t.template.durationInFrames}
                               brand={brand}
-                              content={t.template.defaults}
+                              content={contentFor(t.template)}
                               className="h-full w-full"
                               onChecked={() => patch(t.id, (x) => ({ health: "ok", steps: x.steps.map((s) => (s.key === "preview" ? { ...s, state: "done" as const } : s)) }))}
                               onError={(e) => onPreviewError(t.id, t.template!, e)}
@@ -336,13 +365,42 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                               <Button size="sm" onClick={() => copy(t.template!)} className="h-8 rounded-full bg-[#22A03A] px-3.5 text-[12.5px] font-semibold text-black hover:bg-[#22A03A]/90">
                                 <Copy className="h-3.5 w-3.5" /> Copy prompt
                               </Button>
-                              <Button asChild size="sm" variant="outline" className="h-8 rounded-full border-white/15 bg-transparent px-3.5 text-[12.5px] text-white/80 hover:bg-white/8 hover:text-white dark:bg-transparent">
-                                <a href={`/create?t=${t.template.id}`}>
-                                  <ExternalLink className="h-3.5 w-3.5" /> Edit copy
-                                </a>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditing((v) => !v)}
+                                aria-expanded={editing}
+                                className={cn("h-8 rounded-full border-white/15 bg-transparent px-3.5 text-[12.5px] text-white/80 hover:bg-white/8 hover:text-white dark:bg-transparent", editing && "border-white/35 text-white")}
+                              >
+                                <PencilLine className="h-3.5 w-3.5" /> Edit text
                               </Button>
                             </div>
                           </div>
+                          {editing && (
+                            <div className="grid gap-3 border-t border-white/8 p-4 sm:grid-cols-2">
+                              {t.template.fields.map((f) => (
+                                <label key={f.key} className={cn("block", f.type === "textarea" && "sm:col-span-2")}>
+                                  <span className="mb-1 block text-[12px] text-white/55">{f.label}</span>
+                                  {f.type === "textarea" ? (
+                                    <textarea
+                                      rows={3}
+                                      value={contentFor(t.template!)[f.key] ?? ""}
+                                      onChange={(e) => setEdits((x) => ({ ...x, [t.template!.id]: { ...contentFor(t.template!), [f.key]: e.target.value } }))}
+                                      className="w-full resize-none rounded-lg border border-white/12 bg-white/[0.03] px-3 py-2 text-[13.5px] outline-none focus:border-[#22A03A]"
+                                    />
+                                  ) : (
+                                    <input
+                                      value={contentFor(t.template!)[f.key] ?? ""}
+                                      onChange={(e) => setEdits((x) => ({ ...x, [t.template!.id]: { ...contentFor(t.template!), [f.key]: e.target.value } }))}
+                                      className="h-9 w-full rounded-lg border border-white/12 bg-white/[0.03] px-3 text-[13.5px] outline-none focus:border-[#22A03A]"
+                                    />
+                                  )}
+                                  {f.hint && <span className="mt-1 block text-[11px] text-white/35">{f.hint}</span>}
+                                </label>
+                              ))}
+                              <p className="text-[11.5px] text-white/35 sm:col-span-2">Text edits change the preview and the copied prompt. To change the design, ask in the chat.</p>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="ml-9 text-[12.5px] text-white/35">
