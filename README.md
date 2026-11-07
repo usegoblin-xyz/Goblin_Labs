@@ -123,8 +123,10 @@ left panel (`src/library/ui/AppSidebar.tsx`) linking to each library view:
 `/library`, `/library/saved`, `/library/<category>`, `/library?format=9:16`
 and `/library?q=`. The chat lets a signed-in user describe a video and get a new template,
 written by Claude against the same kit and motion helpers as the library.
-Follow-up messages change it. `/create` is the full editor for one template:
-copy fields, version history, code and delete.
+Follow-up messages change it, and "Edit text" on the result changes the copy
+without a new generation. "Your creations" (`/library/creations`) lists the
+user's templates; opening one (`/?t=<id>`) continues it in the chat. Old
+`/create` links redirect there.
 
 1. `api/studio.ts?op=generate` (`api/_studio/generate.ts`) sends the prompt to Claude with a cached system
    prompt: the authoring guide (`api/_studio/guide.ts`), the real `brand.ts`,

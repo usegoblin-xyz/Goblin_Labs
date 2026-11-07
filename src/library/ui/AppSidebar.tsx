@@ -123,7 +123,7 @@ export function AppSidebar(p: Props) {
         <div className="space-y-0.5">
           <Item to="/library" icon={<LayoutGrid className={ic} />} label="All templates" count={p.total} active={pathname === "/library" && format === "any" && !q} onClick={done} />
           <Item to="/library/saved" icon={<Bookmark className={ic} />} label="Saved" count={p.savedCount} active={pathname === "/library/saved"} onClick={done} />
-          {isSignedIn && <Item to="/create" icon={<Sparkles className={ic} />} label="Your creations" active={pathname === "/create"} onClick={done} />}
+          {isSignedIn && <Item to="/library/creations" icon={<Sparkles className={ic} />} label="Your creations" active={pathname === "/library/creations"} onClick={done} />}
         </div>
 
         <Heading>Explore</Heading>

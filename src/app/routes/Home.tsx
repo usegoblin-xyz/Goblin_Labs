@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useParams, useSearchParams, Link } from "react-router";
-import { Bookmark, Menu } from "lucide-react";
+import { useLocation, useNavigate, useParams, useSearchParams, Link } from "react-router";
+import { Bookmark, Menu, Trash2 } from "lucide-react";
 import goblinLogo from "@/assets/goblin-logo.png";
 import { FONTS, type Brand } from "@/library/brand";
 import { loadBrand, saveBrand } from "@/library/brandStore";
@@ -14,6 +14,9 @@ import GoblinChat from "@/app/components/ui/goblin-chat";
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
 import { Sheet, SheetContent, SheetTitle } from "@/app/components/ui/sheet";
 import { track } from "@/app/lib/analytics";
+import { useAuth } from "@/app/lib/auth";
+import { SandboxPlayer } from "@/library/studio/SandboxPlayer";
+import { deleteTemplate, listTemplates, type StudioTemplate } from "@/library/studio/api";
 
 type Content = Record<string, string | number>;
 const SAVED_KEY = "goblin.saved";
@@ -65,6 +68,32 @@ export default function Home() {
 
   const inLibrary = pathname.startsWith("/library");
   const savedOnly = section === "saved";
+  const creationsView = section === "creations";
+  const navigate = useNavigate();
+  const { isLoaded, isSignedIn } = useAuth();
+  const [creations, setCreations] = useState<StudioTemplate[] | null>(null);
+
+  // The signed-in user's generated templates, for "Your creations".
+  useEffect(() => {
+    if (!creationsView || !isSignedIn) return;
+    let live = true;
+    listTemplates()
+      .then((ts) => live && setCreations(ts))
+      .catch(() => live && setCreations([]));
+    return () => {
+      live = false;
+    };
+  }, [creationsView, isSignedIn]);
+
+  const removeCreation = async (t: StudioTemplate) => {
+    if (!window.confirm(`Delete “${t.title}”? This can't be undone.`)) return;
+    try {
+      await deleteTemplate(t.id);
+      setCreations((cs) => cs?.filter((x) => x.id !== t.id) ?? null);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
   const category = (CATS.find((c) => slugOf(c) === section) ?? "All") as "All" | Category;
   const format = (["16:9", "9:16", "1:1"].includes(params.get("format") ?? "") ? params.get("format") : "any") as Format;
   const query = params.get("q") ?? "";
@@ -122,7 +151,7 @@ export default function Home() {
     setOpen(t);
   };
 
-  const title = query ? `Results for “${query}”` : savedOnly ? "Saved" : category !== "All" ? category : format !== "any" ? `${format === "16:9" ? "Landscape" : format === "9:16" ? "Vertical" : "Square"} ${format}` : "All templates";
+  const title = creationsView ? "Your creations" : query ? `Results for “${query}”` : savedOnly ? "Saved" : category !== "All" ? category : format !== "any" ? `${format === "16:9" ? "Landscape" : format === "9:16" ? "Vertical" : "Square"} ${format}` : "All templates";
   const sidebar = (onNavigate?: () => void) => (
     <AppSidebar categories={CATS} counts={counts} total={TEMPLATES.length} formatCounts={formatCounts} savedCount={saved.length} onNavigate={onNavigate} />
   );
@@ -157,6 +186,75 @@ export default function Home() {
           <div className="-mt-[58px] flex min-h-0 flex-1">
             <GoblinChat brand={brand} />
           </div>
+        ) : creationsView ? (
+          <section className="mx-auto w-full max-w-[1280px] px-4 pb-20 sm:px-6" aria-labelledby="library-title">
+            <h1 id="library-title" className="text-[26px] font-semibold tracking-tight sm:text-[30px]">
+              Your creations
+            </h1>
+            <p className="mt-1 text-[14px] text-white/50">
+              {!isLoaded || (isSignedIn && creations === null)
+                ? "Loading…"
+                : !isSignedIn
+                  ? "Sign in to see the templates you've created."
+                  : creations!.length
+                    ? `${creations!.length} template${creations!.length === 1 ? "" : "s"} you made in the chat. Open one to keep changing it.`
+                    : "Nothing yet. Templates you create in the chat are saved here."}
+            </p>
+            {isLoaded && !isSignedIn && (
+              <Link to="/login?redirect=%2Flibrary%2Fcreations" className="mt-5 inline-block rounded-full bg-white px-5 py-2 text-[14px] font-semibold text-black hover:opacity-90">
+                Sign in
+              </Link>
+            )}
+            {isSignedIn && creations?.length === 0 && (
+              <Link to="/" className="mt-5 inline-block rounded-full bg-[#22A03A] px-5 py-2 text-[14px] font-semibold text-black hover:opacity-90">
+                Start a chat
+              </Link>
+            )}
+            {!!creations?.length && (
+              <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {creations.map((t) => (
+                  <div key={t.id} className="group relative">
+                    <button onClick={() => navigate(`/?t=${t.id}`)} className="block w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] text-left transition-colors hover:border-white/30">
+                      {/* The preview is decoration here; clicks go to the card. */}
+                      <div className="pointer-events-none aspect-video w-full" style={{ background: brand.background }}>
+                        <SandboxPlayer
+                          compiled={t.compiled}
+                          width={t.width}
+                          height={t.height}
+                          fps={t.fps}
+                          durationInFrames={t.durationInFrames}
+                          brand={brand}
+                          content={t.defaults}
+                          controls={false}
+                          className="h-full w-full"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="truncate text-[15px] font-semibold">{t.title}</h3>
+                          <div className="flex shrink-0 gap-1.5 text-[11px] text-white/55">
+                            <span>{t.width === t.height ? "1:1" : t.width > t.height ? "16:9" : "9:16"}</span>
+                            <span>·</span>
+                            <span>{Math.round(t.durationInFrames / t.fps)}s</span>
+                            <span>·</span>
+                            <span>v{t.version}</span>
+                          </div>
+                        </div>
+                        <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-white/50">{t.outcome || t.prompt}</p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => removeCreation(t)}
+                      aria-label={`Delete ${t.title}`}
+                      className="absolute top-3 right-3 rounded-lg border border-white/15 bg-black/60 p-1.5 text-white/75 opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 hover:text-red-300 focus:opacity-100"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         ) : (
           <section className="mx-auto w-full max-w-[1280px] px-4 pb-20 sm:px-6" aria-labelledby="library-title">
             <h1 id="library-title" className="text-[26px] font-semibold tracking-tight sm:text-[30px]">

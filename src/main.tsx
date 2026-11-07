@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router";
+import { BrowserRouter, Navigate, Routes, Route, useSearchParams } from "react-router";
 import Home from "./app/routes/Home.tsx";
 import { Toaster } from "./app/components/ui/sonner";
 import "./styles/index.css";
@@ -19,11 +19,16 @@ const Login = lazy(() => import("./app/routes/Login.tsx"));
 const Personas = lazy(() => import("./app/routes/Personas.tsx"));
 const Account = lazy(() => import("./app/routes/Account.tsx"));
 const Docs = lazy(() => import("./app/routes/Docs.tsx"));
-const Create = lazy(() => import("./app/routes/Create.tsx"));
 const SupportDemo = lazy(() => import("./app/routes/SupportDemo.tsx"));
 const LeadGenDemo = lazy(() => import("./app/routes/LeadGenDemo.tsx"));
 const Privacy = lazy(() => import("./app/routes/Legal.tsx").then((m) => ({ default: m.Privacy })));
 const Terms = lazy(() => import("./app/routes/Legal.tsx").then((m) => ({ default: m.Terms })));
+
+function CreateRedirect() {
+  const [params] = useSearchParams();
+  const t = params.get("t");
+  return <Navigate to={t ? `/?t=${encodeURIComponent(t)}` : "/"} replace />;
+}
 
 createRoot(document.getElementById("root")!).render(
   <>
@@ -32,14 +37,8 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<Home />} />
         <Route path="/library" element={<Home />} />
         <Route path="/library/:section" element={<Home />} />
-        <Route
-          path="/create"
-          element={
-            <Suspense fallback={null}>
-              <Create />
-            </Suspense>
-          }
-        />
+        {/* The old Create page: its links now open the template in the chat. */}
+        <Route path="/create" element={<CreateRedirect />} />
         <Route path="/privacy" element={<Suspense fallback={null}><Privacy /></Suspense>} />
         <Route path="/terms" element={<Suspense fallback={null}><Terms /></Suspense>} />
         <Route
