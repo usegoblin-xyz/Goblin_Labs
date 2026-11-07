@@ -1,7 +1,7 @@
 // Builds the cached part of the generation prompt from the real library
 // sources, so the guide Claude follows can never drift from the code it has
 // to compile against. Files are shipped with the function via
-// vercel.json → functions["api/studio-generate.ts"].includeFiles.
+// vercel.json → functions["api/studio.ts"].includeFiles.
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";

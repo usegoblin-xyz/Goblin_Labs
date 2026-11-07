@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
 import type { CallClaude, ToolInput } from "../api/_studio/claude.ts";
 
 process.env.STUDIO_DAILY_LIMIT = "3";
-const { makeHandler: makeGen } = await import("../api/studio-generate.ts");
-const { makeHandler: makeTpl } = await import("../api/studio-templates.ts");
+const { makeHandler: makeGen } = await import("../api/_studio/generate.ts");
+const { makeHandler: makeTpl } = await import("../api/_studio/templates.ts");
 const { db } = await import("../api/_studio/db.ts");
 
 const [goodFile, badFile] = process.argv.length > 3 ? process.argv.slice(2) : ["scripts/studio-fixtures/good.tsx", "scripts/studio-fixtures/bad.tsx"];

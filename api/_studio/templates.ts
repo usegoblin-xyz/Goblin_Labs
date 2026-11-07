@@ -1,11 +1,11 @@
-// /api/studio-templates: the signed-in user's generated templates.
+// /api/studio?op=templates: the signed-in user's generated templates.
 //   GET                      → { templates: [...] } (newest first)
 //   GET ?id=                 → { template, versions }
 //   POST { id, restore: n }  → { template } (restores version n as a new version)
 //   DELETE ?id=              → { ok: true }
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getUserId } from "./_auth.js";
-import { deleteTemplate, getSnapshot, getTemplate, listTemplates, listVersions, saveVersion } from "./_studio/db.js";
+import { getUserId } from "../_auth.js";
+import { deleteTemplate, getSnapshot, getTemplate, listTemplates, listVersions, saveVersion } from "./db.js";
 
 export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | null>) {
   return async function handler(req: VercelRequest, res: VercelResponse) {
@@ -43,4 +43,3 @@ export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | n
   };
 }
 
-export default makeHandler(getUserId);

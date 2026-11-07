@@ -121,7 +121,7 @@ served at `/api/auth/*`), with accounts in Supabase Postgres:
 `/create` lets a signed-in user describe a video and get a new template,
 written by Claude against the same kit and motion helpers as the library.
 
-1. `api/studio-generate.ts` sends the prompt to Claude with a cached system
+1. `api/studio.ts?op=generate` (`api/_studio/generate.ts`) sends the prompt to Claude with a cached system
    prompt: the authoring guide (`api/_studio/guide.ts`), the real `brand.ts`,
    `kit.ts` and `motion.tsx` sources, and three example templates
    (`api/_studio/context.ts`). Claude answers through one strict tool,
@@ -135,8 +135,9 @@ written by Claude against the same kit and motion helpers as the library.
    access but fonts. The sandbox renders a spread of frames first. If one
    throws, the page asks Claude for a fix automatically (up to twice).
 4. Follow-up prompts edit the template as a new version, and any earlier
-   version can be restored. `api/studio-templates.ts` lists, opens, restores
-   and deletes a user's templates.
+   version can be restored. `api/studio.ts?op=templates` lists, opens,
+   restores and deletes a user's templates. Both share one function to stay
+   within the Hobby plan's 12-function limit.
 
 Data lives in the `studio` schema (`db/studio.sql`: templates, versions, and a
 log of every Claude call with token counts). Apply it once to the auth database.

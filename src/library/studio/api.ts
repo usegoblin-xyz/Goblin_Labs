@@ -1,5 +1,4 @@
-// Browser client for template generation (api/studio-generate.ts) and saved
-// templates (api/studio-templates.ts).
+// Browser client for template generation and saved templates (api/studio.ts).
 import type { Template } from "../kit";
 
 export type StudioField = { key: string; label: string; type: "text" | "textarea"; hint?: string };
@@ -48,7 +47,7 @@ async function errorOf(r: Response) {
 
 // Streams generation events; resolves with the saved template or throws.
 export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, signal?: AbortSignal): Promise<StudioTemplate> {
-  const r = await fetch("/api/studio-generate", {
+  const r = await fetch("/api/studio?op=generate", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(req),
@@ -80,19 +79,19 @@ export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, 
 }
 
 export async function listTemplates(): Promise<StudioTemplate[]> {
-  const r = await fetch("/api/studio-templates", { credentials: "same-origin" });
+  const r = await fetch("/api/studio?op=templates", { credentials: "same-origin" });
   if (!r.ok) throw await errorOf(r);
   return (await r.json()).templates;
 }
 
 export async function getTemplate(id: string): Promise<{ template: StudioTemplate; versions: Version[] }> {
-  const r = await fetch(`/api/studio-templates?id=${encodeURIComponent(id)}`, { credentials: "same-origin" });
+  const r = await fetch(`/api/studio?op=templates&id=${encodeURIComponent(id)}`, { credentials: "same-origin" });
   if (!r.ok) throw await errorOf(r);
   return r.json();
 }
 
 export async function restoreVersion(id: string, version: number): Promise<{ template: StudioTemplate; versions: Version[] }> {
-  const r = await fetch("/api/studio-templates", {
+  const r = await fetch("/api/studio?op=templates", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ id, restore: version }),
@@ -103,7 +102,7 @@ export async function restoreVersion(id: string, version: number): Promise<{ tem
 }
 
 export async function deleteTemplate(id: string): Promise<void> {
-  const r = await fetch(`/api/studio-templates?id=${encodeURIComponent(id)}`, { method: "DELETE", credentials: "same-origin" });
+  const r = await fetch(`/api/studio?op=templates&id=${encodeURIComponent(id)}`, { method: "DELETE", credentials: "same-origin" });
   if (!r.ok) throw await errorOf(r);
 }
 

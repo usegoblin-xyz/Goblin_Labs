@@ -1,4 +1,4 @@
-// POST /api/studio-generate: create a template from a prompt, change one
+// POST /api/studio?op=generate: create a template from a prompt, change one
 // with a follow-up prompt, or fix one after the preview reports an error.
 //
 // Body: { mode: "create", prompt, aspect }
@@ -7,10 +7,10 @@
 // Streams newline-delimited JSON events (see api/_studio/pipeline.ts), ending
 // with { type: "done", template } or { type: "error", message, problems? }.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getUserId } from "./_auth.js";
-import { callClaude, MODEL, type CallClaude } from "./_studio/claude.js";
-import { createTemplate, getTemplate, logGeneration, recentRepairs, saveVersion, usedToday, type StudioTemplate } from "./_studio/db.js";
-import { ASPECTS, runJob, type Aspect, type Job } from "./_studio/pipeline.js";
+import { getUserId } from "../_auth.js";
+import { callClaude, MODEL, type CallClaude } from "./claude.js";
+import { createTemplate, getTemplate, logGeneration, recentRepairs, saveVersion, usedToday, type StudioTemplate } from "./db.js";
+import { ASPECTS, runJob, type Aspect, type Job } from "./pipeline.js";
 
 export const DAILY_LIMIT = Number(process.env.STUDIO_DAILY_LIMIT || 20);
 const MAX_PROMPT = 1200;
@@ -98,4 +98,3 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
   };
 }
 
-export default makeHandler({ call: callClaude, userId: getUserId });

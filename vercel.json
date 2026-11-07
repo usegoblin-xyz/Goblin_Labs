@@ -3,7 +3,7 @@
     "api/avatars.ts": {
       "maxDuration": 300
     },
-    "api/studio-generate.ts": {
+    "api/studio.ts": {
       "maxDuration": 300,
       "includeFiles": "src/library/**"
     }
