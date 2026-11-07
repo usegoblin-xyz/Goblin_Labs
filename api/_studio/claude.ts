@@ -1,7 +1,6 @@
 // The one Claude call template generation makes, streamed so the page can
 // show progress while the code is written.
 import Anthropic from "@anthropic-ai/sdk";
-import { oidcFederationProvider } from "@anthropic-ai/sdk/lib/credentials/oidc-federation";
 import { systemPrompt } from "./context.js";
 
 export const MODEL = process.env.STUDIO_MODEL || "claude-sonnet-5-5";
@@ -53,50 +52,10 @@ export type Usage = { inputTokens: number; outputTokens: number; cacheRead: numb
 export type CallResult = { input: ToolInput | null; toolUseId: string | null; stop: string | null; usage: Usage };
 export type CallClaude = (messages: Anthropic.MessageParam[], onChars: (n: number) => void) => Promise<CallResult>;
 
-// ---- authentication ------------------------------------------------------
-// Preferred: workload identity federation. Vercel gives every function
-// request a short-lived OIDC token (x-vercel-oidc-token); the SDK exchanges
-// it for a short-lived Anthropic token (cached and refreshed by the SDK), so
-// no Claude API key is stored anywhere. Fallback: ANTHROPIC_API_KEY.
-const env = process.env;
-export const usesFederation = () => !!(env.ANTHROPIC_FEDERATION_RULE_ID && env.ANTHROPIC_ORGANIZATION_ID && env.ANTHROPIC_SERVICE_ACCOUNT_ID);
-export const claudeConfigured = () => usesFederation() || !!env.ANTHROPIC_API_KEY;
-
-// The newest Vercel OIDC token seen by this function instance. Updated on
-// every request, so a warm instance always exchanges a fresh one.
-let identityToken = "";
-export function rememberIdentityToken(header: string | string[] | undefined) {
-  const t = Array.isArray(header) ? header[0] : header;
-  if (t) identityToken = t;
-}
-const currentIdentityToken = () => {
-  const t = identityToken || env.VERCEL_OIDC_TOKEN || "";
-  if (!t) throw new Error("No Vercel OIDC token on this request. Check that OIDC Federation is enabled for the project.");
-  return t;
-};
-
 let client: Anthropic | null = null;
-function getClient() {
-  if (client) return client;
-  client = usesFederation()
-    ? new Anthropic({
-        maxRetries: 2,
-        credentials: oidcFederationProvider({
-          identityTokenProvider: currentIdentityToken,
-          federationRuleId: env.ANTHROPIC_FEDERATION_RULE_ID!,
-          organizationId: env.ANTHROPIC_ORGANIZATION_ID!,
-          serviceAccountId: env.ANTHROPIC_SERVICE_ACCOUNT_ID!,
-          workspaceId: env.ANTHROPIC_WORKSPACE_ID || undefined,
-          baseURL: env.ANTHROPIC_BASE_URL || "https://api.anthropic.com",
-          fetch: globalThis.fetch,
-        }),
-      })
-    : new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 2 });
-  return client;
-}
 
 export const callClaude: CallClaude = async (messages, onChars) => {
-  const client = getClient();
+  client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 2 });
   const stream = client.messages.stream({
     model: MODEL,
     max_tokens: 32000,

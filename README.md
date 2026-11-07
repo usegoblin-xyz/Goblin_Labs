@@ -149,16 +149,9 @@ log of every Claude call with token counts). Apply it once to the auth database.
 
 | Variable | What it is |
 |---|---|
-| `ANTHROPIC_FEDERATION_RULE_ID`, `ANTHROPIC_ORGANIZATION_ID`, `ANTHROPIC_SERVICE_ACCOUNT_ID`, `ANTHROPIC_WORKSPACE_ID` | Workload identity federation (preferred): each request's Vercel OIDC token is exchanged for a short-lived Claude token, so no API key is stored. Set up in the Claude Console as a Custom OIDC issuer (see below). Not secrets |
-| `ANTHROPIC_API_KEY` | Fallback when federation isn't configured. With neither, generation returns 503 |
+| `ANTHROPIC_API_KEY` | Claude API key. Without it, generation returns 503 |
 | `STUDIO_MODEL` | Model, default `claude-sonnet-5-5` |
 | `STUDIO_DAILY_LIMIT` | Creates + edits per user per 24 hours, default 20. Fixes don't count |
-
-Federation setup: in the Claude Console, Workload identity federation → Connect
-workload → Custom OIDC, with issuer `https://oidc.vercel.com/<team-slug>` (the
-project's OIDC issuer mode must be Team), the issuer's maximum token lifetime
-raised to 2 hours (Vercel function tokens last 2 hours), and a rule matching
-subject prefix `owner:<team-slug>:project:goblin-labs:environment:*`.
 
 Tests (the API test needs a Postgres with `db/studio.sql` applied):
 
