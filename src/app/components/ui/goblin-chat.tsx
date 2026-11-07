@@ -316,18 +316,18 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                 ) : (
                   <div key={t.id} className="flex flex-col gap-3">
                     <div className="flex items-start gap-3">
-                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#22A03A]/15 text-[#5fd67a]">
-                        <Sparkles className="h-3.5 w-3.5" />
+                      <span className="-mt-1 -ml-1 h-8 w-8 shrink-0">
+                        <GeckoLoader small done={!((busy && t === turns[turns.length - 1]) || (!!t.template && t.health === "testing" && !t.error))} label={busy && t === turns[turns.length - 1] ? "Goblin is working" : "Goblin"} />
                       </span>
                       <div className="min-w-0 flex-1 pt-0.5">
                         {t.steps.length === 0 && !t.error && !t.template && (
                           <div className="flex items-center gap-2 text-[14px] text-white/60">
-                            <Loader2 className="h-4 w-4 animate-spin text-[#22A03A]" /> Starting…
+                            <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5fd67a]" /></span> Starting…
                           </div>
                         )}
                         {t.steps.map((s) => (
                           <div key={s.key} className="flex items-center gap-2 py-0.5 text-[14px]">
-                            {s.state === "active" ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#22A03A]" /> : s.state === "done" ? <Check className="h-3.5 w-3.5 shrink-0 text-[#22A03A]" /> : <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
+                            {s.state === "active" ? <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5fd67a]" /></span> : s.state === "done" ? <Check className="h-3.5 w-3.5 shrink-0 text-[#22A03A]" /> : <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
                             <span className={s.state === "active" ? "text-white" : "text-white/50"}>{s.label}</span>
                             {s.key === "writing" && s.state === "active" && t.chars > 0 && <span className="text-[12px] tabular-nums text-white/30">{Math.round(t.chars / 1000)}k chars</span>}
                           </div>
@@ -335,14 +335,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                         {t.error && <div className="mt-1 text-[14px] text-amber-200">{t.error}</div>}
                       </div>
                     </div>
-
-                    {!t.template && !t.error && busy && t === turns[turns.length - 1] && (
-                      <div className="ml-9 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]">
-                        <div className={cn("mx-auto", shapeOf(latest ? (latest.template!.width < latest.template!.height ? "9:16" : latest.template!.width === latest.template!.height ? "1:1" : "16:9") : aspect))}>
-                          <GeckoLoader label="Writing your template" />
-                        </div>
-                      </div>
-                    )}
 
                     {t.template &&
                       (t === latest ? (
