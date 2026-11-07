@@ -19,6 +19,8 @@ type Props = {
   done?: boolean;
   onSettled?: () => void;
   label?: string;
+  /** Avatar size: a lighter set of bigger dots so the shape still reads at ~32px. */
+  small?: boolean;
 };
 
 type Dot = { x: number; y: number; z: number; sx: number; sy: number; sz: number; ph: number };
@@ -55,7 +57,7 @@ function dots(): Dot[] {
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const clock = () => performance.now() / 1000;
 
-export function GeckoLoader({ className, color = "#b6f09c", scale = 0.62, done = false, onSettled, label = "Loading" }: Props) {
+export function GeckoLoader({ className, color = "#b6f09c", scale = 0.62, done = false, onSettled, label = "Loading", small = false }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const doneAt = useRef<number | null>(null);
   const settled = useRef(onSettled);
@@ -96,7 +98,7 @@ export function GeckoLoader({ className, color = "#b6f09c", scale = 0.62, done =
         settled.current?.();
       }
 
-      const k = (Math.min(w, h) * scale) / 100;
+      const k = (Math.min(w, h) * (small ? 0.92 : scale)) / 100;
       const ox = w / 2;
       const oy = h / 2;
       const rotY = Math.sin(t * 0.55) * 0.5 * (1 - settle);
@@ -104,7 +106,10 @@ export function GeckoLoader({ className, color = "#b6f09c", scale = 0.62, done =
       const cy = Math.cos(rotY), sy = Math.sin(rotY), cx = Math.cos(rotX), sx = Math.sin(rotX);
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = color;
-      for (const p of pts) {
+      const step = small ? 4 : 1;
+      const minDot = small ? 1.1 * dpr : 0;
+      for (let i = 0; i < pts.length; i += step) {
+        const p = pts[i];
         let mix: number;
         if (reduce.matches) mix = 1;
         else {
@@ -124,7 +129,7 @@ export function GeckoLoader({ className, color = "#b6f09c", scale = 0.62, done =
         const ry = y * cx - rz0 * sx;
         const rz = y * sx + rz0 * cx;
         const f = 180 / (180 + rz);
-        const r = (0.45 + 0.4 * mix) * f * k;
+        const r = Math.max(minDot, (0.45 + 0.4 * mix) * f * k);
         ctx.globalAlpha = Math.max(0.06, Math.min(1, (0.12 + 0.88 * mix * mix) * (0.75 + 0.25 * f)));
         ctx.fillRect(ox + rx * f * k - r / 2, oy + ry * f * k - r / 2, r, r);
       }
@@ -135,7 +140,7 @@ export function GeckoLoader({ className, color = "#b6f09c", scale = 0.62, done =
       cancelAnimationFrame(raf);
       io.disconnect();
     };
-  }, [color, scale]);
+  }, [color, scale, small]);
 
   return <canvas ref={ref} role="img" aria-label={label} className={cn("block h-full w-full", className)} />;
 }
