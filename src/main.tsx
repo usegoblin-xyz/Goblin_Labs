@@ -30,6 +30,8 @@ createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/library" element={<Home />} />
+        <Route path="/library/:section" element={<Home />} />
         <Route
           path="/create"
           element={

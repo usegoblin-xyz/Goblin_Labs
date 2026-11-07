@@ -118,8 +118,10 @@ served at `/api/auth/*`), with accounts in Supabase Postgres:
 
 ### Create: templates from a prompt
 
-The homepage chat (`src/app/components/ui/goblin-chat.tsx`, sticky beside the
-library) lets a signed-in user describe a video and get a new template,
+The homepage is the chat (`src/app/components/ui/goblin-chat.tsx`), with the
+left panel (`src/library/ui/AppSidebar.tsx`) linking to each library view:
+`/library`, `/library/saved`, `/library/<category>`, `/library?format=9:16`
+and `/library?q=`. The chat lets a signed-in user describe a video and get a new template,
 written by Claude against the same kit and motion helpers as the library.
 Follow-up messages change it. `/create` is the full editor for one template:
 copy fields, version history, code and delete.

@@ -1,9 +1,9 @@
-// The homepage chat: describe a video, Goblin builds it as a template in the
+// The homepage chat (the whole main area of the app): describe a video, Goblin builds it as a template in the
 // visitor's brand kit, and follow-up messages change it. Adapted from the
 // Ruixen "moon chat" layout (centered title, auto-growing input, quick
 // actions), recoloured to Goblin green and wired to the template generator.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowUpIcon, BarChart3, Check, Copy, ExternalLink, ListChecks, Loader2, Megaphone, RotateCcw, Rocket, Sparkles, TrendingUp, TriangleAlert, Users } from "lucide-react";
+import { ArrowUpIcon, BarChart3, Check, Copy, ExternalLink, ListChecks, Loader2, Megaphone, Rocket, Sparkles, TrendingUp, TriangleAlert, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./button";
 import { Textarea } from "./textarea";
@@ -87,12 +87,17 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [turns]);
 
-  // Other parts of the page (the library's "Create a template" item) focus the chat.
+  // The sidebar's "New chat" clears the conversation.
   useEffect(() => {
-    const focus = () => textareaRef.current?.focus();
-    window.addEventListener("goblin:focus-chat", focus);
-    return () => window.removeEventListener("goblin:focus-chat", focus);
-  }, [textareaRef]);
+    const onNew = () => {
+      if (busy) return;
+      setTurns([]);
+      autoFixes.current = 0;
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    };
+    window.addEventListener("goblin:new-chat", onNew);
+    return () => window.removeEventListener("goblin:new-chat", onNew);
+  }, [busy, textareaRef]);
 
   const patch = (id: number, f: (t: Extract<Turn, { role: "assistant" }>) => Partial<Extract<Turn, { role: "assistant" }>>) =>
     setTurns((ts) => ts.map((t) => (t.id === id && t.role === "assistant" ? { ...t, ...f(t) } : t)));
@@ -156,13 +161,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     }
   };
 
-  const reset = () => {
-    setTurns([]);
-    autoFixes.current = 0;
-    setMessage("");
-    adjustHeight(true);
-  };
-
   const copy = async (t: StudioTemplate) => {
     try {
       await navigator.clipboard.writeText(buildPrompt(asTemplate(t), brand, t.defaults));
@@ -175,197 +173,192 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
 
   const empty = turns.length === 0;
 
-  return (
-    <div id="create" className={cn("relative flex h-full w-full flex-col overflow-hidden bg-[#050505]", className)}>
-      {/* Green glow in place of the original's moon backdrop */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-40 left-1/2 h-[460px] w-[140%] -translate-x-1/2 rounded-[50%] opacity-60 blur-[90px]" style={{ background: `radial-gradient(closest-side, ${GREEN}55, transparent)` }} />
-        <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-[#22A03A]/10 to-transparent" />
-      </div>
-
-      {!empty && (
-        <div className="relative z-10 flex items-center justify-between border-b border-white/8 px-4 py-3">
-          <div className="flex items-center gap-2 text-[13px] font-medium text-white">
-            <Sparkles className="h-4 w-4 text-[#5fd67a]" /> Create with Goblin
-          </div>
-          <Button variant="ghost" size="sm" onClick={reset} disabled={busy} className="h-7 text-[12px] text-white/60 hover:bg-white/8 hover:text-white">
-            <RotateCcw className="h-3.5 w-3.5" /> New chat
+  const input = (
+    <div className="w-full">
+      <div className="relative rounded-2xl border border-white/12 bg-[#0c0c0c]/90 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md transition-colors focus-within:border-[#22A03A]/60">
+        <Textarea
+          ref={textareaRef}
+          value={message}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            adjustHeight();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+          maxLength={1200}
+          disabled={busy}
+          placeholder={current ? `Ask for a change to “${current.title}”…` : "Describe the video you want…"}
+          aria-label={current ? "Ask for a change" : "Describe the video you want"}
+          className={cn(
+            "w-full resize-none border-none px-4 pt-4 pb-2",
+            "bg-transparent text-[15px] text-white md:text-[15px] dark:bg-transparent",
+            "focus-visible:ring-0 focus-visible:ring-offset-0",
+            "min-h-[56px] placeholder:text-white/35",
+          )}
+          style={{ overflow: "hidden" }}
+        />
+        <div className="flex items-center justify-between gap-2 px-3 pb-3">
+          {current ? (
+            <span className="truncate pl-1 text-[12px] text-white/40">
+              Editing <span className="text-white/65">{current.title}</span>
+            </span>
+          ) : (
+            <div className="flex items-center gap-0.5 rounded-lg border border-white/8 p-0.5" role="group" aria-label="Format">
+              {(["16:9", "9:16", "1:1"] as Aspect[]).map((a) => (
+                <button
+                  key={a}
+                  onClick={() => setAspect(a)}
+                  aria-pressed={aspect === a}
+                  className={cn("rounded-md px-2.5 py-1 text-[12px] transition-colors", aspect === a ? "bg-white/10 text-white" : "text-white/45 hover:text-white")}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+          )}
+          <Button
+            onClick={send}
+            disabled={busy || !message.trim()}
+            aria-label="Send"
+            className={cn(
+              "h-9 w-9 rounded-full p-0 transition-colors disabled:opacity-100",
+              message.trim() && !busy ? "bg-[#22A03A] text-black hover:bg-[#22A03A]/90" : "bg-white/8 text-white/35",
+            )}
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpIcon className="h-4 w-4" />}
           </Button>
         </div>
-      )}
+      </div>
+      {isLoaded && !isSignedIn && <p className="mt-2 text-center text-[12px] text-white/35">Free with a Goblin account. You'll sign in when you send.</p>}
+    </div>
+  );
 
-      {/* Conversation, or the centered title when empty */}
-      <div ref={scroller} className="relative z-10 flex flex-1 flex-col overflow-y-auto px-4">
-        {empty ? (
-          <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
-            <div className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[#22A03A]/40 bg-[#22A03A]/10 px-3 py-1 text-[11px] font-semibold tracking-[0.12em] text-[#5fd67a] uppercase">
-              <Sparkles className="h-3.5 w-3.5" /> Create
-            </div>
-            <h2 className="text-[28px] leading-tight font-semibold tracking-tight text-white drop-shadow-sm">What are you launching?</h2>
-            <p className="mt-2 max-w-[320px] text-[14px] leading-relaxed text-neutral-300">
-              Describe a video and Goblin builds it as a template in your brand. Then ask for changes.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4 py-4">
-            {turns.map((t) =>
-              t.role === "user" ? (
-                <div key={t.id} className="ml-8 self-end rounded-2xl rounded-br-md bg-[#22A03A]/15 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-white ring-1 ring-[#22A03A]/30">
-                  {t.text}
-                </div>
-              ) : (
-                <div key={t.id} className="mr-4 flex flex-col gap-2">
-                  <div className="rounded-2xl rounded-bl-md border border-white/8 bg-white/[0.03] px-3.5 py-2.5">
-                    {t.steps.length === 0 && !t.error && (
-                      <div className="flex items-center gap-2 text-[13px] text-white/70">
-                        <Loader2 className="h-4 w-4 animate-spin text-[#22A03A]" /> Starting…
-                      </div>
-                    )}
-                    {t.steps.map((s) => (
-                      <div key={s.key} className="flex items-center gap-2 py-0.5 text-[13px]">
-                        {s.state === "active" ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#22A03A]" /> : s.state === "done" ? <Check className="h-3.5 w-3.5 shrink-0 text-[#22A03A]" /> : <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
-                        <span className={s.state === "active" ? "text-white" : "text-white/55"}>{s.label}</span>
-                        {s.key === "writing" && s.state === "active" && t.chars > 0 && <span className="text-[11px] tabular-nums text-white/35">{Math.round(t.chars / 1000)}k chars</span>}
-                      </div>
-                    ))}
-                    {t.error && <div className="mt-1 text-[13px] text-amber-200">{t.error}</div>}
-                  </div>
-
-                  {t.template &&
-                    (t === latest ? (
-                      <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/60">
-                        <div className={cn("mx-auto", t.template.width < t.template.height ? "aspect-[9/16] max-h-[420px]" : t.template.width === t.template.height ? "aspect-square" : "aspect-video")}>
-                          <SandboxPlayer
-                            key={`${t.template.id}-${t.template.version}`}
-                            compiled={t.template.compiled}
-                            width={t.template.width}
-                            height={t.template.height}
-                            fps={t.template.fps}
-                            durationInFrames={t.template.durationInFrames}
-                            brand={brand}
-                            content={t.template.defaults}
-                            className="h-full w-full"
-                            onChecked={() => patch(t.id, (x) => ({ health: "ok", steps: x.steps.map((s) => (s.key === "preview" ? { ...s, state: "done" as const } : s)) }))}
-                            onError={(e) => onPreviewError(t.id, t.template!, e)}
-                          />
-                        </div>
-                        <div className="p-3">
-                          <div className="flex items-baseline justify-between gap-2">
-                            <div className="text-[14px] font-semibold text-white">{t.template.title}</div>
-                            <div className="shrink-0 text-[11px] text-white/45">
-                              {Math.round(t.template.durationInFrames / t.template.fps)}s · v{t.template.version}
-                            </div>
-                          </div>
-                          <div className="mt-0.5 text-[12.5px] leading-snug text-white/55">{t.template.outcome}</div>
-                          <div className="mt-3 flex gap-2">
-                            <Button size="sm" onClick={() => copy(t.template!)} className="h-8 flex-1 rounded-full bg-[#22A03A] text-[12.5px] font-semibold text-black hover:bg-[#22A03A]/90">
-                              <Copy className="h-3.5 w-3.5" /> Copy prompt
-                            </Button>
-                            <Button asChild size="sm" variant="outline" className="h-8 rounded-full border-white/15 bg-transparent text-[12.5px] text-white/85 hover:bg-white/8 hover:text-white">
-                              <a href={`/create?t=${t.template.id}`}>
-                                <ExternalLink className="h-3.5 w-3.5" /> Edit copy
-                              </a>
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-[12px] text-white/40">
-                        {t.template.title} · v{t.template.version}
-                      </div>
-                    ))}
-                </div>
-              ),
-            )}
-          </div>
-        )}
+  return (
+    <div className={cn("relative flex h-full w-full flex-col", className)}>
+      {/* One soft green glow in place of the original's moon backdrop */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[420px] overflow-hidden">
+        <div className="absolute -top-48 left-1/2 h-[420px] w-[900px] max-w-[140%] -translate-x-1/2 rounded-[50%] blur-[100px]" style={{ background: `radial-gradient(closest-side, ${GREEN}30, transparent)` }} />
       </div>
 
-      {/* Input box */}
-      <div className="relative z-10 w-full px-4 pb-4">
-        <div className="relative rounded-xl border border-neutral-700 bg-black/60 backdrop-blur-md focus-within:border-[#22A03A]/70">
-          <Textarea
-            ref={textareaRef}
-            value={message}
-            onChange={(e) => {
-              setMessage(e.target.value);
-              adjustHeight();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            maxLength={1200}
-            disabled={busy}
-            placeholder={current ? `Ask for a change to “${current.title}”…` : "Describe the video you want…"}
-            aria-label={current ? "Ask for a change" : "Describe the video you want"}
-            className={cn(
-              "w-full resize-none border-none px-4 py-3",
-              "bg-transparent text-sm text-white dark:bg-transparent",
-              "focus-visible:ring-0 focus-visible:ring-offset-0",
-              "min-h-[52px] placeholder:text-neutral-400",
-            )}
-            style={{ overflow: "hidden" }}
-          />
-          <div className="flex items-center justify-between gap-2 p-3 pt-0">
-            {current ? (
-              <span className="truncate text-[11.5px] text-white/45">
-                Editing <span className="text-white/70">{current.title}</span>
-              </span>
-            ) : (
-              <div className="flex items-center gap-1" role="group" aria-label="Format">
-                {(["16:9", "9:16", "1:1"] as Aspect[]).map((a) => (
-                  <button
-                    key={a}
-                    onClick={() => setAspect(a)}
-                    aria-pressed={aspect === a}
-                    className={cn("rounded-full px-2.5 py-1 text-[11.5px] transition-colors", aspect === a ? "bg-[#22A03A]/20 text-[#7be08f] ring-1 ring-[#22A03A]/50" : "text-white/50 hover:text-white")}
-                  >
-                    {a}
-                  </button>
-                ))}
-              </div>
-            )}
-            <Button
-              onClick={send}
-              disabled={busy || !message.trim()}
-              aria-label="Send"
-              className={cn(
-                "h-9 rounded-lg px-3 transition-colors",
-                message.trim() && !busy ? "bg-[#22A03A] text-black hover:bg-[#22A03A]/90" : "cursor-not-allowed bg-neutral-800 text-neutral-500",
-              )}
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpIcon className="h-4 w-4" />}
-            </Button>
+      {empty ? (
+        <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pt-16 pb-[12vh]">
+          <div className="w-full max-w-[720px]">
+            <h1 className="text-center text-[30px] leading-tight font-semibold tracking-[-0.02em] sm:text-[40px]">What are you launching?</h1>
+            <p className="mx-auto mt-3 max-w-[460px] text-center text-[15px] leading-relaxed text-white/55">
+              Describe a video. Goblin builds it as a template in your brand, then keeps changing it until it's right.
+            </p>
+            <div className="mt-8">{input}</div>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              {QUICK.map((q) => (
+                <button
+                  key={q.label}
+                  onClick={() => {
+                    setMessage(q.prompt);
+                    requestAnimationFrame(() => {
+                      adjustHeight();
+                      textareaRef.current?.focus();
+                    });
+                  }}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/10 px-3 text-[12.5px] text-white/60 transition-colors hover:border-white/25 hover:text-white"
+                >
+                  <span className="text-white/40">{q.icon}</span>
+                  {q.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        {isLoaded && !isSignedIn && <p className="mt-2 text-center text-[11.5px] text-white/45">Free with a Goblin account. You'll sign in when you send.</p>}
+      ) : (
+        <>
+          <div ref={scroller} className="relative z-10 flex-1 overflow-y-auto px-4 pt-16">
+            <div className="mx-auto flex w-full max-w-[720px] flex-col gap-5 pb-6">
+              {turns.map((t) =>
+                t.role === "user" ? (
+                  <div key={t.id} className="ml-12 self-end rounded-2xl rounded-br-md bg-white/[0.07] px-4 py-2.5 text-[14.5px] leading-relaxed text-white">
+                    {t.text}
+                  </div>
+                ) : (
+                  <div key={t.id} className="flex flex-col gap-3">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#22A03A]/15 text-[#5fd67a]">
+                        <Sparkles className="h-3.5 w-3.5" />
+                      </span>
+                      <div className="min-w-0 flex-1 pt-0.5">
+                        {t.steps.length === 0 && !t.error && (
+                          <div className="flex items-center gap-2 text-[14px] text-white/60">
+                            <Loader2 className="h-4 w-4 animate-spin text-[#22A03A]" /> Starting…
+                          </div>
+                        )}
+                        {t.steps.map((s) => (
+                          <div key={s.key} className="flex items-center gap-2 py-0.5 text-[14px]">
+                            {s.state === "active" ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[#22A03A]" /> : s.state === "done" ? <Check className="h-3.5 w-3.5 shrink-0 text-[#22A03A]" /> : <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
+                            <span className={s.state === "active" ? "text-white" : "text-white/50"}>{s.label}</span>
+                            {s.key === "writing" && s.state === "active" && t.chars > 0 && <span className="text-[12px] tabular-nums text-white/30">{Math.round(t.chars / 1000)}k chars</span>}
+                          </div>
+                        ))}
+                        {t.error && <div className="mt-1 text-[14px] text-amber-200">{t.error}</div>}
+                      </div>
+                    </div>
 
-        {/* Quick actions */}
-        {empty && (
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            {QUICK.map((q) => (
-              <Button
-                key={q.label}
-                variant="outline"
-                onClick={() => {
-                  setMessage(q.prompt);
-                  requestAnimationFrame(() => {
-                    adjustHeight();
-                    textareaRef.current?.focus();
-                  });
-                }}
-                className="h-8 gap-1.5 rounded-full border-neutral-700 bg-black/50 px-3 text-neutral-300 hover:border-[#22A03A]/60 hover:bg-[#22A03A]/10 hover:text-white dark:bg-black/50"
-              >
-                <span className="text-[#5fd67a]">{q.icon}</span>
-                <span className="text-xs">{q.label}</span>
-              </Button>
-            ))}
+                    {t.template &&
+                      (t === latest ? (
+                        <div className="ml-9 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]">
+                          <div className={cn("mx-auto", t.template.width < t.template.height ? "aspect-[9/16] max-h-[520px]" : t.template.width === t.template.height ? "aspect-square max-h-[520px]" : "aspect-video")}>
+                            <SandboxPlayer
+                              key={`${t.template.id}-${t.template.version}`}
+                              compiled={t.template.compiled}
+                              width={t.template.width}
+                              height={t.template.height}
+                              fps={t.template.fps}
+                              durationInFrames={t.template.durationInFrames}
+                              brand={brand}
+                              content={t.template.defaults}
+                              className="h-full w-full"
+                              onChecked={() => patch(t.id, (x) => ({ health: "ok", steps: x.steps.map((s) => (s.key === "preview" ? { ...s, state: "done" as const } : s)) }))}
+                              onError={(e) => onPreviewError(t.id, t.template!, e)}
+                            />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-3 p-4">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-baseline gap-2">
+                                <span className="truncate text-[15px] font-semibold">{t.template.title}</span>
+                                <span className="shrink-0 text-[12px] text-white/40">
+                                  {Math.round(t.template.durationInFrames / t.template.fps)}s · v{t.template.version}
+                                </span>
+                              </div>
+                              <div className="mt-0.5 text-[13px] leading-snug text-white/50">{t.template.outcome}</div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => copy(t.template!)} className="h-8 rounded-full bg-[#22A03A] px-3.5 text-[12.5px] font-semibold text-black hover:bg-[#22A03A]/90">
+                                <Copy className="h-3.5 w-3.5" /> Copy prompt
+                              </Button>
+                              <Button asChild size="sm" variant="outline" className="h-8 rounded-full border-white/15 bg-transparent px-3.5 text-[12.5px] text-white/80 hover:bg-white/8 hover:text-white dark:bg-transparent">
+                                <a href={`/create?t=${t.template.id}`}>
+                                  <ExternalLink className="h-3.5 w-3.5" /> Edit copy
+                                </a>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="ml-9 text-[12.5px] text-white/35">
+                          {t.template.title} · v{t.template.version}
+                        </div>
+                      ))}
+                  </div>
+                ),
+              )}
+            </div>
           </div>
-        )}
-      </div>
+          <div className="relative z-10 px-4 pb-5">
+            <div className="mx-auto w-full max-w-[720px]">{input}</div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
