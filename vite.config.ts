@@ -45,6 +45,17 @@ export default defineConfig({
     },
   },
 
+  // Two pages: the app, and the preview sandbox that runs generated
+  // templates in an opaque-origin iframe (see sandbox.html).
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        sandbox: path.resolve(__dirname, 'sandbox.html'),
+      },
+    },
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })

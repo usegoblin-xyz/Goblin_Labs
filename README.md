@@ -116,6 +116,50 @@ served at `/api/auth/*`), with accounts in Supabase Postgres:
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in, optional |
 | `VITE_GOOGLE_AUTH` | Set to `1` to show the Google button once the above are set |
 
+### Create: templates from a prompt
+
+The homepage is the chat (`src/app/components/ui/goblin-chat.tsx`), with the
+left panel (`src/library/ui/AppSidebar.tsx`) linking to each library view:
+`/library`, `/library/saved`, `/library/<category>`, `/library?format=9:16`
+and `/library?q=`. The chat lets a signed-in user describe a video and get a new template,
+written by Claude against the same kit and motion helpers as the library.
+Follow-up messages change it. `/create` is the full editor for one template:
+copy fields, version history, code and delete.
+
+1. `api/studio.ts?op=generate` (`api/_studio/generate.ts`) sends the prompt to Claude with a cached system
+   prompt: the authoring guide (`api/_studio/guide.ts`), the real `brand.ts`,
+   `kit.ts` and `motion.tsx` sources, and three example templates
+   (`api/_studio/context.ts`). Claude answers with structured output
+   (`output_config.format`, a JSON schema) holding metadata, fields and the code.
+2. `api/_studio/check.ts` checks the code. Only allowed imports, no hard-coded
+   colours or fonts, nothing random or time-based, it ends on `nameOf(b)`, and
+   every field is used. Problems go back to Claude for up to two fixes, then the
+   code is compiled to CommonJS and saved as a version.
+3. The page plays it in `sandbox.html`: an iframe with `sandbox="allow-scripts"`
+   (opaque origin, no cookies or storage) and a CSP that blocks all network
+   access but fonts. The sandbox renders a spread of frames first. If one
+   throws, the page asks Claude for a fix automatically (up to twice).
+4. Follow-up prompts edit the template as a new version, and any earlier
+   version can be restored. `api/studio.ts?op=templates` lists, opens,
+   restores and deletes a user's templates. Both share one function to stay
+   within the Hobby plan's 12-function limit.
+
+Data lives in the `studio` schema (`db/studio.sql`: templates, versions, and a
+log of every Claude call with token counts). Apply it once to the auth database.
+
+| Variable | What it is |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude API key. Without it, generation returns 503 |
+| `STUDIO_MODEL` | Model, default `claude-sonnet-5-5` |
+| `STUDIO_DAILY_LIMIT` | Creates + edits per user per 24 hours, default 20. Fixes don't count |
+
+Tests (the API test needs a Postgres with `db/studio.sql` applied):
+
+```bash
+npx tsx scripts/studio-check.test.ts scripts/studio-fixtures/*.tsx
+DATABASE_URL=... STUDIO_DB_NO_SSL=1 npx tsx scripts/studio-api.test.ts
+```
+
 ## Legacy
 
 Goblin started as a lab building real-time AI personas. The persona pages

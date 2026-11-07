@@ -1,22 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Bookmark, Search } from "lucide-react";
+import { useLocation, useParams, useSearchParams, Link } from "react-router";
+import { Bookmark, Menu } from "lucide-react";
 import goblinLogo from "@/assets/goblin-logo.png";
-import { DEFAULT_BRAND, type Brand } from "@/library/brand";
+import { FONTS, type Brand } from "@/library/brand";
+import { loadBrand, saveBrand } from "@/library/brandStore";
 import type { Category, Template } from "@/library/kit";
 import { CATEGORIES, TEMPLATES, aspectLabel, matches, seconds } from "@/library/registry";
 import { BrandBar } from "@/library/ui/BrandBar";
 import { LivePlayer } from "@/library/ui/LivePlayer";
 import { TemplateDialog } from "@/library/ui/TemplateDialog";
-import { LibrarySidebar, type Format } from "@/library/ui/LibrarySidebar";
-import { NewsletterSignup } from "@/library/ui/NewsletterSignup";
-import { openCookieSettings } from "@/app/lib/CookieBanner";
-import FooterNewsletter from "@/app/components/ui/footer-newsletter";
+import { AppSidebar, slugOf, type Format } from "@/library/ui/AppSidebar";
+import GoblinChat from "@/app/components/ui/goblin-chat";
+import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover";
+import { Sheet, SheetContent, SheetTitle } from "@/app/components/ui/sheet";
 import { track } from "@/app/lib/analytics";
-import { UserButton, useAuth } from "@/app/lib/auth";
 
 type Content = Record<string, string | number>;
-const BRAND_KEY = "goblin_brand_kit";
 const SAVED_KEY = "goblin.saved";
+const PAGE = 24;
+const CATS = CATEGORIES.filter((c): c is Category => c !== "All");
 
 function loadSaved(): string[] {
   try {
@@ -26,31 +28,47 @@ function loadSaved(): string[] {
   }
 }
 
-function loadBrand(): Brand {
-  try {
-    const raw = localStorage.getItem(BRAND_KEY);
-    if (raw) return { ...DEFAULT_BRAND, ...JSON.parse(raw) };
-  } catch {
-    /* storage blocked — fall back to default */
-  }
-  return DEFAULT_BRAND;
+// The brand kit as a compact chip; the full editor opens in a popover.
+function BrandChip({ brand, onChange }: { brand: Brand; onChange: (b: Brand) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="flex items-center gap-2 rounded-full border border-white/12 bg-black/60 py-1.5 pr-3 pl-2 text-[12.5px] text-white/80 backdrop-blur-md hover:border-white/30 hover:text-white" aria-label="Edit brand kit">
+          <span className="flex -space-x-1">
+            {[brand.primary, brand.accent, brand.background, brand.foreground].map((c, i) => (
+              <span key={i} className="h-4 w-4 rounded-full border border-white/25" style={{ background: c }} />
+            ))}
+          </span>
+          <span className="max-w-[120px] truncate font-medium">{brand.name || "Your brand"}</span>
+          <span className="hidden text-white/45 sm:inline">· {FONTS[brand.font].label}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" sideOffset={8} className="w-[min(92vw,640px)] border-0 bg-transparent p-0 shadow-none">
+        <BrandBar brand={brand} onChange={onChange} />
+      </PopoverContent>
+    </Popover>
+  );
 }
 
-const STEPS = [
-  { n: "01", title: "Set your brand once", body: "Name, colors, font and motion feel. Every template reads from the same kit." },
-  { n: "02", title: "Pick by outcome", body: "Launch intro, feature drop, changelog, traction post. Fill in your copy." },
-  { n: "03", title: "Copy the prompt", body: "Paste it into Claude and get the video, built in your brand, ready to post." },
-];
-
 export default function Home() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { pathname } = useLocation();
+  const { section } = useParams();
+  const [params] = useSearchParams();
   const [brand, setBrand] = useState<Brand>(loadBrand);
   const [overrides, setOverrides] = useState<Record<string, Content>>({});
-  const [category, setCategory] = useState<"All" | Category>("All");
-  const [query, setQuery] = useState("");
-  const [format, setFormat] = useState<Format>("any");
-  const [savedOnly, setSavedOnly] = useState(false);
   const [saved, setSaved] = useState<string[]>(loadSaved);
+  const [open, setOpen] = useState<Template | null>(null);
+  const [drawer, setDrawer] = useState(false);
+  const [limit, setLimit] = useState(PAGE);
+
+  useEffect(() => saveBrand(brand), [brand]);
+
+  const inLibrary = pathname.startsWith("/library");
+  const savedOnly = section === "saved";
+  const category = (CATS.find((c) => slugOf(c) === section) ?? "All") as "All" | Category;
+  const format = (["16:9", "9:16", "1:1"].includes(params.get("format") ?? "") ? params.get("format") : "any") as Format;
+  const query = params.get("q") ?? "";
+
   const toggleSave = (id: string) =>
     setSaved((s) => {
       const next = s.includes(id) ? s.filter((x) => x !== id) : [...s, id];
@@ -61,15 +79,6 @@ export default function Home() {
       }
       return next;
     });
-  const [open, setOpen] = useState<Template | null>(null);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(BRAND_KEY, JSON.stringify(brand));
-    } catch {
-      /* ignore */
-    }
-  }, [brand]);
 
   const contentFor = (t: Template): Content => overrides[t.id] ?? (t.defaults as Content);
   const shown = useMemo(
@@ -93,27 +102,14 @@ export default function Home() {
     for (const t of TEMPLATES) c[aspectLabel(t) as Format]++;
     return c;
   }, []);
-  const pickCategory = (c: "All" | Category) => {
-    track("category_filtered", { category: c });
-    setCategory(c);
-    setSavedOnly(false);
-  };
-  const hero = TEMPLATES[0];
-  const PAGE = 24;
-  const [limit, setLimit] = useState(PAGE);
-  useEffect(() => setLimit(PAGE), [category, query, format, savedOnly]);
-  // Changing a filter from far down the grid brings the top of the library back into view.
+
+  // Each library view starts at the top with the first page.
   useEffect(() => {
-    const el = document.getElementById("library");
-    if (el && el.getBoundingClientRect().top < 0) window.scrollTo({ top: el.offsetTop - 140, behavior: "smooth" });
-  }, [category, format, savedOnly]);
-
-  const openTemplate = (t: Template) => {
-    track("template_opened", { template: t.id, category: t.category });
-    setOpen(t);
-  };
-
-  // Log searches once the visitor pauses typing.
+    setLimit(PAGE);
+    document.getElementById("main")?.scrollTo({ top: 0 });
+    if (inLibrary && category !== "All") track("category_filtered", { category });
+  }, [pathname, format, savedOnly, category, inLibrary]);
+  useEffect(() => setLimit(PAGE), [query]);
   useEffect(() => {
     const q = query.trim();
     if (!q) return;
@@ -121,265 +117,107 @@ export default function Home() {
     return () => clearTimeout(id);
   }, [query, shown.length]);
 
+  const openTemplate = (t: Template) => {
+    track("template_opened", { template: t.id, category: t.category });
+    setOpen(t);
+  };
+
+  const title = query ? `Results for “${query}”` : savedOnly ? "Saved" : category !== "All" ? category : format !== "any" ? `${format === "16:9" ? "Landscape" : format === "9:16" ? "Vertical" : "Square"} ${format}` : "All templates";
+  const sidebar = (onNavigate?: () => void) => (
+    <AppSidebar categories={CATS} counts={counts} total={TEMPLATES.length} formatCounts={formatCounts} savedCount={saved.length} onNavigate={onNavigate} />
+  );
+
   return (
-    <div className="min-h-full bg-black text-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      {/* Nav */}
-      <header className="sticky top-0 z-40 border-b border-white/8 bg-black/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-[1240px] items-center justify-between px-4 sm:px-6">
-          <a href="/" className="flex items-center gap-2.5">
-            <img src={goblinLogo} alt="" className="h-7 w-7 rounded-md" />
-            <span className="text-[15px] font-semibold tracking-tight">Goblin</span>
-          </a>
-          <nav className="flex items-center gap-1 sm:gap-2">
-            <a href="#library" className="rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white">
-              Library
-            </a>
-            <a href="#how" className="hidden rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white sm:inline">
-              How it works
-            </a>
-            <a
-              href="#library"
-              className="rounded-full bg-[#22A03A] px-4 py-1.5 text-[13px] font-semibold text-black hover:opacity-90"
-            >
-              Browse templates
-            </a>
-            {isLoaded &&
-              (isSignedIn ? (
-                <span className="ml-1 sm:ml-2">
-                  <UserButton />
-                </span>
-              ) : (
-                <a href="/login" className="hidden rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white sm:inline">
-                  Sign in
-                </a>
-              ))}
-          </nav>
-        </div>
-      </header>
+    <div className="flex h-dvh bg-[#050505] text-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+      {/* Left panel */}
+      <aside className="hidden w-[264px] shrink-0 border-r border-white/8 bg-[#080808] lg:block">{sidebar()}</aside>
+      <Sheet open={drawer} onOpenChange={setDrawer}>
+        <SheetContent side="left" className="w-[280px] border-white/10 bg-[#080808] p-0 text-white">
+          <SheetTitle className="sr-only">Menu</SheetTitle>
+          {sidebar(() => setDrawer(false))}
+        </SheetContent>
+      </Sheet>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center">
-          <div className="h-[320px] w-[70%] rounded-full bg-[#22A03A]/12 blur-[110px]" />
-        </div>
-        <div className="relative mx-auto grid max-w-[1240px] items-center gap-10 px-4 pt-14 pb-10 sm:px-6 lg:grid-cols-[1fr_1.15fr] lg:pt-20">
-          <div>
-            <h1 className="text-[44px] leading-[1.02] font-semibold tracking-[-0.035em] sm:text-[60px]">
-              Launch videos that already look like{" "}
-              <span style={{ fontFamily: "Instrument Serif, serif" }} className="font-normal italic text-[#22A03A]">
-                your brand.
-              </span>
-            </h1>
-            <p className="mt-5 max-w-[520px] text-[17px] leading-relaxed text-white/65">
-              Ready-made motion for launches, feature drops, changelogs and traction posts. Set your colors, font and
-              motion feel once, and every template follows.
-            </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <a
-                href="#library"
-                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-[14px] font-semibold text-black hover:opacity-90"
-              >
-                Browse the library <ArrowRight className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-          <button
-            onClick={() => openTemplate(hero)}
-            className="group relative block w-full overflow-hidden rounded-2xl border border-white/12 text-left shadow-[0_40px_120px_rgba(34,160,58,0.15)]"
-            aria-label={`Open ${hero.title}`}
-          >
-            <LivePlayer template={hero} brand={brand} content={contentFor(hero)} className="aspect-video w-full" />
-          </button>
-        </div>
-      </section>
-
-      {/* Brand kit — sticky so every change is visible against the grid */}
-      <div id="brand-kit" className="z-30 mx-auto md:sticky md:top-14 max-w-[1240px] px-4 pt-2 sm:px-6">
-        <BrandBar brand={brand} onChange={setBrand} />
-      </div>
-
-      {/* Library */}
-      <section id="library" className="mx-auto max-w-[1240px] scroll-mt-36 px-4 pt-12 pb-20 sm:px-6">
-        <div className="flex gap-8">
-        <LibrarySidebar
-          query={query}
-          onQuery={setQuery}
-          category={category}
-          onCategory={pickCategory}
-          categories={CATEGORIES.filter((c): c is Category => c !== "All")}
-          counts={counts}
-          total={TEMPLATES.length}
-          format={format}
-          onFormat={setFormat}
-          formatCounts={formatCounts}
-          savedOnly={savedOnly}
-          onSaved={() => {
-            setSavedOnly(true);
-            setCategory("All");
-          }}
-          savedCount={saved.length}
-          onBrandKit={() => window.scrollTo({ top: (document.getElementById("brand-kit")?.offsetTop ?? 0) - 80, behavior: "smooth" })}
-        />
-        <div className="min-w-0 flex-1">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-[28px] font-semibold tracking-tight sm:text-[34px]">
-              {savedOnly ? "Saved" : category === "All" ? "The library" : category}
-            </h2>
-            <p className="mt-1 text-[15px] text-white/55">
-              {savedOnly
-                ? saved.length
-                  ? `${shown.length} saved template${shown.length === 1 ? "" : "s"}.`
-                  : "Nothing saved yet. Tap the bookmark on any template to keep it here."
-                : `${shown.length} template${shown.length === 1 ? "" : "s"}${format !== "any" ? ` in ${format}` : ""}, each restyled live by your brand kit. Click one to edit the copy.`}
-            </p>
-          </div>
-          <label className="relative block sm:w-[300px] lg:hidden">
-            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/60" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by what you're making"
-              aria-label="Search templates"
-              className="h-10 w-full rounded-full border border-white/12 bg-white/[0.04] pr-4 pl-9 text-[14px] outline-none placeholder:text-white/55 focus:border-[#22A03A]"
-            />
-          </label>
-        </div>
-
-        <div className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c}
-              onClick={() => pickCategory(c)}
-              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition-colors ${
-                category === c && !savedOnly
-                  ? "border-white bg-white font-medium text-black"
-                  : "border-white/12 text-white/65 hover:border-white/35 hover:text-white"
-              }`}
-            >
-              {c}
+      {/* Main */}
+      <main id="main" className="relative flex min-w-0 flex-1 flex-col overflow-y-auto">
+        <div className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:justify-end">
+          <div className="flex items-center gap-2 lg:hidden">
+            <button onClick={() => setDrawer(true)} aria-label="Open menu" className="rounded-lg p-1.5 text-white/75 hover:bg-white/8 hover:text-white">
+              <Menu className="h-5 w-5" />
             </button>
-          ))}
+            <Link to="/" className="flex items-center gap-2">
+              <img src={goblinLogo} alt="" className="h-6 w-6 rounded-md" />
+              <span className="text-[14px] font-semibold">Goblin</span>
+            </Link>
+          </div>
+          <BrandChip brand={brand} onChange={setBrand} />
         </div>
 
-        {shown.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-dashed border-white/15 p-10 text-center text-white/55">
-            {savedOnly && !query ? "Nothing saved yet." : <>Nothing matches “{query}” yet. Try another word, like launch, chart or story.</>}
+        {!inLibrary ? (
+          <div className="-mt-[58px] flex min-h-0 flex-1">
+            <GoblinChat brand={brand} />
           </div>
         ) : (
-          <>
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {shown.slice(0, limit).map((t) => (
-              <div key={t.id} className="group relative">
-              <button
-                onClick={() => openTemplate(t)}
-                className="block w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] text-left transition-colors hover:border-white/30"
-              >
-                <LivePlayer template={t} brand={brand} content={contentFor(t)} className="aspect-video w-full" />
-                <div className="p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-[15px] font-semibold">{t.title}</h3>
-                    <div className="flex shrink-0 gap-1.5 text-[11px] text-white/60">
-                      <span>{aspectLabel(t)}</span>
-                      <span>·</span>
-                      <span>{seconds(t)}s</span>
-                    </div>
-                  </div>
-                  <p className="mt-1 text-[13px] leading-snug text-white/55">{t.outcome}</p>
+          <section className="mx-auto w-full max-w-[1280px] px-4 pb-20 sm:px-6" aria-labelledby="library-title">
+            <h1 id="library-title" className="text-[26px] font-semibold tracking-tight sm:text-[30px]">
+              {title}
+            </h1>
+            <p className="mt-1 text-[14px] text-white/50">
+              {savedOnly && !saved.length
+                ? "Nothing saved yet. Tap the bookmark on any template to keep it here."
+                : `${shown.length} template${shown.length === 1 ? "" : "s"}, each restyled live by your brand kit. Click one to edit the copy.`}
+            </p>
+
+            {shown.length === 0 ? (
+              savedOnly && !query ? null : (
+                <div className="mt-10 rounded-2xl border border-dashed border-white/15 p-10 text-center text-white/55">
+                  Nothing matches “{query}”. Try another word, like launch, chart or story, or describe it in a{" "}
+                  <Link to="/" className="text-[#5fd67a] underline-offset-2 hover:underline">new chat</Link>.
                 </div>
-              </button>
-              <button
-                onClick={() => toggleSave(t.id)}
-                aria-label={saved.includes(t.id) ? `Remove ${t.title} from saved` : `Save ${t.title}`}
-                className={`absolute top-3 right-3 rounded-lg border p-1.5 backdrop-blur-md transition-opacity ${
-                  saved.includes(t.id)
-                    ? "border-[#22A03A]/60 bg-black/70 text-[#5fd67a] opacity-100"
-                    : "border-white/15 bg-black/60 text-white/80 opacity-0 group-hover:opacity-100 focus:opacity-100"
-                }`}
-              >
-                <Bookmark className="h-4 w-4" fill={saved.includes(t.id) ? "currentColor" : "none"} />
-              </button>
-              </div>
-            ))}
-          </div>
-          {shown.length > limit && (
-            <div className="mt-8 flex justify-center">
-              <button
-                onClick={() => setLimit((n) => n + PAGE)}
-                className="rounded-full border border-white/20 px-6 py-2.5 text-[14px] font-medium text-white/85 hover:border-white/50"
-              >
-                Show more <span className="text-white/60">({shown.length - limit} left)</span>
-              </button>
-            </div>
-          )}
-          </>
+              )
+            ) : (
+              <>
+                <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                  {shown.slice(0, limit).map((t) => (
+                    <div key={t.id} className="group relative">
+                      <button onClick={() => openTemplate(t)} className="block w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] text-left transition-colors hover:border-white/30">
+                        <LivePlayer template={t} brand={brand} content={contentFor(t)} className="aspect-video w-full" />
+                        <div className="p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <h3 className="text-[15px] font-semibold">{t.title}</h3>
+                            <div className="flex shrink-0 gap-1.5 text-[11px] text-white/55">
+                              <span>{aspectLabel(t)}</span>
+                              <span>·</span>
+                              <span>{seconds(t)}s</span>
+                            </div>
+                          </div>
+                          <p className="mt-1 text-[13px] leading-snug text-white/50">{t.outcome}</p>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => toggleSave(t.id)}
+                        aria-label={saved.includes(t.id) ? `Remove ${t.title} from saved` : `Save ${t.title}`}
+                        className={`absolute top-3 right-3 rounded-lg border p-1.5 backdrop-blur-md transition-opacity ${
+                          saved.includes(t.id) ? "border-[#22A03A]/60 bg-black/70 text-[#5fd67a] opacity-100" : "border-white/15 bg-black/60 text-white/80 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        }`}
+                      >
+                        <Bookmark className="h-4 w-4" fill={saved.includes(t.id) ? "currentColor" : "none"} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {shown.length > limit && (
+                  <div className="mt-8 flex justify-center">
+                    <button onClick={() => setLimit((n) => n + PAGE)} className="rounded-full border border-white/20 px-6 py-2.5 text-[14px] font-medium text-white/85 hover:border-white/50">
+                      Show more <span className="text-white/55">({shown.length - limit} left)</span>
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
         )}
-        </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section id="how" className="border-t border-white/8">
-        <div className="mx-auto max-w-[1240px] px-4 py-20 sm:px-6">
-          <h2 className="text-[28px] font-semibold tracking-tight sm:text-[34px]">How it works</h2>
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {STEPS.map((s) => (
-              <div key={s.n} className="rounded-2xl border border-white/10 bg-[#0a0a0a] p-6">
-                <div className="font-mono text-[12px] text-[#22A03A]">{s.n}</div>
-                <h3 className="mt-3 text-[17px] font-semibold">{s.title}</h3>
-                <p className="mt-2 text-[14px] leading-relaxed text-white/60">{s.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <FooterNewsletter
-        newsletter={<NewsletterSignup />}
-        aside={
-          <div className="relative w-80">
-            <div className="absolute inset-0 rotate-6 rounded-xl bg-[#22A03A]/20" aria-hidden />
-            <div className="relative overflow-hidden rounded-xl border border-white/10">
-              <LivePlayer template={hero} brand={brand} content={contentFor(hero)} className="aspect-video w-full" />
-            </div>
-          </div>
-        }
-        tagline="Launch videos that already look like your brand. Original motion templates for founders who ship."
-        columns={[
-          {
-            title: "Product",
-            links: [
-              { label: "Browse templates", href: "#library" },
-              { label: "How it works", href: "#how" },
-              { label: "Brand kit", href: "#brand-kit" },
-              { label: isSignedIn ? "Your account" : "Sign in", href: isSignedIn ? "/account" : "/login" },
-            ],
-          },
-          {
-            title: "Explore",
-            links: (["Launch", "Product", "Social", "Explainer", "Data"] as Category[]).map((c) => ({
-              label: c,
-              href: "#library",
-              onClick: () => pickCategory(c),
-            })),
-          },
-          {
-            title: "Company",
-            links: [
-              { label: "Newsletter", href: "https://goblinlabs.substack.com", external: true },
-              { label: "X / Twitter", href: "https://x.com/UseGoblin", external: true },
-              { label: "LinkedIn", href: "https://www.linkedin.com/company/goblinlabs1/", external: true },
-              { label: "Contact", href: "mailto:obi@usegoblin.xyz" },
-            ],
-          },
-        ]}
-        legal={[
-          { label: "Terms of Service", href: "/terms" },
-          { label: "Privacy Policy", href: "/privacy" },
-          { label: "Cookie settings", onClick: openCookieSettings },
-        ]}
-        copyright={<>© 2026 GoblinLabs Inc., a Delaware corporation. All rights reserved.</>}
-      />
+      </main>
 
       <TemplateDialog
         template={open}

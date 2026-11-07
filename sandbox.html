@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Goblin preview</title>
+    <!-- Runs generated template code. Only ever loaded in an iframe with
+         sandbox="allow-scripts" (no allow-same-origin), so it gets an opaque
+         origin: no cookies, no storage, no access to the parent page. The
+         production CSP header (vercel.json) also blocks all network access
+         except fonts. -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Instrument+Serif:ital,wght@0,400;1,400&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=block"
+    />
+    <style>
+      html, body, #root { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/sandbox/main.tsx"></script>
+  </body>
+</html>

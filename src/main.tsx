@@ -19,6 +19,7 @@ const Login = lazy(() => import("./app/routes/Login.tsx"));
 const Personas = lazy(() => import("./app/routes/Personas.tsx"));
 const Account = lazy(() => import("./app/routes/Account.tsx"));
 const Docs = lazy(() => import("./app/routes/Docs.tsx"));
+const Create = lazy(() => import("./app/routes/Create.tsx"));
 const SupportDemo = lazy(() => import("./app/routes/SupportDemo.tsx"));
 const LeadGenDemo = lazy(() => import("./app/routes/LeadGenDemo.tsx"));
 const Privacy = lazy(() => import("./app/routes/Legal.tsx").then((m) => ({ default: m.Privacy })));
@@ -29,6 +30,16 @@ createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/library" element={<Home />} />
+        <Route path="/library/:section" element={<Home />} />
+        <Route
+          path="/create"
+          element={
+            <Suspense fallback={null}>
+              <Create />
+            </Suspense>
+          }
+        />
         <Route path="/privacy" element={<Suspense fallback={null}><Privacy /></Suspense>} />
         <Route path="/terms" element={<Suspense fallback={null}><Terms /></Suspense>} />
         <Route
