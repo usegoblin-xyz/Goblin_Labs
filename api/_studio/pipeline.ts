@@ -118,13 +118,11 @@ export async function runJob(job: Job, call: CallClaude, emit: (e: Event) => voi
       problems = out.problems;
     }
     calls.push({ usage: res.usage, ms, ok: false, error: problems.join(" | ") });
-    // Ask for a fix in the same conversation, answering the tool call.
-    if (res.toolUseId && res.input) {
-      messages.push({ role: "assistant", content: [{ type: "tool_use", id: res.toolUseId, name: "save_template", input: res.input }] });
-      messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: res.toolUseId, is_error: true, content: `${REPAIR_NOTE}\n\n${problems.map((p) => `- ${p}`).join("\n")}` }] });
-    } else {
-      messages.push({ role: "assistant", content: "(no template)" }, { role: "user", content: `${REPAIR_NOTE}\n\n${problems.map((p) => `- ${p}`).join("\n")}` });
-    }
+    // Ask for a fix in the same conversation.
+    messages.push(
+      { role: "assistant", content: res.raw.trim() || "(no template)" },
+      { role: "user", content: `${REPAIR_NOTE}\n\n${problems.map((p) => `- ${p}`).join("\n")}` },
+    );
   }
   return { snapshot: null, problems, calls };
 }

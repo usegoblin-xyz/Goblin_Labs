@@ -42,8 +42,8 @@ One .tsx file with a single default-exported function component:
 
 # How to answer
 
-Call the save_template tool once with the finished template. The \`code\` field holds the whole .tsx file. Field keys in \`fields\` must match the keys of the content type C in the code, and \`defaults\` gives one value per field.`;
+Answer with one JSON object in the required shape and nothing else. The \`code\` field holds the whole .tsx file. Field keys in \`fields\` must match the keys of the content type C in the code, and \`defaults\` gives one value per field.`;
 
-export const EDIT_NOTE = `You are changing an existing template. Keep everything the user didn't ask to change: the same structure, field keys, timing and style, unless the request needs otherwise. Return the complete updated template through save_template.`;
+export const EDIT_NOTE = `You are changing an existing template. Keep everything the user didn't ask to change: the same structure, field keys, timing and style, unless the request needs otherwise. Return the complete updated template as the JSON object.`;
 
-export const REPAIR_NOTE = `Your previous template failed an automatic check. Fix exactly these problems and return the complete corrected template through save_template. Keep the design the same.`;
+export const REPAIR_NOTE = `Your previous template failed an automatic check. Fix exactly these problems and return the complete corrected template as the JSON object. Keep the design the same.`;

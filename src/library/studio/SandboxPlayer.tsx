@@ -61,6 +61,8 @@ export function SandboxPlayer({ compiled, width, height, fps, durationInFrames, 
       ref={frame}
       src="/sandbox.html"
       sandbox="allow-scripts"
+      // Lets a click on this page (like Send) count for autoplay inside the frame.
+      allow="autoplay"
       title="Template preview"
       className={className}
       style={{ border: 0, display: "block", background: brand.background, ...style }}

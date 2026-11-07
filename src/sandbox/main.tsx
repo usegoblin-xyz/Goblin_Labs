@@ -122,8 +122,28 @@ function App() {
       }
       if (cancelled || failed.current) return;
       post({ type: "checked" });
-      player.current?.seekTo(0);
-      if (job.autoplay) player.current?.play();
+      // Generated templates have no sound, so the player is muted, which lets
+      // browsers autoplay it. If playback is still blocked, the paused frame
+      // is one from the middle, not a blank first frame.
+      const middle = Math.round(last * 0.55);
+      const p = player.current;
+      if (!p) return;
+      if (!job.autoplay) return void p.seekTo(middle);
+      p.seekTo(0);
+      p.play();
+      // Browsers can hold playback until the viewer interacts (the player's
+      // clock waits on a suspended AudioContext). If the frame hasn't moved
+      // after a moment, pause on a frame from the middle instead of a blank
+      // first frame; the play button still works.
+      let moved = false;
+      const onFrame = () => (moved = true);
+      p.addEventListener("frameupdate", onFrame);
+      await new Promise((r) => setTimeout(r, 600));
+      p.removeEventListener("frameupdate", onFrame);
+      if (!cancelled && !moved) {
+        p.pause();
+        p.seekTo(middle);
+      }
     })();
     return () => {
       cancelled = true;
@@ -144,6 +164,9 @@ function App() {
         compositionWidth={job.width}
         compositionHeight={job.height}
         loop
+        muted
+        // No sound in generated templates: no shared audio tags to wait on.
+        numberOfSharedAudioTags={0}
         controls={job.controls}
         clickToPlay={job.controls}
         acknowledgeRemotionLicense

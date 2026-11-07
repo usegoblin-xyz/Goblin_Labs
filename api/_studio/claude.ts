@@ -6,13 +6,10 @@ import { systemPrompt } from "./context.js";
 export const MODEL = process.env.STUDIO_MODEL || "claude-sonnet-5-5";
 const CATEGORIES = ["Launch", "Product", "Data", "Explainer", "Social", "Brand", "Showreel", "Story"];
 
-// Strict tool use: the reply is always valid JSON in this shape. `code` comes
-// last so the metadata streams first.
-export const SAVE_TOOL: Anthropic.Tool = {
-  name: "save_template",
-  description: "Save the finished motion template.",
-  strict: true,
-  input_schema: {
+// Structured outputs: the reply is always JSON in this shape (forced tool
+// choice isn't available on current models). `code` comes last so the
+// metadata streams first.
+export const TEMPLATE_SCHEMA = {
     type: "object",
     additionalProperties: false,
     required: ["title", "outcome", "category", "tags", "durationSeconds", "fields", "code"],
@@ -40,7 +37,6 @@ export const SAVE_TOOL: Anthropic.Tool = {
       },
       code: { type: "string", description: "The complete .tsx file." },
     },
-  },
 };
 
 export type ToolInput = {
@@ -49,7 +45,8 @@ export type ToolInput = {
   code: string;
 };
 export type Usage = { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number };
-export type CallResult = { input: ToolInput | null; toolUseId: string | null; stop: string | null; usage: Usage };
+// `raw` is Claude's answer as sent, used to ask for a fix in the same conversation.
+export type CallResult = { input: ToolInput | null; raw: string; stop: string | null; usage: Usage };
 export type CallClaude = (messages: Anthropic.MessageParam[], onChars: (n: number) => void) => Promise<CallResult>;
 
 let client: Anthropic | null = null;
@@ -62,22 +59,27 @@ export const callClaude: CallClaude = async (messages, onChars) => {
     // The guide, kit sources and examples are identical on every call;
     // cache them for an hour since traffic is bursty.
     system: [{ type: "text", text: systemPrompt(), cache_control: { type: "ephemeral", ttl: "1h" } }],
-    tools: [SAVE_TOOL],
-    tool_choice: { type: "tool", name: SAVE_TOOL.name },
+    output_config: { format: { type: "json_schema", schema: TEMPLATE_SCHEMA } },
     messages,
   });
   let chars = 0;
   for await (const ev of stream) {
-    if (ev.type === "content_block_delta" && ev.delta.type === "input_json_delta") {
-      chars += ev.delta.partial_json.length;
+    if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
+      chars += ev.delta.text.length;
       onChars(chars);
     }
   }
   const msg = await stream.finalMessage();
-  const block = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+  const raw = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+  let input: ToolInput | null = null;
+  try {
+    input = raw ? (JSON.parse(raw) as ToolInput) : null;
+  } catch {
+    input = null; // cut off (max_tokens) or refused
+  }
   return {
-    input: (block?.input as ToolInput) ?? null,
-    toolUseId: block?.id ?? null,
+    input,
+    raw,
     stop: msg.stop_reason,
     usage: {
       inputTokens: msg.usage.input_tokens,

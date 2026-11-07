@@ -129,8 +129,8 @@ copy fields, version history, code and delete.
 1. `api/studio.ts?op=generate` (`api/_studio/generate.ts`) sends the prompt to Claude with a cached system
    prompt: the authoring guide (`api/_studio/guide.ts`), the real `brand.ts`,
    `kit.ts` and `motion.tsx` sources, and three example templates
-   (`api/_studio/context.ts`). Claude answers through one strict tool,
-   `save_template`, with metadata, fields and the code.
+   (`api/_studio/context.ts`). Claude answers with structured output
+   (`output_config.format`, a JSON schema) holding metadata, fields and the code.
 2. `api/_studio/check.ts` checks the code. Only allowed imports, no hard-coded
    colours or fonts, nothing random or time-based, it ends on `nameOf(b)`, and
    every field is used. Problems go back to Claude for up to two fixes, then the

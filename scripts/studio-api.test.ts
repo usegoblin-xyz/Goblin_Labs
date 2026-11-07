@@ -33,8 +33,8 @@ function fake(answers: (ToolInput | "refuse")[]) {
     if (!a) throw new Error("fake Claude ran out of answers");
     for (let n = 500; n <= 4000; n += 500) onChars(n);
     const usage = { inputTokens: 1200, outputTokens: 3000, cacheRead: 11000, cacheWrite: 0 };
-    if (a === "refuse") return { input: null, toolUseId: null, stop: "refusal", usage };
-    return { input: a, toolUseId: `toolu_${sent.length}`, stop: "tool_use", usage };
+    if (a === "refuse") return { input: null, raw: "", stop: "refusal", usage };
+    return { input: a, raw: JSON.stringify(a), stop: "end_turn", usage };
   };
   return { call, sent };
 }
@@ -83,10 +83,10 @@ const ok = (name: string) => { pass++; console.log("  ✓", name); };
   assert.ok(fixing.problems.some((p: string) => p.includes("nameOf")), "fix stage lists the brand-name problem");
   const second = f.sent[1] as any[];
   assert.equal(second.length, 3, "fix is asked in the same conversation");
-  assert.equal(second[1].content[0].type, "tool_use");
-  assert.equal(second[2].content[0].type, "tool_result");
-  assert.equal(second[2].content[0].is_error, true);
-  assert.ok(String(second[1].content[0].input.code).includes("#101010"));
+  assert.equal(second[1].role, "assistant");
+  assert.ok(String(second[1].content).includes("#101010"), "the failed answer is sent back");
+  assert.equal(second[2].role, "user");
+  assert.ok(String(second[2].content).includes("#101010"), "with the problems listed");
   const progress = out.ev.filter((e) => e.type === "progress").length;
   assert.ok(progress > 0 && progress <= 20, `progress throttled (${progress})`);
   const t = out.ev.at(-1).template;
