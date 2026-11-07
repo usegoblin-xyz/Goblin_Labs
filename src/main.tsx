@@ -7,6 +7,7 @@ import "./styles/index.css";
 import { initAnalytics } from "./app/lib/analytics";
 import { AnalyticsIdentity } from "./app/lib/auth";
 import { CookieBanner } from "./app/lib/CookieBanner";
+import { PageLoader } from "./app/components/ui/gecko-loader";
 
 initAnalytics();
 
@@ -39,12 +40,12 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/library/:section" element={<Home />} />
         {/* The old Create page: its links now open the template in the chat. */}
         <Route path="/create" element={<CreateRedirect />} />
-        <Route path="/privacy" element={<Suspense fallback={null}><Privacy /></Suspense>} />
-        <Route path="/terms" element={<Suspense fallback={null}><Terms /></Suspense>} />
+        <Route path="/privacy" element={<Suspense fallback={<PageLoader />}><Privacy /></Suspense>} />
+        <Route path="/terms" element={<Suspense fallback={<PageLoader />}><Terms /></Suspense>} />
         <Route
           path="/labs"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <LabsHome />
             </Suspense>
           }
@@ -52,7 +53,7 @@ createRoot(document.getElementById("root")!).render(
         <Route
           path="/studio"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <Studio />
             </Suspense>
           }
@@ -60,7 +61,7 @@ createRoot(document.getElementById("root")!).render(
         <Route
           path="/p/:id"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <Talk />
             </Suspense>
           }
@@ -68,7 +69,7 @@ createRoot(document.getElementById("root")!).render(
         <Route
           path="/embed/:id"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <Talk embed />
             </Suspense>
           }
@@ -76,7 +77,7 @@ createRoot(document.getElementById("root")!).render(
         <Route
           path="/login/*"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <Login />
             </Suspense>
           }
@@ -84,7 +85,7 @@ createRoot(document.getElementById("root")!).render(
         <Route
           path="/demo/leadgen"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <LeadGenDemo />
             </Suspense>
           }
@@ -92,7 +93,7 @@ createRoot(document.getElementById("root")!).render(
         <Route
           path="/demo/support"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <SupportDemo />
             </Suspense>
           }
@@ -100,7 +101,7 @@ createRoot(document.getElementById("root")!).render(
         <Route
           path="/docs"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <Docs />
             </Suspense>
           }
@@ -108,7 +109,7 @@ createRoot(document.getElementById("root")!).render(
         <Route
           path="/personas"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <Personas />
             </Suspense>
           }
@@ -116,7 +117,7 @@ createRoot(document.getElementById("root")!).render(
         <Route
           path="/account/*"
           element={
-            <Suspense fallback={null}>
+            <Suspense fallback={<PageLoader />}>
               <Account />
             </Suspense>
           }

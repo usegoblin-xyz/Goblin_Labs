@@ -14,6 +14,7 @@ import { track } from "@/app/lib/analytics";
 import type { Brand } from "@/library/brand";
 import { buildPrompt } from "@/library/ui/TemplateDialog";
 import { SandboxPlayer } from "@/library/studio/SandboxPlayer";
+import { GeckoLoader } from "./gecko-loader";
 import { asTemplate, generate, getTemplate, type Aspect, type GenEvent, type GenRequest, type StudioTemplate } from "@/library/studio/api";
 
 const GREEN = "#22A03A";
@@ -39,6 +40,8 @@ function useAutoResizeTextarea({ minHeight, maxHeight }: { minHeight: number; ma
 }
 
 type Step = { key: string; label: string; state: "active" | "done" | "failed" };
+const shapeOf = (a: string) => (a === "9:16" ? "aspect-[9/16] max-h-[520px]" : a === "1:1" ? "aspect-square max-h-[520px]" : "aspect-video");
+
 type Turn =
   | { id: number; role: "user"; text: string }
   | { id: number; role: "assistant"; steps: Step[]; chars: number; template?: StudioTemplate; error?: string; health?: "testing" | "ok" | "error" };
@@ -333,10 +336,18 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                       </div>
                     </div>
 
+                    {!t.template && !t.error && busy && t === turns[turns.length - 1] && (
+                      <div className="ml-9 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]">
+                        <div className={cn("mx-auto", shapeOf(latest ? (latest.template!.width < latest.template!.height ? "9:16" : latest.template!.width === latest.template!.height ? "1:1" : "16:9") : aspect))}>
+                          <GeckoLoader label="Writing your template" />
+                        </div>
+                      </div>
+                    )}
+
                     {t.template &&
                       (t === latest ? (
                         <div className="ml-9 overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a]">
-                          <div className={cn("mx-auto", t.template.width < t.template.height ? "aspect-[9/16] max-h-[520px]" : t.template.width === t.template.height ? "aspect-square max-h-[520px]" : "aspect-video")}>
+                          <div className={cn("mx-auto", shapeOf(t.template.width < t.template.height ? "9:16" : t.template.width === t.template.height ? "1:1" : "16:9"))}>
                             <SandboxPlayer
                               key={`${t.template.id}-${t.template.version}`}
                               compiled={t.template.compiled}
