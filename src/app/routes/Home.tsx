@@ -12,6 +12,7 @@ import { LibrarySidebar, type Format } from "@/library/ui/LibrarySidebar";
 import { NewsletterSignup } from "@/library/ui/NewsletterSignup";
 import { openCookieSettings } from "@/app/lib/CookieBanner";
 import FooterNewsletter from "@/app/components/ui/footer-newsletter";
+import GoblinChat from "@/app/components/ui/goblin-chat";
 import { track } from "@/app/lib/analytics";
 import { UserButton, useAuth } from "@/app/lib/auth";
 
@@ -55,6 +56,16 @@ export default function Home() {
   const [open, setOpen] = useState<Template | null>(null);
 
   useEffect(() => saveBrand(brand), [brand]);
+
+  // The brand bar wraps to two rows when the chat narrows the page; publish
+  // its height so the library sidebar can stick just below it.
+  useEffect(() => {
+    const el = document.getElementById("brand-kit");
+    if (!el) return;
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty("--brand-bar-h", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const contentFor = (t: Template): Content => overrides[t.id] ?? (t.defaults as Content);
   const shown = useMemo(
@@ -110,7 +121,7 @@ export default function Home() {
     <div className="min-h-full bg-black text-white" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       {/* Nav */}
       <header className="sticky top-0 z-40 border-b border-white/8 bg-black/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-[1240px] items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-[1240px] items-center justify-between px-4 sm:px-6 lg:max-w-none">
           <a href="/" className="flex items-center gap-2.5">
             <img src={goblinLogo} alt="" className="h-7 w-7 rounded-md" />
             <span className="text-[15px] font-semibold tracking-tight">Goblin</span>
@@ -122,12 +133,16 @@ export default function Home() {
             <a href="#how" className="hidden rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white sm:inline">
               How it works
             </a>
-            <a href="/create" className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white">
+            <a
+              href="#create"
+              onClick={() => window.dispatchEvent(new Event("goblin:focus-chat"))}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] text-white/70 hover:text-white lg:hidden"
+            >
               <Sparkles className="h-3.5 w-3.5 text-[#5fd67a]" /> Create
             </a>
             <a
               href="#library"
-              className="rounded-full bg-[#22A03A] px-4 py-1.5 text-[13px] font-semibold text-black hover:opacity-90"
+              className="hidden whitespace-nowrap rounded-full bg-[#22A03A] px-4 py-1.5 text-[13px] font-semibold text-black hover:opacity-90 sm:inline-block"
             >
               Browse templates
             </a>
@@ -145,6 +160,10 @@ export default function Home() {
         </div>
       </header>
 
+      {/* The chat sits beside everything else on large screens (sticky, full
+      height) and under the hero on small ones. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
+      <div className="min-w-0 lg:col-start-1 lg:row-start-1">
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center">
@@ -180,7 +199,16 @@ export default function Home() {
           </button>
         </div>
       </section>
+      </div>
 
+      <aside
+        aria-label="Create a template"
+        className="h-[640px] border-y border-white/8 lg:sticky lg:top-14 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:h-[calc(100vh-3.5rem)] lg:self-start lg:border-y-0 lg:border-l"
+      >
+        <GoblinChat brand={brand} />
+      </aside>
+
+      <div className="min-w-0 lg:col-start-1 lg:row-start-2">
       {/* Brand kit — sticky so every change is visible against the grid */}
       <div id="brand-kit" className="z-30 mx-auto md:sticky md:top-14 max-w-[1240px] px-4 pt-2 sm:px-6">
         <BrandBar brand={brand} onChange={setBrand} />
@@ -256,7 +284,7 @@ export default function Home() {
           </div>
         ) : (
           <>
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 2xl:grid-cols-3">
             {shown.slice(0, limit).map((t) => (
               <div key={t.id} className="group relative">
               <button
@@ -321,6 +349,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+      </div>
+      </div>
 
       <FooterNewsletter
         newsletter={<NewsletterSignup />}

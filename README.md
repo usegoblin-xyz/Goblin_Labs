@@ -118,8 +118,11 @@ served at `/api/auth/*`), with accounts in Supabase Postgres:
 
 ### Create: templates from a prompt
 
-`/create` lets a signed-in user describe a video and get a new template,
+The homepage chat (`src/app/components/ui/goblin-chat.tsx`, sticky beside the
+library) lets a signed-in user describe a video and get a new template,
 written by Claude against the same kit and motion helpers as the library.
+Follow-up messages change it. `/create` is the full editor for one template:
+copy fields, version history, code and delete.
 
 1. `api/studio.ts?op=generate` (`api/_studio/generate.ts`) sends the prompt to Claude with a cached system
    prompt: the authoring guide (`api/_studio/guide.ts`), the real `brand.ts`,

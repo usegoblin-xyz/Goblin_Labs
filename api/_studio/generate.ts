@@ -20,6 +20,17 @@ const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice
 // Exposed for tests: the handler with the Claude call and auth swappable.
 export function makeHandler(deps: { call: CallClaude; userId: (req: VercelRequest) => Promise<string | null> }) {
   return async function handler(req: VercelRequest, res: VercelResponse) {
+    try {
+      await handle(req, res);
+    } catch (e) {
+      // Anything before streaming starts (bad JSON, database down) gets a clean error.
+      console.error("studio generate failed early", (e as Error).message);
+      if (!res.headersSent) res.status(500).json({ error: "Something went wrong. Try again in a moment." });
+      else res.end();
+    }
+  };
+
+  async function handle(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
     if (!process.env.ANTHROPIC_API_KEY && deps.call === callClaude) {
       return res.status(503).json({ error: "Template generation isn't switched on yet." });
@@ -95,6 +106,6 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
       send({ type: "error", message: "Generation failed. Try again in a moment." });
     }
     res.end();
-  };
+  }
 }
 

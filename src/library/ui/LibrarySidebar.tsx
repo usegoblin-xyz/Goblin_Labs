@@ -86,7 +86,7 @@ export function LibrarySidebar(p: Props) {
   const ic = "h-[17px] w-[17px]";
   return (
     <aside className="hidden w-[232px] shrink-0 lg:block">
-      <div className="sticky top-[150px] max-h-[calc(100vh-170px)] overflow-y-auto pr-1 pb-6">
+      <div className="sticky top-[calc(3.5rem+var(--brand-bar-h,86px)+8px)] max-h-[calc(100vh-3.5rem-var(--brand-bar-h,86px)-28px)] overflow-y-auto pr-1 pb-6">
         <label className="relative block">
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/60" />
           <input
@@ -122,7 +122,7 @@ export function LibrarySidebar(p: Props) {
 
         <Heading>Build</Heading>
         <div className="space-y-0.5">
-          <Item icon={<Sparkles className={ic} />} label="Create a template" badge="New" onClick={() => (window.location.href = "/create")} />
+          <Item icon={<Sparkles className={ic} />} label="Create a template" badge="New" onClick={() => window.dispatchEvent(new Event("goblin:focus-chat"))} />
           <Item icon={<Palette className={ic} />} label="Brand kit" onClick={p.onBrandKit} />
           <Item icon={<Wand2 className={ic} />} label="How it works" onClick={() => document.getElementById("how")?.scrollIntoView({ behavior: "smooth" })} />
         </div>
