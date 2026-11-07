@@ -8,7 +8,7 @@
 // with { type: "done", template } or { type: "error", message, problems? }.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserId } from "../_auth.js";
-import { callClaude, MODEL, type CallClaude } from "./claude.js";
+import { MODEL, type CallClaude } from "./claude.js";
 import { createTemplate, getTemplate, logGeneration, recentRepairs, saveVersion, usedToday, type StudioTemplate } from "./db.js";
 import { ASPECTS, runJob, type Aspect, type Job } from "./pipeline.js";
 
@@ -18,7 +18,7 @@ const MAX_PROMPT = 1200;
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 // Exposed for tests: the handler with the Claude call and auth swappable.
-export function makeHandler(deps: { call: CallClaude; userId: (req: VercelRequest) => Promise<string | null> }) {
+export function makeHandler(deps: { call: CallClaude; userId: (req: VercelRequest) => Promise<string | null>; configured?: () => boolean }) {
   return async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       await handle(req, res);
@@ -32,7 +32,7 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
 
   async function handle(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-    if (!process.env.ANTHROPIC_API_KEY && deps.call === callClaude) {
+    if (deps.configured && !deps.configured()) {
       return res.status(503).json({ error: "Template generation isn't switched on yet." });
     }
     const userId = await deps.userId(req);
