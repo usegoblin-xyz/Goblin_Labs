@@ -147,23 +147,25 @@ export function AppSidebar(p: Props) {
         {isLoaded && isSignedIn ? (
           <AccountMenu />
         ) : (
-          <div className="px-1">
-            <div className="flex items-center justify-between">
-              {isLoaded && (
-                <Link to="/login" className="rounded-full bg-white px-4 py-1.5 text-[13px] font-semibold text-black hover:opacity-90">
-                  Sign in
-                </Link>
-              )}
-              <a href="https://goblinlabs.substack.com" target="_blank" rel="noreferrer" className="text-[12px] text-white/45 hover:text-white">
-                Newsletter
-              </a>
+          <div>
+            {/* Signed out: one clear call to sign in, then a quiet line of links. */}
+            <Link
+              to="/login"
+              onClick={done}
+              className={`flex h-9 w-full items-center justify-center rounded-lg bg-white text-[13.5px] font-semibold text-black transition hover:opacity-90 ${isLoaded ? "" : "invisible"}`}
+            >
+              Sign in
+            </Link>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-1 text-[11.5px] text-white/40">
+              <a href="https://goblinlabs.substack.com" target="_blank" rel="noreferrer" className="hover:text-white/75">Newsletter</a>
+              <span aria-hidden>·</span>
+              <Link to="/terms" className="hover:text-white/75">Terms</Link>
+              <span aria-hidden>·</span>
+              <Link to="/privacy" className="hover:text-white/75">Privacy</Link>
+              <span aria-hidden>·</span>
+              <button onClick={openCookieSettings} className="text-[11.5px] leading-normal font-normal text-white/40 hover:text-white/75">Cookies</button>
             </div>
-            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/35">
-              <Link to="/terms" className="hover:text-white/70">Terms</Link>
-              <Link to="/privacy" className="hover:text-white/70">Privacy</Link>
-              <button onClick={openCookieSettings} className="text-[11px] hover:text-white/70">Cookies</button>
-              <span>© 2026 GoblinLabs Inc.</span>
-            </div>
+            <div className="mt-1 text-center text-[11px] text-white/25">© 2026 GoblinLabs Inc.</div>
           </div>
         )}
       </div>
