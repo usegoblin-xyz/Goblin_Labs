@@ -1,3 +1,10 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* Goblin's gecko idling, "Blink and look" (src/app/components/ui/gecko-mark.tsx) */
+.gkm .head { transform-origin: 64px 22px; animation: gkm-look 3.2s ease-in-out infinite; }
+.gkm .lid { transform-origin: 82.3px 15px; transform: scaleY(0); animation: gkm-lid 3.2s linear infinite; }
+@keyframes gkm-look { 0%, 18%, 100% { transform: rotate(0); } 30%, 62% { transform: rotate(-8deg); } 74%, 88% { transform: rotate(4deg); } }
+@keyframes gkm-lid { 0%, 40%, 47%, 100% { transform: scaleY(0); } 43.5% { transform: scaleY(1); } 80%, 85% { transform: scaleY(0); } 82.5% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .gkm .head, .gkm .lid { animation: none; } }
