@@ -5,7 +5,7 @@
 // Ruixen "moon chat" layout, recoloured to Goblin green.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
-import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, ListChecks, Loader2, Megaphone, Rocket, Sparkles, TrendingUp, TriangleAlert, Users, X } from "lucide-react";
+import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, ListChecks, Loader2, Megaphone, Rocket, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./button";
 import { Textarea } from "./textarea";
@@ -17,6 +17,7 @@ import { buildPrompt } from "@/library/ui/TemplateDialog";
 import { SandboxPlayer } from "@/library/studio/SandboxPlayer";
 import { GeckoLoader } from "./gecko-loader";
 import { exportMp4 } from "@/library/studio/exportMp4";
+import { sfxUsedIn } from "@/library/sfx";
 import {
   asTemplate, chat, formatOf, generate, getTemplate, saveFile, slugOf,
   type Aspect, type ChatMessage, type GenEvent, type GenRequest, type StudioTemplate,
@@ -71,6 +72,7 @@ const QUICK: { icon: ReactNode; label: string; prompt: string }[] = [
 
 const stageLabel = (req: GenRequest) => (req.mode === "repair" ? "Rewriting the broken part" : req.mode === "edit" ? "Applying your change" : "Writing the template");
 const seconds = (t: StudioTemplate) => Math.round(t.durationInFrames / t.fps);
+const hasSound = (t: StudioTemplate) => sfxUsedIn(t.compiled).length > 0;
 const Dot = () => (
   <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#5fd67a]" />
@@ -403,7 +405,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[14.5px] font-medium text-white">{tpl.title}</span>
             <span className="block truncate text-[12.5px] text-white/45">
-              Template · {fmt} · {seconds(tpl)}s · v{tpl.version}
+              Template · {fmt} · {seconds(tpl)}s{hasSound(tpl) ? " · sound" : ""} · v{tpl.version}
             </span>
           </span>
         </button>
@@ -518,7 +520,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
             <div className="min-w-0 flex-1">
               <div className="truncate text-[15px] font-semibold">{panel.template.title}</div>
               <div className="truncate text-[12px] text-white/45">
-                Template · {formatOf(panel.template)} · {seconds(panel.template)}s · v{panel.template.version}
+                Template · {formatOf(panel.template)} · {seconds(panel.template)}s{hasSound(panel.template) ? " · sound" : ""} · v{panel.template.version}
               </div>
             </div>
             <Button size="sm" onClick={() => download(panel.template!)} className="h-8 rounded-full bg-[#22A03A] px-3.5 text-[12.5px] font-semibold text-black hover:bg-[#22A03A]/90">
@@ -544,6 +546,11 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                 />
               </div>
             </div>
+            {hasSound(panel.template) && (
+              <p className="mt-3 flex items-center gap-2 text-[12.5px] text-white/50">
+                <Volume2 className="h-3.5 w-3.5 shrink-0 text-[#5fd67a]" /> Has sound effects. The preview starts muted, so press its speaker button to hear them. The MP4 always has sound.
+              </p>
+            )}
             <p className="mt-3 text-[13.5px] leading-snug text-white/55">{panel.template.outcome}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
