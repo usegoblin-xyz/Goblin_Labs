@@ -127,6 +127,14 @@ export async function usedToday(userId: string): Promise<number> {
   return rows[0].n;
 }
 
+export async function chatsToday(userId: string): Promise<number> {
+  const { rows } = await db().query(
+    `select count(*)::int as n from studio.generations where user_id = $1 and kind = 'chat' and created_at > now() - interval '24 hours'`,
+    [userId],
+  );
+  return rows[0].n;
+}
+
 export async function recentRepairs(userId: string, templateId: string): Promise<number> {
   const { rows } = await db().query(
     `select count(*)::int as n from studio.generations where user_id = $1 and template_id = $2 and kind = 'repair' and created_at > now() - interval '15 minutes'`,
@@ -136,7 +144,7 @@ export async function recentRepairs(userId: string, templateId: string): Promise
 }
 
 export type GenLog = {
-  userId: string; templateId: string | null; kind: "create" | "edit" | "repair" | "fix"; model: string; ok: boolean; error?: string;
+  userId: string; templateId: string | null; kind: "create" | "edit" | "repair" | "fix" | "chat"; model: string; ok: boolean; error?: string;
   inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number; ms: number;
 };
 export async function logGeneration(g: GenLog) {

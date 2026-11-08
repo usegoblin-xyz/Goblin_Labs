@@ -121,12 +121,15 @@ served at `/api/auth/*`), with accounts in Supabase Postgres:
 The homepage is the chat (`src/app/components/ui/goblin-chat.tsx`), with the
 left panel (`src/library/ui/AppSidebar.tsx`) linking to each library view:
 `/library`, `/library/saved`, `/library/<category>`, `/library?format=9:16`
-and `/library?q=`. The chat lets a signed-in user describe a video and get a new template,
-written by Claude against the same kit and motion helpers as the library.
-Follow-up messages change it, and "Edit text" on the result changes the copy
-without a new generation. "Your creations" (`/library/creations`) lists the
-user's templates; opening one (`/?t=<id>`) continues it in the chat. Old
-`/create` links redirect there.
+and `/library?q=`. A signed-in user talks with Goblin first
+(`api/studio.ts?op=chat`, `api/_studio/chat.ts`): Goblin helps shape the idea
+and only builds when asked ("build it", or a yes to its offer), handing the
+generator a complete brief. Each template comes back as a small card in the
+conversation with a Download button (the `.tsx` file); clicking the card opens
+it in a panel on the right to play it, download it, copy its prompt or edit
+its text. Later messages can ask for changes, which arrive as new versions.
+"Your creations" (`/library/creations`) lists the user's templates; opening
+one (`/?t=<id>`) continues it in the chat. Old `/create` links redirect there.
 
 1. `api/studio.ts?op=generate` (`api/_studio/generate.ts`) sends the prompt to Claude with a cached system
    prompt: the authoring guide (`api/_studio/guide.ts`), the real `brand.ts`,
@@ -154,6 +157,8 @@ log of every Claude call with token counts). Apply it once to the auth database.
 | `ANTHROPIC_API_KEY` | Claude API key. Without it, generation returns 503 |
 | `STUDIO_MODEL` | Model, default `claude-sonnet-5-5` |
 | `STUDIO_DAILY_LIMIT` | Creates + edits per user per 24 hours, default 20. Fixes don't count |
+| `STUDIO_CHAT_MODEL` | Model for Goblin's chat replies, defaults to `STUDIO_MODEL` |
+| `STUDIO_CHAT_LIMIT` | Chat replies per user per 24 hours, default 200 |
 
 Tests (the API test needs a Postgres with `db/studio.sql` applied):
 
