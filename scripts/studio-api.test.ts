@@ -225,7 +225,27 @@ const T = (globalThis as any).T;
   assert.deepEqual(toMessages([{ role: "assistant", text: "a" }, { role: "user", text: "b" }, { role: "user", text: "c" }, { role: "assistant", text: "" }, { role: "x", text: "y" }]), [{ role: "user", content: "b\n\nc" }]);
   const logs = await db().query("select count(*)::int n from studio.generations where user_id='u_other' and kind='chat'");
   assert.equal(logs.rows[0].n, 4);
-  ok("chat replies, build decisions and logging");
+  // The explainer agent is used strictly in explainer mode (the Explainer button).
+  process.env.GOBLIN_EXPLAINER_AGENT_ID = "agent_x";
+  process.env.GOBLIN_AGENT_ENVIRONMENT_ID = "env_x";
+  const ex = { reply: "On it: a 30-second explainer.", action: "explainer", brief: "Explain why the sky is blue for teenagers", title: "Sky Blue", aspect: "none" };
+  const off = await chat("u_other", ex, { messages: [{ role: "user", text: "make an explainer on the sky" }] });
+  assert.equal(off.json.action, "chat");
+  assert.match(off.json.reply, /click the Explainer button/);
+  assert.doesNotMatch(replies.at(-1).system, /Explainer mode is ON/);
+  const on = await chat("u_other", ex, { messages: [{ role: "user", text: "make it" }], mode: "explainer" });
+  assert.equal(on.json.action, "explainer");
+  assert.equal(on.json.title, "Sky Blue");
+  assert.match(replies.at(-1).system, /Explainer mode is ON/);
+  // In explainer mode a template is never built; a "build" becomes the explainer.
+  assert.equal((await chat("u_other", { ...ex, action: "build" }, { messages: [{ role: "user", text: "go" }], mode: "explainer" })).json.action, "explainer");
+  // Changing an explainer also needs the mode on.
+  const ch = await chat("u_other", { ...ex, action: "change", brief: "Make scene 2 slower" }, { messages: [{ role: "user", text: "slower" }], video: { title: "Sky Blue", format: "16:9" } });
+  assert.equal(ch.json.action, "chat");
+  assert.equal((await chat("u_other", { ...ex, action: "change", brief: "Make scene 2 slower" }, { messages: [{ role: "user", text: "slower" }], video: { title: "Sky Blue", format: "16:9" }, mode: "explainer" })).json.action, "change");
+  delete process.env.GOBLIN_EXPLAINER_AGENT_ID;
+  delete process.env.GOBLIN_AGENT_ENVIRONMENT_ID;
+  ok("chat replies, build decisions and logging; explainers only in explainer mode");
 }
 
 // 9c. The page finds a template's sounds in any quote style (Claude often uses single quotes).

@@ -45,6 +45,8 @@ export function chatSystem(ctx: {
   template?: { title: string; outcome: string; version: number; format: string; seconds: number; copy: Record<string, string> };
   video?: { title: string; format: string };
   explainers?: boolean;
+  // The user turned on Explainer (the button). Only then can Goblin make explainers.
+  explainerMode?: boolean;
 }) {
   return `You are Goblin, the assistant on usegoblin.xyz. Goblin builds short motion-graphics videos as templates: code-based animations, 4 to 15 seconds long, in 16:9, 9:16 or 1:1, styled automatically from the user's brand kit (colours, font, motion feel), with editable text fields. They can carry sound effects from Goblin's library (whooshes, pops, clicks, ticks, typing, dings, chimes, sparkles, impacts, booms, bass drops, risers, glitches, drumrolls and more) timed to the motion, but no music. Users preview them on the site and download them as MP4 files, with sound.
 
@@ -62,13 +64,17 @@ When to build (action "build" or "change"):
 - A build brief must stand alone: the template writer sees only the brief, not this conversation. Include the scenes in order, the exact on-screen copy, the length and the feel. Leave colours and fonts to the brand kit.
 - Sound: if the user wants sound or sound effects, say so in the brief and describe which sounds go where (for example "a whoosh as each card slides in, a ding on the final stat, a riser into the logo"). If they haven't mentioned sound, you can ask whether they want sound effects before building; if they don't want any, or never said, leave sound out of the brief.
 
-${ctx.explainers ? `Explainer videos (action "explainer"):
-- Goblin also makes explainer videos with a separate explainer agent: 30 to 60 seconds, 4 scenes by default (up to 8), each with an on-screen caption, quiet background music made with code, in the brand's colours, delivered as an MP4. They take a few minutes to make, and the user can keep chatting meanwhile. The agent has no internet access: it uses what the user gives it and what it already knows.
-- Use "explainer" when the user asks for an explainer, a walkthrough of how something works, a lesson or tutorial, or a video longer than 15 seconds with captions or music. Use "build" for short 4 to 15 second launch-style videos with editable text. If it's unclear which they want, ask.
-- The same rule applies: only when they ask you to make it now. The reply is one short line saying what you're making and that it takes a few minutes.
+${ctx.explainers && ctx.explainerMode ? `Explainer mode is ON (the user clicked the Explainer button):
+- In this mode you make explainer videos, not templates, with a separate explainer agent: 30 to 60 seconds, 4 scenes by default (up to 8), each with an on-screen caption, quiet background music made with code, in the brand's colours, delivered as an MP4. They take a few minutes to make, and the user can keep chatting meanwhile. The agent has no internet access: it uses what the user gives it and what it already knows.
+- Talk it through first: what it explains, for whom, the key facts or source text, the length. Then, only when they ask you to make it now (or say yes to your offer), use action "explainer". Never use "build" in this mode. The reply is one short line saying what you're making and that it takes a few minutes.
 - If the current item is an explainer and they ask for a change to it, use "change" with the exact change as the brief.
+- If they'd rather have a short template instead, tell them to turn off Explainer (the same button) first.
+- The user can turn Explainer on partway through a chat (their message then starts with a note saying so), so earlier replies may have been written with it off. Those replies were right at the time: don't apologise, correct yourself or mention the switch, just answer as an explainer maker.
 
-` : ""}Context:
+` : `Explainer videos:
+- Never make explainer videos in this conversation, and never use action "explainer". Longer explainer videos are only made when the user turns on Explainer with the Explainer button (next to the message box). If they ask for an explainer, a walkthrough, a lesson or a 30 to 60 second video with captions and music, tell them to click Explainer first, in one short line, with action "chat".
+
+`}Context:
 - The user's brand: ${ctx.brand || "not named yet"}.
 - Format selected in the input: ${ctx.aspect}. Use it unless the user asks for another.
 - ${ctx.video ? `Current item: the explainer video "${ctx.video.title}" (${ctx.video.format}). A change re-edits this video.` : ctx.template ? `Current template: "${ctx.template.title}" (v${ctx.template.version}, ${ctx.template.format}, ${ctx.template.seconds}s): ${ctx.template.outcome}. Its text: ${JSON.stringify(ctx.template.copy)}.` : "Nothing has been built in this chat yet."}`;
@@ -150,12 +156,14 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
         return res.status(429).json({ error: "That's a lot of chatting for one day. Try again tomorrow." });
       }
 
+      // Explainer mode is on only while the user has the Explainer button turned on.
+      const explainerMode = body.mode === "explainer" && explainersOn();
       const started = Date.now();
       let result: Awaited<ReturnType<CallChat>>;
       try {
         const v = body.video && typeof body.video === "object" ? body.video : null;
         const video = v ? { title: str(v.title, 80), format: ASPECTS.includes(v.format) ? v.format : "16:9" } : undefined;
-        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn() }), messages);
+        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn(), explainerMode }), messages);
       } catch (e) {
         await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: false, error: (e as Error).message, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0, ms: Date.now() - started });
         return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
@@ -165,8 +173,19 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       if (!out || !out.reply) return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
 
       let action: ChatAction = out.action === "build" || out.action === "change" || out.action === "explainer" ? out.action : "chat";
-      if (action === "explainer" && !explainersOn()) action = "build";
+      let reply = str(out.reply, 2000);
+      // The agent is used strictly in explainer mode: outside it, an explainer
+      // never starts; inside it, a template is never built.
+      if (action === "explainer" && !explainerMode) {
+        action = "chat";
+        reply = explainersOn() ? "To make an explainer video, click the Explainer button next to the message box, then tell me what it should explain." : "Explainer videos aren't switched on yet.";
+      }
+      if (action === "change" && body.video && !explainerMode) {
+        action = "chat";
+        reply = "To change this explainer, turn on Explainer with the button next to the message box, then tell me what to change.";
+      }
       if (action === "change" && !template && !body.video) action = "build";
+      if (action === "build" && explainerMode) action = "explainer";
       const brief = action === "chat" ? "" : str(out.brief, action === "explainer" ? 4000 : 1200);
       if (action !== "chat" && brief.length < 8) action = "chat";
       // A build counts toward the daily generation limit; say so before starting.
@@ -177,7 +196,7 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
           return res.status(200).json({ reply: `I'd love to, but you've used all ${limit} builds for today. We can keep planning it, and I'll build it tomorrow.`, action: "chat", brief: "", aspect });
         }
       }
-      return res.status(200).json({ reply: str(out.reply, 2000), action, brief, title: action === "build" || action === "explainer" ? str(out.title, 80) : "", aspect: out.aspect === "none" || !ASPECTS.includes(out.aspect as never) ? aspect : out.aspect });
+      return res.status(200).json({ reply, action, brief, title: action === "build" || action === "explainer" ? str(out.title, 80) : "", aspect: out.aspect === "none" || !ASPECTS.includes(out.aspect as never) ? aspect : out.aspect });
     } catch (e) {
       console.error("studio chat failed", (e as Error).message);
       if (!res.headersSent) res.status(500).json({ error: "Something went wrong. Try again in a moment." });

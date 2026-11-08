@@ -80,6 +80,7 @@ type Events = {
   studio_downloaded: Record<string, never>;
   studio_export_failed: Record<string, never>;
   studio_video: Record<string, never>;
+  studio_explainer_mode: { on: boolean };
   studio_video_done: Record<string, never>;
   studio_video_downloaded: Record<string, never>;
 };

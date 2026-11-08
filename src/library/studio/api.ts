@@ -85,6 +85,7 @@ export type ChatContext = {
   brand?: string;
   template?: { title: string; outcome: string; version: number; format: Aspect; seconds: number; copy: Record<string, string> };
   video?: { title: string; format: Aspect };
+  mode?: "explainer";
 };
 
 // One conversational reply from Goblin, saying whether to build.
