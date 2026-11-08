@@ -596,12 +596,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                 <GeckoMark label="" className="h-[1.6em] w-[1.6em] shrink-0 sm:h-[1.35em] sm:w-[1.35em]" />
                 <span className={cn(!isLoaded && "opacity-0")}>{greeting ?? "What are you launching?"}</span>
               </h1>
-              {greeting && <p className="mt-2 text-center text-[19px] font-medium tracking-[-0.01em] text-white/60 sm:text-[22px]">{explainerMode ? "What should we explain?" : "What are you launching?"}</p>}
-              <p className="mx-auto mt-3 max-w-[480px] text-center text-[15px] leading-relaxed text-white/45">
-                {explainerMode
-                  ? "Explainer is on. Tell Goblin what to explain; it makes a 30 to 60 second video with captions and music in your brand."
-                  : "Talk it through with Goblin. When you're ready, ask it to build the video as a template in your brand."}
-              </p>
               <div className="mt-8">{input}</div>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                 <button
