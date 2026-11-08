@@ -2,7 +2,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { BarChart3, Bookmark, BookOpen, Clapperboard, LayoutGrid, Lightbulb, Monitor, Rocket, Search, Smartphone, Sparkles, SquarePen, Square } from "lucide-react";
 import goblinLogo from "@/assets/goblin-logo.png";
-import { UserButton, useAuth } from "@/app/lib/auth";
+import { useAuth } from "@/app/lib/auth";
+import { AccountMenu } from "@/app/lib/AccountMenu";
 import { openCookieSettings } from "@/app/lib/CookieBanner";
 import type { Category } from "../kit";
 
@@ -142,26 +143,29 @@ export function AppSidebar(p: Props) {
         </div>
       </nav>
 
-      <div className="border-t border-white/8 px-4 py-3">
-        <div className="flex items-center justify-between">
-          {isLoaded &&
-            (isSignedIn ? (
-              <UserButton />
-            ) : (
-              <Link to="/login" className="rounded-full bg-white px-4 py-1.5 text-[13px] font-semibold text-black hover:opacity-90">
-                Sign in
-              </Link>
-            ))}
-          <a href="https://goblinlabs.substack.com" target="_blank" rel="noreferrer" className="text-[12px] text-white/45 hover:text-white">
-            Newsletter
-          </a>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/35">
-          <Link to="/terms" className="hover:text-white/70">Terms</Link>
-          <Link to="/privacy" className="hover:text-white/70">Privacy</Link>
-          <button onClick={openCookieSettings} className="text-[11px] hover:text-white/70">Cookies</button>
-          <span>© 2026 GoblinLabs Inc.</span>
-        </div>
+      <div className="border-t border-white/8 px-3 py-3">
+        {isLoaded && isSignedIn ? (
+          <AccountMenu />
+        ) : (
+          <div className="px-1">
+            <div className="flex items-center justify-between">
+              {isLoaded && (
+                <Link to="/login" className="rounded-full bg-white px-4 py-1.5 text-[13px] font-semibold text-black hover:opacity-90">
+                  Sign in
+                </Link>
+              )}
+              <a href="https://goblinlabs.substack.com" target="_blank" rel="noreferrer" className="text-[12px] text-white/45 hover:text-white">
+                Newsletter
+              </a>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/35">
+              <Link to="/terms" className="hover:text-white/70">Terms</Link>
+              <Link to="/privacy" className="hover:text-white/70">Privacy</Link>
+              <button onClick={openCookieSettings} className="text-[11px] hover:text-white/70">Cookies</button>
+              <span>© 2026 GoblinLabs Inc.</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
