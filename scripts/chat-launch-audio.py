@@ -17,6 +17,9 @@ from render/chat-launch-cues.json, the same file the picture uses.
     typing out (a different unbroken stretch for each), instead of the synth one.
     Add --swoosh swoosh.wav to use a recorded swoosh on the beat titles, the
     tagline and the side panel opening, peaking with the first word.
+    Add --flyby jet.wav to replace the hook's two whooshes (the build into the
+    title, about 0:05 to 0:07) with a recorded flyby, panned left to right and
+    cut just after the boom.
     With --music the typing gets its own level, about 9 dB under whatever is playing
     (TYPE_UNDER_DB), and the music dips about 2.5 dB while each message types.
 
@@ -165,7 +168,8 @@ def swoosh_at(peak_t, gain, under_db):
 for b in CUES["beats"]:
     swoosh_at(b["at"] + 0.06, WH_GAIN, 3)
 # The title reveal: an epic hook whose final boom lands on "Chat in Goblin".
-HOOK, HOOK_BOOM = cinematic.hook()
+FLYBY = arg("--flyby")
+HOOK, HOOK_BOOM = cinematic.hook(whooshes=not FLYBY)
 s.put("fx", HOOK, sc["title"][0] + 0.45 - HOOK_BOOM, 0.62)
 # The title card collapsing: a reverse swell sucks everything in, and a deep
 # hit as the ring bursts out into the next frame.
@@ -231,6 +235,30 @@ if MUSIC:
             g = bg * 10 ** (-under_db / 20) / tr * (type_gain / 0.75)
             k = min(len(base) - i, len(take))
             base[i: i + k] += take[:k] * g
+    if FLYBY:
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            wav = os.path.join(td, "f.wav")
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", FLYBY, "-ar", str(SR), "-ac", "2", wav], check=True)
+            fb, _ = sf.read(wav)
+        boom_t = sc["title"][0] + 0.45
+        start = boom_t - 3.35  # the roar (about 1 to 3.6 s into the file) fills 0:05 to 0:07
+        end = boom_t + 0.5
+        fb = fb[: int((end - start) * SR)].copy()
+        tt = np.arange(len(fb)) / SR
+        # Pan it across the frame as it roars, then cut it under the boom.
+        pan = np.clip((tt - 0.8) / 2.6, 0, 1) * 1.6 - 0.8
+        mono = fb.mean(1)
+        ang = (pan + 1) * np.pi / 4
+        fb = np.stack([mono * np.cos(ang), mono * np.sin(ang)], 1) * 1.4142 * 0.6 + fb * 0.4
+        fb *= np.clip((end - start - tt) / 0.5, 0, 1)[:, None] ** 1.5
+        i0, i1 = int((start + 1.0) * SR), int((boom_t - 0.3) * SR)
+        bg = np.sqrt((base[i0:i1] ** 2).mean()) or 1e-3
+        fr = np.sqrt((fb[int(1.0 * SR): int((boom_t - 0.3 - start) * SR)] ** 2).mean()) or 1e-3
+        g = bg * 10 ** (-float(os.environ.get("FLYBY_UNDER_DB", 1)) / 20) / fr
+        a0 = int(start * SR)
+        base[a0: a0 + len(fb)] += fb * g
     for sig, peak_t, under_db in FEATURED:
         i0, j0 = int((peak_t - 0.15) * SR), int((peak_t + 0.15) * SR)
         bg = np.sqrt((base[i0:j0] ** 2).mean()) or 1e-3

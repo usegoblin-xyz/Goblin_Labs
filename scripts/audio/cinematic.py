@@ -125,16 +125,18 @@ def boom():
     return reverb(_st(x), seconds=4.0, mix=0.4, damp=3500)
 
 
-def hook():
-    """~7 s; the final boom lands at BOOM seconds."""
+def hook(whooshes=True):
+    """~7 s; the final boom lands at BOOM seconds. whooshes=False leaves out the
+    two sweeping whooshes, to lay a recorded flyby over the build instead."""
     BOOM = 3.25
     out = _pad(np.zeros((1, 2)), 7.8)
     _at(out, deep_hit(1.0), 0.0, 0.9)
     _at(out, riser(BOOM - 0.05), 0.05, 0.75)
     for at, g in [(0.6, 0.45), (1.3, 0.55), (1.85, 0.6), (2.3, 0.65), (2.65, 0.7), (2.9, 0.75), (3.08, 0.8)]:
         _at(out, pulse(g), at, 1.0)
-    _at(out, whoosh(1.0, 400, 3200, -0.9, 0.9), 0.75, 0.7)
-    _at(out, whoosh(0.85, 600, 4800, 0.9, -0.9), 2.05, 0.75)
+    if whooshes:
+        _at(out, whoosh(1.0, 400, 3200, -0.9, 0.9), 0.75, 0.7)
+        _at(out, whoosh(0.85, 600, 4800, 0.9, -0.9), 2.05, 0.75)
     _at(out, deep_hit(0.7), 1.6, 0.6)
     sw = reverse_swell(0.7)
     _at(out, sw, BOOM - len(sw) / SR, 0.8)
