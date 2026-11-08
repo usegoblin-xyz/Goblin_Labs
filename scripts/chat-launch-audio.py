@@ -167,6 +167,12 @@ for b in CUES["beats"]:
 # The title reveal: an epic hook whose final boom lands on "Chat in Goblin".
 HOOK, HOOK_BOOM = cinematic.hook()
 s.put("fx", HOOK, sc["title"][0] + 0.45 - HOOK_BOOM, 0.62)
+# The title card collapsing: a reverse swell sucks everything in, and a deep
+# hit as the ring bursts out into the next frame.
+SUCK = cinematic.reverse_swell(CUES["titleBurst"] - CUES["titleSuck"])
+s.put("fx", SUCK, CUES["titleBurst"] - len(SUCK) / SR, 0.7)
+s.put("fx", cinematic.whoosh(0.6, 3800, 600, 0.8, -0.8), CUES["titleBurst"] - 0.6, 0.45)
+s.put("fx", cinematic.deep_hit(0.8), CUES["titleBurst"], 0.55)
 for st in CUES["steps"] + CUES["phases"]:
     s.put("fx", fx("tick"), st["at"], 0.35)
 s.put("fx", fx("success"), CUES["card1"], 0.4)

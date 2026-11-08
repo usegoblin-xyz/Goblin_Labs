@@ -2,42 +2,131 @@
   "_": "Timeline for render/ChatLaunch.tsx, in seconds. scripts/chat-launch-audio.py reads the same file, so picture and sound stay in sync.",
   "duration": 58,
   "scenes": {
-    "open": [0, 7.4],
-    "title": [7.4, 11.6],
-    "talk": [11.6, 19.6],
-    "build": [19.6, 28],
-    "panel": [28, 35.2],
-    "change": [35.2, 41.2],
-    "explainer": [41.2, 48.2],
-    "export": [48.2, 53.2],
-    "end": [53.2, 58]
+    "open": [
+      0,
+      7.4
+    ],
+    "title": [
+      7.4,
+      12.1
+    ],
+    "talk": [
+      11.6,
+      19.6
+    ],
+    "build": [
+      19.6,
+      28
+    ],
+    "panel": [
+      28,
+      35.2
+    ],
+    "change": [
+      35.2,
+      41.2
+    ],
+    "explainer": [
+      41.2,
+      48.2
+    ],
+    "export": [
+      48.2,
+      53.2
+    ],
+    "end": [
+      53.2,
+      58
+    ]
   },
   "user": [
-    { "at": 0.4, "text": "Hey Goblin, we ship a new feature on Friday." },
-    { "at": 2.0, "text": "We need a launch video. No motion designer, no time." },
-    { "at": 13.9, "text": "Shared inboxes. Every reply, one place." },
-    { "at": 17.9, "text": "Yes. Vertical, with a whoosh on every cut." },
-    { "at": 37.0, "text": "Make the call to action bigger and add a ding at the end." },
-    { "at": 43.4, "text": "Explain how a shared inbox works, in 30 seconds." }
+    {
+      "at": 0.4,
+      "text": "Hey Goblin, we ship a new feature on Friday."
+    },
+    {
+      "at": 2.0,
+      "text": "We need a launch video. No motion designer, no time."
+    },
+    {
+      "at": 13.9,
+      "text": "Shared inboxes. Every reply, one place."
+    },
+    {
+      "at": 17.9,
+      "text": "Yes. Vertical, with a whoosh on every cut."
+    },
+    {
+      "at": 37.0,
+      "text": "Make the call to action bigger and add a ding at the end."
+    },
+    {
+      "at": 43.4,
+      "text": "Explain how a shared inbox works, in 30 seconds."
+    }
   ],
   "goblin": [
-    { "at": 4.3, "text": "Love it. What's the one thing people should remember?" },
-    { "at": 15.1, "text": "Got it. A messy pile of messages that snaps into one thread. Want me to build it?" },
-    { "at": 21.6, "text": "On it: a 9-second vertical launch for Tidybox." },
-    { "at": 38.5, "text": "Done. Bigger call to action, and a ding on the last beat." },
-    { "at": 44.6, "text": "On it. Your explainer will be ready in a few minutes." }
+    {
+      "at": 4.3,
+      "text": "Love it. What's the one thing people should remember?"
+    },
+    {
+      "at": 15.1,
+      "text": "Got it. A messy pile of messages that snaps into one thread. Want me to build it?"
+    },
+    {
+      "at": 21.6,
+      "text": "On it: a 9-second vertical launch for Tidybox."
+    },
+    {
+      "at": 38.5,
+      "text": "Done. Bigger call to action, and a ding on the last beat."
+    },
+    {
+      "at": 44.6,
+      "text": "On it. Your explainer will be ready in a few minutes."
+    }
   ],
   "beats": [
-    { "at": 11.75, "lead": "Talk it through", "tail": "first." },
-    { "at": 19.75, "lead": "Ask the way", "tail": "you'd say it." },
-    { "at": 35.35, "lead": "Change", "tail": "anything." },
-    { "at": 41.35, "lead": "Explainers,", "tail": "too." },
-    { "at": 48.35, "lead": "Download it.", "tail": "With sound." }
+    {
+      "at": 11.5,
+      "lead": "Talk it through",
+      "tail": "first."
+    },
+    {
+      "at": 19.75,
+      "lead": "Ask the way",
+      "tail": "you'd say it."
+    },
+    {
+      "at": 35.35,
+      "lead": "Change",
+      "tail": "anything."
+    },
+    {
+      "at": 41.35,
+      "lead": "Explainers,",
+      "tail": "too."
+    },
+    {
+      "at": 48.35,
+      "lead": "Download it.",
+      "tail": "With sound."
+    }
   ],
   "steps": [
-    { "at": 22.4, "text": "Writing the template" },
-    { "at": 23.8, "text": "Checking it follows your brand kit" },
-    { "at": 24.8, "text": "Testing it in the preview" }
+    {
+      "at": 22.4,
+      "text": "Writing the template"
+    },
+    {
+      "at": 23.8,
+      "text": "Checking it follows your brand kit"
+    },
+    {
+      "at": 24.8,
+      "text": "Testing it in the preview"
+    }
   ],
   "card1": 25.8,
   "panelOpen": 28.2,
@@ -45,14 +134,28 @@
   "card2": 40.0,
   "explainerToggle": 43.0,
   "phases": [
-    { "at": 45.4, "text": "Planned the storyboard" },
-    { "at": 46.0, "text": "Build the scenes" },
-    { "at": 46.6, "text": "Review the video" },
-    { "at": 47.1, "text": "Joining the scenes and mixing the music" }
+    {
+      "at": 45.4,
+      "text": "Planned the storyboard"
+    },
+    {
+      "at": 46.0,
+      "text": "Build the scenes"
+    },
+    {
+      "at": 46.6,
+      "text": "Review the video"
+    },
+    {
+      "at": 47.1,
+      "text": "Joining the scenes and mixing the music"
+    }
   ],
   "videoCard": 47.6,
   "exportStart": 50.0,
   "exportDone": 52.2,
   "tagline": 53.4,
-  "lockup": 55.4
+  "lockup": 55.4,
+  "titleSuck": 10.65,
+  "titleBurst": 11.3
 }

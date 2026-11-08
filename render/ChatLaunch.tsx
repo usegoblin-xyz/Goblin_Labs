@@ -422,47 +422,106 @@ function Open({ t }: { t: number }) {
   );
 }
 
+// The title card, after the library's Orbit Rings and Project Carousel reels:
+// the four pieces of the product circle the title on a tilted 3D ring (front
+// ones pass below it, larger and sharp; back ones drift behind it, small and
+// soft), two faint orbit rings spin behind, then the orbit spins up and
+// everything is sucked into the centre and bursts out into the next frame.
 function Title({ t }: { t: number }) {
   const [a] = S.title;
   const lt = t - a;
+  const suck = CUES.titleSuck - a; // collapse starts
+  const burst = CUES.titleBurst - a; // everything is gone; the ring bursts out
   const intro = expOut(seg(lt, 0.15, 0.6));
   const name = expOut(seg(lt, 0.45, 0.8));
-  const drift = (k: number) => Math.sin(lt * 0.6 + k) * 10;
-  const float = (k: number, d: number) => ({ opacity: expOut(seg(lt, 0.3 + d, 0.7)) * 0.95, transform: `translateY(${drift(k) + (1 - expOut(seg(lt, 0.3 + d, 0.9))) * 40}px)` });
-  return (
-    <Scene t={t} span={S.title}>
-      {/* the product around the title, like a desk of UI */}
-      <div style={{ position: "absolute", left: 90, top: 120, ...float(1, 0.1) }}>
-        <div style={{ position: "relative", width: 860 }}>
-          <Card t={99} at={0} title="Tidybox Launch" meta="Template · 9:16 · 9s · sound · v1" thumb={<Thumb916 lt={lt + 2.6} />} style={{ position: "relative" }} />
+  const collapse = expInOut(seg(lt, suck, burst - suck));
+  const spinUp = Math.pow(seg(lt, suck - 0.35, burst - suck + 0.35), 2.2) * 5.5;
+  const CX = 960, CY = 560, RX = 640, RY = 330;
+
+  const items: { key: string; w: number; h: number; node: ReactNode }[] = [
+    { key: "card", w: 860, h: 128, node: <Card t={99} at={0} title="Tidybox Launch" meta="Template · 9:16 · 9s · sound · v1" thumb={<Thumb916 lt={lt + 2.6} />} style={{ position: "relative", background: "#0d0d0d" }} /> },
+    {
+      key: "steps", w: 560, h: 190,
+      node: (
+        <div style={{ width: 560, padding: "22px 30px", borderRadius: 22, border: "1.5px solid rgba(255,255,255,0.12)", background: "#0d0d0d" }}>
+          {CUES.steps.map((st) => (
+            <div key={st.text} style={{ display: "flex", alignItems: "center", gap: 14, height: 46, font: `400 23px/1 ${INTER}`, color: "rgba(245,245,242,0.62)" }}>
+              <Check s={22} /> {st.text}
+            </div>
+          ))}
         </div>
-      </div>
-      <div style={{ position: "absolute", right: 110, top: 150, width: 540, padding: "22px 30px", borderRadius: 22, border: "1.5px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)", ...float(2, 0.25) }}>
-        {CUES.steps.map((s) => (
-          <div key={s.text} style={{ display: "flex", alignItems: "center", gap: 14, height: 44, font: `400 22px/1 ${INTER}`, color: "rgba(245,245,242,0.55)" }}>
-            <Check s={22} /> {s.text}
-          </div>
-        ))}
-      </div>
-      <div style={{ position: "absolute", left: 160, bottom: 150, ...float(3, 0.35) }}>
-        <InputBar t={t} explainer={1} placeholder="What should the explainer explain?" left={0} top={0} width={720} />
-      </div>
-      <div style={{ position: "absolute", right: 140, bottom: 130, width: 420, height: 236, borderRadius: 22, overflow: "hidden", border: "1.5px solid rgba(255,255,255,0.1)", ...float(4, 0.45) }}>
-        <div style={{ position: "absolute", inset: 0, background: TB.bg }}>
+      ),
+    },
+    { key: "input", w: 720, h: 124, node: <div style={{ position: "relative", width: 720, height: 124 }}><InputBar t={t} explainer={1} placeholder="What should the explainer explain?" left={0} top={0} width={720} /></div> },
+    {
+      key: "preview", w: 420, h: 236,
+      node: (
+        <div style={{ position: "relative", width: 420, height: 236, borderRadius: 22, overflow: "hidden", border: "1.5px solid rgba(255,255,255,0.12)", background: TB.bg }}>
           <Thumb916 lt={lt + 3.8} h={236} />
         </div>
+      ),
+    },
+  ];
+  const BASE = [-2.55, -0.95, 0.6, 2.2]; // radians around the ring
+  const placed = items.map((it, i) => {
+    const entry = expOut(seg(lt, 0.05 + i * 0.09, 1.1));
+    const th = BASE[i] + lt * 0.42 + spinUp;
+    const rf = lerp(1.75, 1, entry) * (1 - collapse);
+    const depth = Math.sin(th); // +1 front (lower on screen), -1 back
+    const x = CX + Math.cos(th) * RX * rf;
+    const y = CY + depth * RY * rf;
+    const scale = (0.8 + 0.2 * depth) * lerp(1, 0.06, collapse);
+    const fadeOut = 1 - c01((collapse - 0.7) / 0.3);
+    const opacity = c01(entry * 1.6) * (0.62 + 0.38 * (depth + 1) / 2) * fadeOut;
+    const blur = ((1 - depth) / 2) * 2.2 + collapse * 5;
+    const rot = Math.cos(th) * 3 - collapse * 140;
+    return { ...it, depth, el: (
+      <div key={it.key} style={{ position: "absolute", left: x, top: y, width: it.w, height: it.h, marginLeft: -it.w / 2, marginTop: -it.h / 2, transform: `rotate(${rot}deg) scale(${scale})`, opacity, filter: `blur(${blur.toFixed(2)}px)` }}>
+        {it.node}
       </div>
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    ) };
+  });
+  const back = placed.filter((p) => p.depth < 0).map((p) => p.el);
+  const front = placed.filter((p) => p.depth >= 0).map((p) => p.el);
+
+  // The title is pulled into the centre with everything else.
+  const titleIn = lerp(1, 0.04, expInOut(seg(lt, suck + 0.15, burst - suck - 0.1)));
+  const titleOut = 1 - c01((lt - (burst - 0.25)) / 0.25);
+  const ringP = expOut(seg(lt, 0.0, 1.2)) * (1 - collapse);
+  const bp = 1 - Math.pow(1 - seg(lt, burst - 0.05, 0.9), 2.4);
+  const dot = collapse * (1 - seg(lt, burst - 0.05, 0.12));
+  return (
+    <Scene t={t} span={S.title}>
+      {/* two faint orbit rings, spinning opposite ways */}
+      <svg width={1920} height={1080} style={{ position: "absolute", inset: 0 }}>
+        {[
+          [RX, RY, 1, 0.22],
+          [RX * 1.28, RY * 1.28, -1, 0.12],
+        ].map(([rx, ry, dir, o], i) => (
+          <ellipse key={i} cx={CX} cy={CY} rx={rx * ringP} ry={ry * ringP} fill="none" stroke={MINT} strokeOpacity={o * c01(ringP * 2)} strokeWidth={1.6} strokeDasharray="2 14" strokeDashoffset={lt * 60 * dir} />
+        ))}
+        {dot > 0 && <circle cx={CX} cy={CY} r={6 + dot * 22} fill={MINT} opacity={0.9 * dot} />}
+        {bp > 0 && bp < 1 && (
+          <>
+            <circle cx={CX} cy={CY} r={bp * 1150} fill="none" stroke={MINT} strokeWidth={16 * (1 - bp) + 2} opacity={Math.pow(1 - bp, 0.7)} />
+            <circle cx={CX} cy={CY} r={bp * 1050} fill="none" stroke={GREEN} strokeWidth={6 * (1 - bp)} opacity={0.8 * (1 - bp)} />
+            <circle cx={CX} cy={CY} r={bp * 950} fill={GREEN} opacity={0.22 * (1 - bp)} />
+          </>
+        )}
+      </svg>
+      {back}
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", transform: `translateY(${CY - 540}px) scale(${titleIn}) rotate(${(1 - titleIn) * -25}deg)`, opacity: titleOut }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: -40 }}>
           <div style={{ opacity: intro, transform: `translateY(${(1 - intro) * 16}px)` }}>
             <Gecko t={lt} size={110} id="title" />
           </div>
           <div style={{ font: `500 34px/1 ${INTER}`, color: "rgba(245,245,242,0.6)", marginTop: 26, opacity: intro }}>Introducing</div>
-          <div style={{ font: `400 150px/1.05 ${SERIF}`, color: FG, marginTop: 14, opacity: name, transform: `translateY(${(1 - name) * 30}px)`, letterSpacing: "-0.01em" }}>
+          <div style={{ font: `400 150px/1.05 ${SERIF}`, color: FG, marginTop: 14, opacity: name, transform: `translateY(${(1 - name) * 30}px) scale(${1.06 - 0.06 * name})`, letterSpacing: "-0.01em" }}>
             Chat in <span style={{ color: MINT, fontStyle: "italic" }}>Goblin</span>
           </div>
         </div>
       </AbsoluteFill>
+      {front}
     </Scene>
   );
 }
