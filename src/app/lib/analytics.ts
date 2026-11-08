@@ -76,6 +76,8 @@ type Events = {
   studio_generate_failed: { mode: "create" | "edit" | "repair"; status: number };
   studio_preview_error: { auto: boolean };
   studio_copied: { what: string };
+  studio_chat: Record<string, never>;
+  studio_downloaded: Record<string, never>;
 };
 
 export function track<E extends keyof Events>(event: E, props: Events[E]) {

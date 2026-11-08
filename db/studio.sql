@@ -44,8 +44,9 @@ create table if not exists studio.generations (
   user_id text not null references better_auth."user"(id) on delete cascade,
   template_id uuid references studio.templates(id) on delete set null,
   -- create/edit: a user request; repair: a fix after the preview reported an
-  -- error; fix: a follow-up call inside one request after the checks failed.
-  kind text not null check (kind in ('create', 'edit', 'repair', 'fix')),
+  -- error; fix: a follow-up call inside one request after the checks failed;
+  -- chat: one of Goblin's conversational replies.
+  kind text not null check (kind in ('create', 'edit', 'repair', 'fix', 'chat')),
   model text not null,
   ok boolean not null,
   error text,
@@ -56,6 +57,9 @@ create table if not exists studio.generations (
   ms int not null default 0,
   created_at timestamptz not null default now()
 );
+-- Databases created before chat was added: widen the kind check.
+alter table studio.generations drop constraint if exists generations_kind_check;
+alter table studio.generations add constraint generations_kind_check check (kind in ('create', 'edit', 'repair', 'fix', 'chat'));
 create index if not exists generations_user_idx on studio.generations (user_id, created_at desc);
 
 grant select, insert, update, delete on studio.templates, studio.template_versions, studio.generations to goblin_auth;

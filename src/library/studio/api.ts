@@ -78,6 +78,51 @@ export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, 
   return result;
 }
 
+export type ChatMessage = { role: "user" | "assistant"; text: string };
+export type ChatReply = { reply: string; action: "chat" | "build" | "change"; brief: string; aspect: Aspect };
+export type ChatContext = {
+  aspect: Aspect;
+  brand?: string;
+  template?: { title: string; outcome: string; version: number; format: Aspect; seconds: number; copy: Record<string, string> };
+};
+
+// One conversational reply from Goblin, saying whether to build.
+export async function chat(messages: ChatMessage[], ctx: ChatContext, signal?: AbortSignal): Promise<ChatReply> {
+  const r = await fetch("/api/studio?op=chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages, ...ctx }),
+    credentials: "same-origin",
+    signal,
+  });
+  if (!r.ok) throw await errorOf(r);
+  return r.json();
+}
+
+export const formatOf = (t: { width: number; height: number }): Aspect => (t.width < t.height ? "9:16" : t.width === t.height ? "1:1" : "16:9");
+
+// The template as a .tsx file: a header with its details and copy, then the code.
+export function downloadTemplate(t: StudioTemplate, copy: Record<string, string>) {
+  const slug = t.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "template";
+  const header = [
+    `// ${t.title} (v${t.version}): ${t.outcome}`,
+    `// Made with Goblin (usegoblin.xyz). ${formatOf(t)}, ${t.width}×${t.height}, ${t.fps} fps, ${Math.round(t.durationInFrames / t.fps)}s.`,
+    `// Uses Goblin's motion kit (brand.ts, kit.ts, motion.tsx) and Remotion.`,
+    `//`,
+    `// Copy:`,
+    ...t.fields.map((f) => `//   ${f.key}: ${JSON.stringify(copy[f.key] ?? t.defaults[f.key] ?? "")}`),
+    "",
+  ].join("\n");
+  const url = URL.createObjectURL(new Blob([header + "\n" + t.code], { type: "text/plain" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${slug}-v${t.version}.tsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export async function listTemplates(): Promise<StudioTemplate[]> {
   const r = await fetch("/api/studio?op=templates", { credentials: "same-origin" });
   if (!r.ok) throw await errorOf(r);
