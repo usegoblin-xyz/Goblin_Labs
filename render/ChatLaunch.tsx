@@ -6,7 +6,9 @@
 // Timings live in render/chat-launch-cues.json, shared with the soundtrack
 // (scripts/chat-launch-audio.py → public/launch/chat-launch-mix.wav).
 import { useMemo, type CSSProperties, type ReactNode } from "react";
-import { AbsoluteFill, Audio, continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Loop, Sequence, continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import type { Brand } from "../src/library/brand";
+import PortraitReel from "../src/library/templates/lib/PortraitReel";
 import { GECKO_PATH } from "../src/library/gecko";
 import { backOut, c01, cubicInOut, expInOut, expOut, lerp, seg, spring } from "../src/library/motion";
 import CUES from "./chat-launch-cues.json";
@@ -122,8 +124,11 @@ function useDots(n: number): Dot[] {
     return out;
   }, [n]);
 }
-function CloudGecko({ t, size, settle = 0 }: { t: number; size: number; settle?: number }) {
-  const pts = useDots(700);
+// As in Goblin: it streams while Goblin works and settles into a still, dotted
+// gecko when it's done. `small` uses fewer, bigger dots, like the chat avatar.
+function CloudGecko({ t, size, settle = 0, small = size < 120 }: { t: number; size: number; settle?: number; small?: boolean }) {
+  const all = useDots(700);
+  const pts = small ? all.filter((_, i) => i % 3 === 0) : all;
   const k = (size * 0.72) / 100;
   const rotY = Math.sin(t * 0.55) * 0.5 * (1 - settle);
   const rotX = Math.sin(t * 0.37 + 1) * 0.16 * (1 - settle);
@@ -146,7 +151,7 @@ function CloudGecko({ t, size, settle = 0 }: { t: number; size: number; settle?:
         const ry = y * cx - rz0 * sx;
         const rz = y * sx + rz0 * cx;
         const f = 180 / (180 + rz);
-        const r = (0.5 + 0.45 * mix) * f * k;
+        const r = Math.max(small ? 1.7 : 0, (0.5 + 0.45 * mix) * f * k);
         return <rect key={i} x={size / 2 + rx * f * k - r / 2} y={size / 2 + ry * f * k - r / 2} width={r} height={r} fill={MINT} opacity={Math.max(0.06, Math.min(1, (0.12 + 0.88 * mix * mix) * (0.75 + 0.25 * f)))} />;
       })}
     </svg>
@@ -182,16 +187,19 @@ function Thinking({ t, x, y }: { t: number; x: number; y: number }) {
   );
 }
 
-function GoblinLine({ t, i, top, left = LEFT, width = 1060, size = 34, think = 0.7, children }: { t: number; i: number; top: number; left?: number; width?: number; size?: number; think?: number; children?: ReactNode }) {
+function GoblinLine({ t, i, top, left = LEFT, width = 1060, size = 34, think = 0.7, busyUntil, children }: { t: number; i: number; top: number; left?: number; width?: number; size?: number; think?: number; busyUntil?: number; children?: ReactNode }) {
   const m = goblin(i);
   if (t < m.at - think) return null;
-  const working = t < doneAt(m, GOBLIN_CPS) + 0.2;
+  // Goblin's avatar is its loading state: streaming while it works (typing,
+  // building, testing), then settling into a still gecko.
+  const until = busyUntil ?? doneAt(m, GOBLIN_CPS) + 0.2;
+  const settle = cubicInOut(seg(t, until, 0.7));
   const shown = typed(m.text, t, m.at, GOBLIN_CPS);
   const p = expOut(seg(t, m.at - think, 0.35));
   return (
     <div style={{ position: "absolute", left, top, width, opacity: p, display: "flex", gap: 26 }}>
       <div style={{ width: 60, height: 60, flexShrink: 0, marginTop: -8 }}>
-        {working ? <CloudGecko t={t} size={60} /> : <Gecko t={t} size={60} id={`gl${i}`} />}
+        <CloudGecko t={Math.min(t, until + 0.7)} size={60} settle={settle} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         {t < m.at ? (
@@ -333,51 +341,24 @@ function Beat({ t, i }: { t: number; i: number }) {
   );
 }
 
-// ---- the user's own template, playing in the preview (a fictional "Tidybox") ----------
-const TB = { bg: "#120f24", fg: "#ffffff", p: "#8b7bff", a: "#ffcf5c", muted: "rgba(255,255,255,0.55)" };
-function MiniTemplate({ lt, cta = "Out Friday", big = false }: { lt: number; cta?: string; big?: boolean }) {
-  // 1080×1920 space, scaled by the parent.
-  const t = lt % 6;
-  const gather = expInOut(seg(t, 1.3, 0.9));
-  const head = expOut(seg(t, 2.3, 0.6));
-  const ctaP = spring(t - 3.4, 18, 0.6);
-  const brand = expOut(seg(t, 4.5, 0.6));
-  const out = cubicInOut(seg(t, 5.6, 0.4));
-  const chips = [
-    [180, 380, -8], [620, 300, 6], [260, 760, 5], [700, 680, -6], [200, 1150, -4], [640, 1080, 7],
-  ];
-  return (
-    <div style={{ position: "absolute", inset: 0, width: 1080, height: 1920, background: TB.bg, overflow: "hidden", opacity: 1 - out, fontFamily: INTER }}>
-      <div style={{ position: "absolute", left: -200, top: -300, width: 1480, height: 1100, borderRadius: "50%", background: `radial-gradient(closest-side, ${TB.p}40, transparent)` }} />
-      {chips.map(([x, y, r], i) => {
-        const jx = Math.sin(t * 3 + i) * 10 * (1 - gather);
-        const tx = lerp(x, 190, gather) + jx;
-        const ty = lerp(y, 520 + i * 92, gather);
-        return (
-          <div key={i} style={{ position: "absolute", left: tx, top: ty, width: 700, height: 76, borderRadius: 22, background: "rgba(255,255,255,0.09)", border: "2px solid rgba(255,255,255,0.12)", transform: `rotate(${lerp(r, 0, gather)}deg) scale(${lerp(0.62, 1, gather)})`, transformOrigin: "left center", display: "flex", alignItems: "center", gap: 18, padding: "0 22px", opacity: 1 - head * 0.75 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 20, background: [TB.p, TB.a, "#5ad1b0"][i % 3] }} />
-            <div style={{ height: 14, width: 260 + (i % 3) * 70, borderRadius: 7, background: "rgba(255,255,255,0.45)" }} />
-          </div>
-        );
-      })}
-      <div style={{ position: "absolute", left: 0, right: 0, top: 640, textAlign: "center", font: `800 ${big ? 150 : 150}px/1 ${INTER}`, color: TB.fg, letterSpacing: "-0.04em", opacity: head, transform: `translateY(${(1 - head) * 60}px)` }}>
-        One inbox.
-      </div>
-      <div style={{ position: "absolute", left: 0, right: 0, top: big ? 900 : 920, display: "flex", justifyContent: "center", opacity: c01(ctaP * 1.5), transform: `scale(${0.7 + 0.3 * ctaP})` }}>
-        <div style={{ padding: big ? "48px 96px" : "34px 70px", borderRadius: 100, background: TB.a, color: "#1a1300", font: `800 ${big ? 92 : 64}px/1 ${INTER}` }}>{cta}</div>
-      </div>
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 260, textAlign: "center", font: `700 70px/1 ${INTER}`, color: TB.fg, letterSpacing: "0.02em", opacity: brand }}>
-        Tidybox
-      </div>
-    </div>
-  );
-}
-function Thumb916({ lt, cta, big, h = 100 }: { lt: number; cta?: string; big?: boolean; h?: number }) {
+// The user's template, playing: the library's Portrait Stack Reel in a
+// fictional Tidybox brand kit, on its own 1080×1920 canvas, looping.
+const TIDYBOX: Brand = { name: "Tidybox", background: "#120f24", foreground: "#ffffff", primary: "#8b7bff", accent: "#ffcf5c", font: "inter", motion: "snappy" };
+const TIDY_WORDS = "ONE, INBOX, EVERY, REPLY, ONE, PLACE";
+const REEL_FRAMES = 285;
+function Thumb916({ lt, cta = "OUT FRIDAY", h = 100 }: { lt: number; cta?: string; big?: boolean; h?: number }) {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
   const w = (h * 9) / 16;
+  const from = frame - Math.max(0, Math.round(lt * fps));
   return (
-    <div style={{ position: "absolute", left: "50%", top: 0, width: w, height: h, marginLeft: -w / 2, overflow: "hidden" }}>
-      <div style={{ transform: `scale(${h / 1920})`, transformOrigin: "top left", width: 1080, height: 1920, position: "relative" }}>
-        <MiniTemplate lt={lt} cta={cta} big={big} />
+    <div style={{ position: "absolute", left: "50%", top: 0, width: w, height: h, marginLeft: -w / 2, overflow: "hidden", background: TIDYBOX.background }}>
+      <div style={{ transform: `scale(${h / 1920})`, transformOrigin: "top left", width: 1080, height: 1920, position: "absolute", left: 0, top: 0 }}>
+        <Sequence from={from} width={1080} height={1920} layout="none">
+          <Loop durationInFrames={REEL_FRAMES} layout="none">
+            <PortraitReel brand={TIDYBOX} content={{ words: TIDY_WORDS, role: cta }} audio={false} />
+          </Loop>
+        </Sequence>
       </div>
     </div>
   );
@@ -439,7 +420,7 @@ function Title({ t }: { t: number }) {
   const CX = 960, CY = 560, RX = 640, RY = 330;
 
   const items: { key: string; w: number; h: number; node: ReactNode }[] = [
-    { key: "card", w: 860, h: 128, node: <Card t={99} at={0} title="Tidybox Launch" meta="Template · 9:16 · 9s · sound · v1" thumb={<Thumb916 lt={lt + 2.6} />} style={{ position: "relative", background: "#0d0d0d" }} /> },
+    { key: "card", w: 860, h: 128, node: <Card t={99} at={0} title="Tidybox Launch" meta="Template · 9:16 · 10s · sound · v1" thumb={<Thumb916 lt={lt + 2.6} />} style={{ position: "relative", background: "#0d0d0d" }} /> },
     {
       key: "steps", w: 560, h: 190,
       node: (
@@ -456,7 +437,7 @@ function Title({ t }: { t: number }) {
     {
       key: "preview", w: 420, h: 236,
       node: (
-        <div style={{ position: "relative", width: 420, height: 236, borderRadius: 22, overflow: "hidden", border: "1.5px solid rgba(255,255,255,0.12)", background: TB.bg }}>
+        <div style={{ position: "relative", width: 420, height: 236, borderRadius: 22, overflow: "hidden", border: "1.5px solid rgba(255,255,255,0.12)", background: TIDYBOX.background }}>
           <Thumb916 lt={lt + 3.8} h={236} />
         </div>
       ),
@@ -550,10 +531,10 @@ function Build({ t }: { t: number }) {
       <Beat t={t} i={1} />
       <Scene t={t} span={chat}>
         <UserBubble t={t} i={3} top={150} />
-        <GoblinLine t={t} i={2} top={280} think={0.15}>
+        <GoblinLine t={t} i={2} top={280} think={0.15} busyUntil={CUES.card1 + 0.7}>
           <Steps t={t} steps={CUES.steps} done={STEP_DONE} counter={(tt) => (tt >= writing.at ? `${Math.min(9, Math.max(1, Math.floor((tt - writing.at) * 6)))}k chars` : null)} />
         </GoblinLine>
-        <Card t={t} at={CUES.card1} title="Tidybox Launch" meta="Template · 9:16 · 9s · sound · v1" thumb={<Thumb916 lt={t - CUES.card1} />} style={{ left: LEFT + 86, top: 640 }} />
+        <Card t={t} at={CUES.card1} title="Tidybox Launch" meta="Template · 9:16 · 10s · sound · v1" thumb={<Thumb916 lt={t - CUES.card1} />} style={{ left: LEFT + 86, top: 640 }} />
       </Scene>
     </>
   );
@@ -563,24 +544,24 @@ function Panel({ t }: { t: number }) {
   const [a, b] = S.panel;
   const open = expInOut(seg(t, CUES.panelOpen, 0.7));
   const lt = t - (CUES.panelOpen + 0.3);
-  // The text field edit: "Out Friday" is typed over "Live today".
+  // The text field edit: the template's role line, "OUT FRIDAY" typed over "LIVE TODAY".
   const edit = CUES.fieldEdit;
-  const cta = t < edit ? "Live today" : t < edit + 0.5 ? "Live today".slice(0, Math.max(0, 10 - Math.floor((t - edit) * 24))) || " " : "Out Friday".slice(0, Math.max(1, Math.floor((t - edit - 0.5) * 16)));
+  const cta = t < edit ? "LIVE TODAY" : t < edit + 0.5 ? "LIVE TODAY".slice(0, Math.max(0, 10 - Math.floor((t - edit) * 24))) || " " : "OUT FRIDAY".slice(0, Math.max(1, Math.floor((t - edit - 0.5) * 16)));
   const shift = lerp(0, -300, open);
   return (
     <Scene t={t} span={[a, b]}>
       <div style={{ position: "absolute", inset: 0, transform: `translateX(${shift}px)` }}>
-        <GoblinLine t={t} i={2} top={150} think={0}>
+        <GoblinLine t={t} i={2} top={150} think={0} busyUntil={CUES.card1 + 0.7}>
           <Steps t={t} steps={CUES.steps} done={STEP_DONE} />
         </GoblinLine>
-        <Card t={t} at={CUES.card1} title="Tidybox Launch" meta="Template · 9:16 · 9s · sound · v1" thumb={<Thumb916 lt={t - CUES.card1} cta={cta} />} style={{ left: LEFT + 86, top: 510, borderColor: "rgba(255,255,255,0.3)" }} />
+        <Card t={t} at={CUES.card1} title="Tidybox Launch" meta="Template · 9:16 · 10s · sound · v1" thumb={<Thumb916 lt={t - CUES.card1} cta={cta} />} style={{ left: LEFT + 86, top: 510, borderColor: "rgba(255,255,255,0.3)" }} />
       </div>
       {/* the side panel */}
       <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: 760, transform: `translateX(${(1 - open) * 780}px)`, background: "#080808", borderLeft: "1.5px solid rgba(255,255,255,0.08)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 18, padding: "34px 36px 26px", borderBottom: "1.5px solid rgba(255,255,255,0.08)" }}>
           <div style={{ flex: 1 }}>
             <div style={{ font: `600 30px/1.2 ${INTER}`, color: FG }}>Tidybox Launch</div>
-            <div style={{ font: `400 20px/1.4 ${INTER}`, color: "rgba(245,245,242,0.45)" }}>Template · 9:16 · 9s · sound · v1</div>
+            <div style={{ font: `400 20px/1.4 ${INTER}`, color: "rgba(245,245,242,0.45)" }}>Template · 9:16 · 10s · sound · v1</div>
           </div>
           <Pill green>
             <DownloadIcon c="#000" /> Download MP4
@@ -592,8 +573,8 @@ function Panel({ t }: { t: number }) {
           </div>
           <div style={{ font: `500 20px/1 ${INTER}`, color: "rgba(245,245,242,0.45)", marginTop: 30 }}>Text</div>
           {[
-            ["Headline", "One inbox."],
-            ["Call to action", cta],
+            ["Six words", TIDY_WORDS],
+            ["Role line", cta],
           ].map(([label, value], i) => {
             const focus = i === 1 && t > edit - 0.3 && t < edit + 1.6;
             return (
@@ -625,10 +606,10 @@ function Change({ t }: { t: number }) {
       <Beat t={t} i={2} />
       <Scene t={t} span={chat}>
         <UserBubble t={t} i={4} top={150} />
-        <GoblinLine t={t} i={3} top={280} think={0.5}>
+        <GoblinLine t={t} i={3} top={280} think={0.5} busyUntil={CUES.card2 + 0.5}>
           <Steps t={t} steps={quick} done={CUES.card2 - 0.1} />
         </GoblinLine>
-        <Card t={t} at={CUES.card2} title="Tidybox Launch" meta="Template · 9:16 · 9s · sound · v2" thumb={<Thumb916 lt={t - CUES.card2 + 3.3} big />} style={{ left: LEFT + 86, top: 640 }} />
+        <Card t={t} at={CUES.card2} title="Tidybox Launch" meta="Template · 9:16 · 10s · sound · v2" thumb={<Thumb916 lt={t - CUES.card2 + 3.3} big />} style={{ left: LEFT + 86, top: 640 }} />
         {/* a ding, drawn */}
         {t > CUES.card2 + 0.3 && (
           <div style={{ position: "absolute", left: LEFT + 86 + 890, top: 668, opacity: 1 - seg(t, CUES.card2 + 1.2, 0.6) }}>
@@ -653,7 +634,7 @@ function Explainer({ t }: { t: number }) {
       <Beat t={t} i={3} />
       <Scene t={t} span={chat}>
         <UserBubble t={t} i={5} top={150} />
-        <GoblinLine t={t} i={4} top={280} think={0.4}>
+        <GoblinLine t={t} i={4} top={280} think={0.4} busyUntil={CUES.videoCard}>
           {t > startPoll && <Steps t={t} steps={phases} done={CUES.videoCard - 0.1} />}
         </GoblinLine>
         <Card t={t} at={CUES.videoCard} title="How a Shared Inbox Works" meta="Explainer · 16:9 · MP4 with music" thumb={<ExplainerThumb t={t} />} style={{ left: LEFT + 86, top: 700 }} />
@@ -674,13 +655,13 @@ function Export({ t }: { t: number }) {
       <Beat t={t} i={4} />
       <Scene t={t} span={chat}>
         <div style={{ position: "absolute", inset: 0, opacity: 0.35 }}>
-          <Card t={99} at={0} title="Tidybox Launch" meta="Template · 9:16 · 9s · sound · v2" thumb={<Thumb916 lt={t} big />} style={{ left: LEFT + 86, top: 340 }} />
+          <Card t={99} at={0} title="Tidybox Launch" meta="Template · 9:16 · 10s · sound · v2" thumb={<Thumb916 lt={t} big />} style={{ left: LEFT + 86, top: 340 }} />
         </div>
         <AbsoluteFill style={{ background: `rgba(0,0,0,${0.45 * dlg})` }} />
         <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
           <div style={{ width: 760, padding: 40, borderRadius: 30, border: "1.5px solid rgba(255,255,255,0.1)", background: "#0c0c0c", boxShadow: "0 40px 120px rgba(0,0,0,0.6)", opacity: dlg, transform: `translateY(${(1 - dlg) * 30}px) scale(${0.96 + 0.04 * dlg})` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-              <div style={{ width: 84, height: 84 }}>{done ? <Gecko t={t} size={84} id="exp" /> : <CloudGecko t={t} size={84} />}</div>
+              <div style={{ width: 84, height: 84 }}><CloudGecko t={Math.min(t, CUES.exportDone + 0.7)} size={84} settle={cubicInOut(seg(t, CUES.exportDone, 0.7))} /></div>
               <div>
                 <div style={{ font: `600 32px/1.2 ${INTER}`, color: FG }}>{done ? "Exported “Tidybox Launch”" : "Exporting “Tidybox Launch”"}</div>
                 <div style={{ font: `400 22px/1.4 ${INTER}`, color: "rgba(245,245,242,0.5)" }}>MP4 with sound, made in your browser</div>
@@ -699,7 +680,7 @@ function Export({ t }: { t: number }) {
           <Check s={26} />
           <div>
             <div style={{ font: `600 24px/1.2 ${INTER}`, color: FG }}>MP4 downloaded</div>
-            <div style={{ font: `400 19px/1.4 ${INTER}`, color: "rgba(245,245,242,0.5)" }}>tidybox-launch.mp4 · 9:16 · 9s</div>
+            <div style={{ font: `400 19px/1.4 ${INTER}`, color: "rgba(245,245,242,0.5)" }}>tidybox-launch.mp4 · 9:16 · 10s</div>
           </div>
         </div>
       </Scene>
