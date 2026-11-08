@@ -101,26 +101,17 @@ export async function chat(messages: ChatMessage[], ctx: ChatContext, signal?: A
 
 export const formatOf = (t: { width: number; height: number }): Aspect => (t.width < t.height ? "9:16" : t.width === t.height ? "1:1" : "16:9");
 
-// The template as a .tsx file: a header with its details and copy, then the code.
-export function downloadTemplate(t: StudioTemplate, copy: Record<string, string>) {
-  const slug = t.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "template";
-  const header = [
-    `// ${t.title} (v${t.version}): ${t.outcome}`,
-    `// Made with Goblin (usegoblin.xyz). ${formatOf(t)}, ${t.width}×${t.height}, ${t.fps} fps, ${Math.round(t.durationInFrames / t.fps)}s.`,
-    `// Uses Goblin's motion kit (brand.ts, kit.ts, motion.tsx) and Remotion.`,
-    `//`,
-    `// Copy:`,
-    ...t.fields.map((f) => `//   ${f.key}: ${JSON.stringify(copy[f.key] ?? t.defaults[f.key] ?? "")}`),
-    "",
-  ].join("\n");
-  const url = URL.createObjectURL(new Blob([header + "\n" + t.code], { type: "text/plain" }));
+export const slugOf = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "goblin-video";
+
+export function saveFile(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${slug}-v${t.version}.tsx`;
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 export async function listTemplates(): Promise<StudioTemplate[]> {
