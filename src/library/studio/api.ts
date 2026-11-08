@@ -34,6 +34,18 @@ export type GenRequest =
   | { mode: "edit"; id: string; instruction: string }
   | { mode: "repair"; id: string; error: string };
 
+// The current chat's id, sent with each chat and build request so PostHog can
+// group a conversation's Claude calls into one trace. A new chat gets a new id.
+let conversation = newId();
+function newId() {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+}
+export const conversationId = () => conversation;
+export function newConversation() {
+  conversation = newId();
+}
+const traceHeaders = () => ({ "content-type": "application/json", "x-goblin-conversation": conversation });
+
 export class StudioError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -49,7 +61,7 @@ async function errorOf(r: Response) {
 export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, signal?: AbortSignal): Promise<StudioTemplate> {
   const r = await fetch("/api/studio?op=generate", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: traceHeaders(),
     body: JSON.stringify(req),
     credentials: "same-origin",
     signal,
@@ -92,7 +104,7 @@ export type ChatContext = {
 export async function chat(messages: ChatMessage[], ctx: ChatContext, signal?: AbortSignal): Promise<ChatReply> {
   const r = await fetch("/api/studio?op=chat", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: traceHeaders(),
     body: JSON.stringify({ messages, ...ctx }),
     credentials: "same-origin",
     signal,

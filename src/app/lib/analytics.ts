@@ -72,14 +72,15 @@ type Events = {
   signed_in: { method: "email" | "google" };
   signed_out: Record<string, never>;
   newsletter_subscribed: { source: string };
-  studio_generate: { mode: "create" | "edit" | "repair"; aspect?: string };
+  studio_generate: { mode: "create" | "edit" | "repair"; aspect?: string; conversation_id: string };
   studio_generate_failed: { mode: "create" | "edit" | "repair"; status: number };
   studio_preview_error: { auto: boolean };
   studio_copied: { what: string };
-  studio_chat: Record<string, never>;
+  // One per message sent to Goblin, after it answers: what Goblin did with it.
+  studio_chat: { conversation_id: string; turn: number; explainer_mode: boolean; action: "chat" | "build" | "change" | "explainer" | "error" };
   studio_downloaded: Record<string, never>;
   studio_export_failed: Record<string, never>;
-  studio_video: Record<string, never>;
+  studio_video: { conversation_id: string };
   studio_explainer_mode: { on: boolean };
   studio_video_done: Record<string, never>;
   studio_video_downloaded: Record<string, never>;

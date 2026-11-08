@@ -18,7 +18,8 @@ const MAX_PROMPT = 1200;
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 // Exposed for tests: the handler with the Claude call and auth swappable.
-export function makeHandler(deps: { call: CallClaude; userId: (req: VercelRequest) => Promise<string | null> }) {
+export function makeHandler(deps: { call: CallClaude; userId: (req: VercelRequest) => Promise<string | null>; configured?: () => boolean }) {
+  const configured = deps.configured ?? (() => !!process.env.ANTHROPIC_API_KEY || deps.call !== callClaude);
   return async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       await handle(req, res);
@@ -32,7 +33,7 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
 
   async function handle(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-    if (!process.env.ANTHROPIC_API_KEY && deps.call === callClaude) {
+    if (!configured()) {
       return res.status(503).json({ error: "Template generation isn't switched on yet." });
     }
     const userId = await deps.userId(req);
