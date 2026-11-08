@@ -688,6 +688,201 @@ function Export({ t }: { t: number }) {
   );
 }
 
+// ---- the lockup ------------------------------------------------------------------
+// The gecko and the wordmark gather out of a point cloud. The gecko then draws
+// itself as an outline and fills in, pure white, embossed and extruded so it
+// reads as 3D; the letters rise in one by one and a mint glint runs across them.
+const WORD = "Goblin";
+const WFONT = `800 190px ${INTER}`;
+const WLS = -0.045 * 190;
+const GK = 190; // gecko box, px
+const GGAP = 40;
+const GK_U = GK / 112; // px per gecko unit (viewBox -6 -8 112 112)
+const BASE_Y = 540 + 69; // wordmark baseline: Inter's cap height centred on the frame
+type Grain = { x: number; y: number; sx: number; sy: number; sz: number; ph: number; g: number }; // g: -1 gecko, else letter index
+function useLockup() {
+  return useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = 1920;
+    c.height = 400;
+    const ctx = c.getContext("2d")!;
+    ctx.font = WFONT;
+    const xs: number[] = [];
+    for (let i = 0; i <= WORD.length; i++) xs.push(ctx.measureText(WORD.slice(0, i)).width + i * WLS);
+    const textW = xs[WORD.length] - WLS;
+    const left = 960 - (GK + GGAP + textW) / 2;
+    const tx = left + GK + GGAP;
+    const gx = left + 6 * GK_U; // gecko unit (0,0) on the frame
+    const gy = 540 - GK / 2 + 8 * GK_U;
+    let seed = 11;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const grains: Grain[] = [];
+    const sample = (g: number, n: number, draw: () => void) => {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, 1920, 400);
+      draw();
+      const img = ctx.getImageData(0, 0, 1920, 400).data;
+      let x0 = 1920, x1 = 0, y0 = 400, y1 = 0;
+      for (let y = 0; y < 400; y += 2) for (let x = 0; x < 1920; x += 2) if (img[(y * 1920 + x) * 4 + 3] > 128) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      let got = 0;
+      while (got < n) {
+        const x = x0 + rnd() * (x1 - x0 + 1);
+        const y = y0 + rnd() * (y1 - y0 + 1);
+        if (img[(Math.floor(y) * 1920 + Math.floor(x)) * 4 + 3] < 128) continue;
+        const u = rnd() * 2 - 1;
+        const th = rnd() * Math.PI * 2;
+        const r = 380 + rnd() * 520;
+        const sq = Math.sqrt(1 - u * u);
+        grains.push({ x, y: y + 340, sx: sq * Math.cos(th) * r, sy: u * r * 0.55, sz: sq * Math.sin(th) * r, ph: rnd(), g });
+        got++;
+      }
+    };
+    sample(-1, 620, () => {
+      ctx.setTransform(GK_U, 0, 0, GK_U, gx, gy - 340);
+      ctx.fill(new Path2D(GECKO_PATH));
+    });
+    WORD.split("").forEach((ch, i) => sample(i, ch === "i" || ch === "l" ? 110 : 200, () => {
+      ctx.font = WFONT;
+      ctx.fillStyle = "#fff";
+      ctx.fillText(ch, tx + xs[i], BASE_Y - 340);
+    }));
+    return { grains, xs, tx, left };
+  }, []);
+}
+
+// One gecko layer: the body with the head cut out, and the head, which turns.
+function GeckoLayer({ id, fill, look, lid, filter, dx = 0, dy = 0 }: { id: string; fill: string; look: number; lid?: number; filter?: string; dx?: number; dy?: number }) {
+  return (
+    <g fill={fill} transform={`translate(${dx} ${dy})`} filter={filter}>
+      <use href={`#${id}-gk`} mask={`url(#${id}-b)`} />
+      <g transform={`rotate(${look} 64 22)`}>
+        <use href={`#${id}-gk`} clipPath={`url(#${id}-h)`} />
+        {lid !== undefined && <ellipse cx="82.3" cy="15" rx="4.6" ry="3.9" transform={`translate(0 15) scale(1 ${lid}) translate(0 -15)`} />}
+      </g>
+    </g>
+  );
+}
+
+function Gecko3D({ t, draw, solid, idle }: { t: number; draw: number; solid: number; idle: number }) {
+  const id = "lk";
+  const look = idle > 0 ? lookAngle(idle) : 0;
+  const lid = idle > 0 ? lidScale(idle) : 0;
+  const DEPTH = 7;
+  // A slow turn in space, so the extrusion and the light read as depth.
+  const ry = lerp(-34, 0, expOut(seg(t, 0.9, 1.0))) + Math.sin(t * 1.1) * 6 * solid;
+  const rx = lerp(14, 0, expOut(seg(t, 0.9, 1.0))) + Math.sin(t * 0.8 + 1) * 3 * solid;
+  return (
+    <div style={{ width: GK, height: GK, perspective: 900 }}>
+      <svg width={GK} height={GK} viewBox="-6 -8 112 112" style={{ display: "block", overflow: "visible", transform: `rotateY(${ry}deg) rotateX(${rx}deg)` }}>
+        <defs>
+          <path id={`${id}-gk`} d={GECKO_PATH} />
+          <clipPath id={`${id}-h`} clipPathUnits="userSpaceOnUse">
+            <polygon points={HEAD} />
+          </clipPath>
+          <mask id={`${id}-b`} maskUnits="userSpaceOnUse" x="-10" y="-10" width="120" height="120">
+            <rect x="-10" y="-10" width="120" height="120" fill="#fff" />
+            <polygon points={HEAD} fill="#000" stroke="#fff" strokeWidth="1.1" strokeLinejoin="round" />
+          </mask>
+          {/* Emboss: light the shape's own blurred alpha as a height map. White face, soft bevel. */}
+          <filter id={`${id}-emb`} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="1.3" result="h" />
+            <feDiffuseLighting in="h" surfaceScale="3.2" diffuseConstant="1.22" lightingColor="#ffffff" result="d">
+              <feDistantLight azimuth="235" elevation="58" />
+            </feDiffuseLighting>
+            <feSpecularLighting in="h" surfaceScale="3.2" specularConstant="0.8" specularExponent="24" lightingColor="#ffffff" result="sp">
+              <feDistantLight azimuth="235" elevation="42" />
+            </feSpecularLighting>
+            <feComposite in="d" in2="SourceAlpha" operator="in" result="dd" />
+            <feComposite in="sp" in2="SourceAlpha" operator="in" result="ss" />
+            <feComposite in="SourceGraphic" in2="dd" operator="arithmetic" k1="1" result="lit" />
+            <feComposite in="lit" in2="ss" operator="arithmetic" k2="1" k3="1" />
+          </filter>
+          <filter id={`${id}-sh`} x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" />
+          </filter>
+        </defs>
+        <g opacity={solid}>
+          {/* Shadow, then the extruded sides, back to front, then the embossed face. */}
+          <g filter={`url(#${id}-sh)`} opacity={0.55}>
+            <GeckoLayer id={id} fill="#000" look={look} dx={DEPTH * 0.55 + 3} dy={DEPTH * 0.75 + 4} />
+          </g>
+          {Array.from({ length: DEPTH }, (_, k) => DEPTH - k).map((k) => (
+            <GeckoLayer key={k} id={id} fill={`rgb(${[0, 0, 0].map(() => Math.round(lerp(205, 120, k / DEPTH))).join(",")})`} look={look} dx={k * 0.55 * solid} dy={k * 0.75 * solid} />
+          ))}
+          <GeckoLayer id={id} fill="#ffffff" look={look} lid={lid} filter={`url(#${id}-emb)`} />
+        </g>
+        {/* The gecko drawing itself. */}
+        <use href={`#${id}-gk`} pathLength={1} fill="none" stroke="#ffffff" strokeWidth={0.9} strokeLinejoin="round" strokeLinecap="round"
+          strokeDasharray="1 1" strokeDashoffset={1 - draw} opacity={draw > 0 ? 1 - solid * 0.9 : 0} />
+      </svg>
+    </div>
+  );
+}
+
+function Lockup({ t }: { t: number }) {
+  const { grains, xs, tx, left } = useLockup();
+  // t is seconds since the lockup cue.
+  const draw = cubicInOut(seg(t, 0.55, 0.95));
+  const solid = cubicInOut(seg(t, 1.3, 0.5));
+  const letterIn = (i: number) => expOut(seg(t, 0.62 + i * 0.07, 0.6));
+  const glint = seg(t, 1.45, 0.75);
+  const url = expOut(seg(t, 1.75, 0.6));
+  const spin = 1.4;
+  return (
+    <AbsoluteFill>
+      {/* The point cloud: grains swirl in from a wide sphere and land on the mark. */}
+      <svg width={1920} height={1080} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+        {grains.map((p, i) => {
+          const land = expInOut(seg(t, p.ph * 0.3, 0.75));
+          const fadeAt = p.g < 0 ? 0.95 + p.ph * 0.25 : 0.72 + p.g * 0.07 + p.ph * 0.2;
+          const out = 1 - cubicInOut(seg(t, fadeAt, 0.4));
+          if (out <= 0) return null;
+          const sw = (1 - land) * spin;
+          const fx = p.sx * Math.cos(sw) - p.sz * Math.sin(sw);
+          const fz = p.sx * Math.sin(sw) + p.sz * Math.cos(sw);
+          const z = fz * (1 - land);
+          const f = 900 / (900 + z);
+          const x = 960 + (p.x - 960 + (fx - (p.x - 960)) * (1 - land)) * f;
+          const y = 540 + (p.y - 540 + (p.sy - (p.y - 540)) * (1 - land)) * f;
+          const r = (2.2 + 1.2 * (1 - land)) * f;
+          const col = land > 0.85 ? FG : MINT;
+          return <rect key={i} x={x - r / 2} y={y - r / 2} width={r} height={r} fill={col} opacity={out * (0.25 + 0.75 * land) * Math.min(1, f)} />;
+        })}
+      </svg>
+      <div style={{ position: "absolute", left, top: 540 - GK / 2 }}>
+        <Gecko3D t={t} draw={draw} solid={solid} idle={t > 2.0 ? t - 2.0 + 0.4 : 0} />
+      </div>
+      {/* The wordmark, letter by letter, with a mint glint running across it. */}
+      <svg width={1920} height={1080} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+        <defs>
+          <clipPath id="lk-word">
+            {WORD.split("").map((ch, i) => (
+              <text key={i} x={tx + xs[i]} y={BASE_Y} style={{ font: WFONT }}>{ch}</text>
+            ))}
+          </clipPath>
+          <linearGradient id="lk-glint" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stopColor={MINT} stopOpacity="0" />
+            <stop offset="0.5" stopColor={MINT} stopOpacity="0.95" />
+            <stop offset="1" stopColor={MINT} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {WORD.split("").map((ch, i) => {
+          const p = letterIn(i);
+          return (
+            <text key={i} x={tx + xs[i]} y={BASE_Y + (1 - p) * 46} fill={FG} opacity={p} style={{ font: WFONT, filter: p < 1 ? `blur(${(1 - p) * 10}px)` : undefined }}>{ch}</text>
+          );
+        })}
+        {glint > 0 && glint < 1 && (
+          <g clipPath="url(#lk-word)">
+            <rect x={tx - 260 + glint * (xs[WORD.length] + 520) } y={BASE_Y - 200} width={240} height={260} fill="url(#lk-glint)" transform={`skewX(-18)`} style={{ transformOrigin: `${tx}px ${BASE_Y}px` }} />
+          </g>
+        )}
+      </svg>
+      <div style={{ position: "absolute", top: 540 + 180, width: 1920, textAlign: "center", font: `500 38px/1 ${INTER}`, color: "rgba(245,245,242,0.55)", opacity: url, transform: `translateY(${(1 - url) * 14}px)`, letterSpacing: "0.01em" }}>usegoblin.xyz</div>
+    </AbsoluteFill>
+  );
+}
+
 function End({ t }: { t: number }) {
   const [a, b] = S.end;
   const tag = CUES.tagline;
@@ -695,9 +890,6 @@ function End({ t }: { t: number }) {
   const tagOut = cubicInOut(seg(t, lock - 0.4, 0.4));
   const l1 = expOut(seg(t, tag, 0.7));
   const l2 = expOut(seg(t, tag + 0.55, 0.7));
-  const g = backOut(seg(t, lock, 0.6), 1.2);
-  const w = expOut(seg(t, lock + 0.2, 0.7));
-  const url = expOut(seg(t, lock + 0.7, 0.6));
   return (
     <Scene t={t} span={[a, b + 0.01]}>
       {t < lock && (
@@ -708,17 +900,7 @@ function End({ t }: { t: number }) {
           </div>
         </AbsoluteFill>
       )}
-      {t >= lock - 0.05 && (
-        <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
-            <div style={{ transform: `scale(${g})`, opacity: c01(g * 2) }}>
-              <Gecko t={t - lock} size={190} id="end" />
-            </div>
-            <div style={{ font: `800 190px/1 ${INTER}`, color: FG, letterSpacing: "-0.045em", opacity: w, transform: `translateX(${(1 - w) * -30}px)` }}>Goblin</div>
-          </div>
-          <div style={{ position: "absolute", top: 540 + 180, font: `500 38px/1 ${INTER}`, color: "rgba(245,245,242,0.55)", opacity: url, letterSpacing: "0.01em" }}>usegoblin.xyz</div>
-        </AbsoluteFill>
-      )}
+      {t >= lock - 0.05 && <Lockup t={t - lock} />}
     </Scene>
   );
 }
