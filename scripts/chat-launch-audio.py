@@ -13,6 +13,14 @@ from render/chat-launch-cues.json, the same file the picture uses.
       (the effects over a licensed track instead of the synth bed, with the
       track's drop, in track seconds, landing on the title reveal; the track
       isn't kept in the repo)
+    Add --typing keyboard.wav to use a real typing recording for the messages
+    typing out (a different unbroken stretch for each), instead of the synth one.
+    With --music it gets its own level, about 9 dB under whatever is playing
+    (TYPE_UNDER_DB), and the music dips about 2.5 dB while each message types.
+
+    The released mix:
+      python3 scripts/chat-launch-audio.py --music Taketones_Contrast.mp3 --drop 24.002 \
+        --typing Taketones_LaptopKeyboard_Typing.wav --out out/chat-launch-mix-final.wav
 """
 import json
 import os
@@ -41,6 +49,47 @@ def fx(name, n=None):
     return x
 
 
+def arg(name, default=None):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
+
+
+def typing_takes(path, durations):
+    """One stretch of a real typing recording per duration: each starts on a
+    keystroke, has no pause longer than 0.14 s and doesn't reuse another's audio."""
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        wav = os.path.join(td, "t.wav")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-ar", str(SR), "-ac", "2", wav], check=True)
+        x, _ = sf.read(wav)
+    env = np.abs(x).mean(1)
+    hop = int(0.005 * SR)
+    e = np.array([env[i:i + hop].max() for i in range(0, len(env) - hop, hop)])
+    th = np.percentile(e, 90) * 0.45
+    keys = np.where((e[1:] > th) & (e[:-1] <= th))[0] * hop / SR
+    used, out = [], []
+    for d in durations:
+        best = None
+        for k0 in keys:
+            if any(a - d - 0.1 < k0 < b + 0.1 for a, b in used):
+                continue
+            inside = keys[(keys >= k0) & (keys <= k0 + d)]
+            gaps = np.diff(np.concatenate([inside, [k0 + d]]))
+            if len(inside) >= 8 * d and gaps.max() < 0.14:
+                best = k0
+                break
+        if best is None:
+            best = keys[0]
+        used.append((best, best + d))
+        a = max(0, int((best - 0.01) * SR))
+        seg = x[a: a + int((d + 0.06) * SR)].copy()
+        f_in, f_out = int(0.008 * SR), int(0.05 * SR)
+        seg[:f_in] *= np.linspace(0, 1, f_in)[:, None]
+        seg[-f_out:] *= np.linspace(1, 0, f_out)[:, None]
+        out.append(seg / (np.abs(seg).max() or 1) * 0.6)
+    return out
+
+
 s = Song(DUR, bpm=96, seed=11)
 sc = CUES["scenes"]
 
@@ -61,9 +110,19 @@ if not SFX_ONLY:
 
 # ---- sound effects -----------------------------------------------------------
 USER_CPS, GOBLIN_CPS = 46, 38
-for m in CUES["user"]:
+TYPING = arg("--typing")
+lengths = [len(m["text"]) / USER_CPS for m in CUES["user"]] + [0.7]
+takes = typing_takes(TYPING, lengths) if TYPING else [fx("typing", d) for d in lengths]
+type_gain = float(os.environ.get("TYPE_GAIN", 0.75 if TYPING else 0.22))
+# When each message is typing, so the music can dip under it.
+TYPING_SPANS = [(m["at"] + 0.05, m["at"] + 0.05 + d) for m, d in zip(CUES["user"], lengths)] + [(CUES["fieldEdit"] + 0.5, CUES["fieldEdit"] + 1.2)]
+# With a music track and a typing recording, typing gets its own level per
+# message (see below), so it isn't put on the effects bus here.
+SEPARATE_TYPING = bool(TYPING and arg("--music"))
+for m, take in zip(CUES["user"], takes):
     s.put("fx", fx("pop"), m["at"], 0.55)
-    s.put("fx", fx("typing", len(m["text"]) / USER_CPS), m["at"] + 0.05, 0.22, pan=0.2)
+    if not SEPARATE_TYPING:
+        s.put("fx", take, m["at"] + 0.05, type_gain, pan=0.0 if TYPING else 0.2)
 for m in CUES["goblin"]:
     s.put("fx", fx("tick"), m["at"], 0.4, pan=-0.2)
 # Cinematic whoosh-hits on the beat titles: the hit lands with the first word.
@@ -77,7 +136,8 @@ for st in CUES["steps"] + CUES["phases"]:
     s.put("fx", fx("tick"), st["at"], 0.35)
 s.put("fx", fx("success"), CUES["card1"], 0.4)
 s.put("fx", fx("swipe"), CUES["panelOpen"], 0.6)
-s.put("fx", fx("typing", 0.7), CUES["fieldEdit"] + 0.5, 0.2)
+if not SEPARATE_TYPING:
+    s.put("fx", takes[-1], CUES["fieldEdit"] + 0.5, type_gain * 0.9)
 s.put("fx", fx("ding"), CUES["card2"] + 0.3, 0.6)  # "add a ding at the end"
 s.put("fx", fx("click"), CUES["explainerToggle"], 0.7)
 s.put("fx", fx("sparkle"), CUES["videoCard"], 0.4)
@@ -86,10 +146,6 @@ s.put("fx", WH, CUES["tagline"] - WH_HIT, 0.45)
 RISE = cinematic.riser(1.6)
 s.put("fx", RISE, CUES["lockup"] - 1.6, 0.5)
 s.put("fx", cinematic.boom(), CUES["lockup"], 0.62)
-
-def arg(name, default=None):
-    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
-
 
 MUSIC = arg("--music")
 if MUSIC:
@@ -115,9 +171,23 @@ if MUSIC:
     duck = np.ones(n)
     for a, b, depth in [(reveal - 3.4, reveal - 0.02, 0.4), (CUES["lockup"] - 1.7, DUR, 0.35)]:
         duck = np.minimum(duck, 1 - depth * np.clip(np.minimum((t - a) / 0.5, (b - t) / 0.05 if b < DUR else 1), 0, 1))
+    if TYPING:
+        for a, b in TYPING_SPANS:  # about -2.5 dB under each message as it types
+            duck = np.minimum(duck, 1 - 0.25 * np.clip(np.minimum((t - a + 0.08) / 0.08, (b + 0.15 - t) / 0.15), 0, 1))
     fade = np.clip((DUR - t) / 2.6, 0, 1) ** 1.5
     m *= (duck * fade)[:, None] * 0.55
-    mix = np.tanh((m + fxs * 0.8) * 1.05) / np.tanh(1.05)
+    base = m + fxs * 0.8
+    if SEPARATE_TYPING:
+        # Each take sits a set amount under whatever is playing as it types.
+        under_db = float(os.environ.get("TYPE_UNDER_DB", 9))
+        for (a, b), take in zip(TYPING_SPANS, takes):
+            i, j = int(a * SR), int(b * SR)
+            bg = np.sqrt((base[i:j] ** 2).mean()) or 1e-3
+            tr = np.sqrt((take ** 2).mean()) or 1e-3
+            g = bg * 10 ** (-under_db / 20) / tr * (type_gain / 0.75)
+            k = min(len(base) - i, len(take))
+            base[i: i + k] += take[:k] * g
+    mix = np.tanh(base * 1.05) / np.tanh(1.05)
     mix = mix / np.abs(mix).max() * 0.93
     out = arg("--out", os.path.join(ROOT, "out", "chat-launch-mix-licensed.wav"))
     os.makedirs(os.path.dirname(out), exist_ok=True)
