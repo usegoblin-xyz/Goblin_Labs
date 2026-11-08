@@ -5,14 +5,16 @@
 // back as a small card in the conversation; clicking it opens it in a panel on
 // the right, where it plays and can be downloaded. Adapted from the
 // Ruixen "moon chat" layout, recoloured to Goblin green.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, Lightbulb, ListChecks, Loader2, Megaphone, Rocket, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./button";
 import { Textarea } from "./textarea";
 import { cn } from "./utils";
-import { useAuth } from "@/app/lib/auth";
+import { useAuth, useUser } from "@/app/lib/auth";
+import { greetingName, pickGreeting } from "@/app/lib/greetings";
+import { GeckoMark } from "./gecko-mark";
 import { track } from "@/app/lib/analytics";
 import type { Brand } from "@/library/brand";
 import { buildPrompt } from "@/library/ui/TemplateDialog";
@@ -84,6 +86,10 @@ const Dot = () => (
 
 export default function GoblinChat({ brand, className }: { brand: Brand; className?: string }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  // A fresh pleasantry each visit once signed in ("Golden hour, Obinna"), picked once per page load.
+  const name = greetingName(user?.fullName, user?.primaryEmailAddress.emailAddress);
+  const greeting = useMemo(() => (isSignedIn ? pickGreeting(name) : null), [isSignedIn, name]);
   const [message, setMessage] = useState(() => {
     try {
       return sessionStorage.getItem(DRAFT_KEY) ?? "";
@@ -586,8 +592,12 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         {empty ? (
           <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 pt-16 pb-[12vh]">
             <div className="w-full max-w-[720px]">
-              <h1 className="text-center text-[30px] leading-tight font-semibold tracking-[-0.02em] sm:text-[40px]">What are you launching?</h1>
-              <p className="mx-auto mt-3 max-w-[480px] text-center text-[15px] leading-relaxed text-white/55">
+              <h1 className="flex flex-col items-center justify-center gap-2 text-center text-[30px] leading-tight font-semibold tracking-[-0.02em] sm:flex-row sm:gap-4 sm:text-[40px]">
+                <GeckoMark label="" className="h-[1.6em] w-[1.6em] shrink-0 sm:h-[1.35em] sm:w-[1.35em]" />
+                <span className={cn(!isLoaded && "opacity-0")}>{greeting ?? "What are you launching?"}</span>
+              </h1>
+              {greeting && <p className="mt-2 text-center text-[19px] font-medium tracking-[-0.01em] text-white/60 sm:text-[22px]">{explainerMode ? "What should we explain?" : "What are you launching?"}</p>}
+              <p className="mx-auto mt-3 max-w-[480px] text-center text-[15px] leading-relaxed text-white/45">
                 {explainerMode
                   ? "Explainer is on. Tell Goblin what to explain; it makes a 30 to 60 second video with captions and music in your brand."
                   : "Talk it through with Goblin. When you're ready, ask it to build the video as a template in your brand."}
