@@ -12,4 +12,5 @@ export const setSfxResolver = (f: (name: SfxName) => string | null) => {
 export const sfxSrc = (name: SfxName) => resolve(name);
 
 // Sound names a compiled template uses, so only those get sent to the sandbox.
-export const sfxUsedIn = (code: string): SfxName[] => SFX_NAMES.filter((n) => code.includes(`"${n}"`));
+// Matches the name in any quote style ('pop', "pop" or `pop`).
+export const sfxUsedIn = (code: string): SfxName[] => SFX_NAMES.filter((n) => new RegExp(`["'\`]${n.replace(/-/g, "\\-")}["'\`]`).test(code));

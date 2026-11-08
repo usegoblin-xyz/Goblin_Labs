@@ -227,6 +227,13 @@ const T = (globalThis as any).T;
   ok("chat replies, build decisions and logging");
 }
 
+// 9c. The page finds a template's sounds in any quote style (Claude often uses single quotes).
+{
+  const { sfxUsedIn } = await import("../src/library/sfx-names.ts").then(async () => import("../src/library/sfx.ts"));
+  assert.deepEqual(sfxUsedIn(`jsx(Sfx, { name: 'impact' }); jsx(Sfx, { name: "ding" }); jsx(Sfx, { name: \`bass-drop\` }); "popcorn"`).sort(), ["bass-drop", "ding", "impact"]);
+  ok("sound names found in any quote style");
+}
+
 // 10. Deleting the account removes everything.
 {
   await db().query("delete from better_auth.\"user\" where id = 'u_other'");
