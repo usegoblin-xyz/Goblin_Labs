@@ -16,7 +16,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/app/components/ui/sheet";
 import { track } from "@/app/lib/analytics";
 import { useAuth } from "@/app/lib/auth";
 import { SandboxPlayer } from "@/library/studio/SandboxPlayer";
-import { deleteTemplate, listTemplates, type StudioTemplate } from "@/library/studio/api";
+import { deleteTemplate, listTemplates, listVideos, videoFile, type ExplainerVideo, type StudioTemplate } from "@/library/studio/api";
 
 type Content = Record<string, string | number>;
 const SAVED_KEY = "goblin.saved";
@@ -72,6 +72,7 @@ export default function Home() {
   const navigate = useNavigate();
   const { isLoaded, isSignedIn } = useAuth();
   const [creations, setCreations] = useState<StudioTemplate[] | null>(null);
+  const [videos, setVideos] = useState<ExplainerVideo[]>([]);
 
   // The signed-in user's generated templates, for "Your creations".
   useEffect(() => {
@@ -80,6 +81,9 @@ export default function Home() {
     listTemplates()
       .then((ts) => live && setCreations(ts))
       .catch(() => live && setCreations([]));
+    listVideos()
+      .then((vs) => live && setVideos(vs))
+      .catch(() => {});
     return () => {
       live = false;
     };
@@ -196,8 +200,11 @@ export default function Home() {
                 ? "Loading…"
                 : !isSignedIn
                   ? "Sign in to see the templates you've created."
-                  : creations!.length
-                    ? `${creations!.length} template${creations!.length === 1 ? "" : "s"} you made in the chat. Open one to keep changing it.`
+                  : creations!.length || videos.length
+                    ? [
+                        creations!.length ? `${creations!.length} template${creations!.length === 1 ? "" : "s"}` : "",
+                        videos.length ? `${videos.length} explainer${videos.length === 1 ? "" : "s"}` : "",
+                      ].filter(Boolean).join(" and ") + " you made in the chat. Open one to keep changing it."
                     : "Nothing yet. Templates you create in the chat are saved here."}
             </p>
             {isLoaded && !isSignedIn && (
@@ -205,13 +212,44 @@ export default function Home() {
                 Sign in
               </Link>
             )}
-            {isSignedIn && creations?.length === 0 && (
+            {isSignedIn && creations?.length === 0 && videos.length === 0 && (
               <Link to="/" className="mt-5 inline-block rounded-full bg-[#22A03A] px-5 py-2 text-[14px] font-semibold text-black hover:opacity-90">
                 Start a chat
               </Link>
             )}
+            {videos.length > 0 && (
+              <>
+                <h2 className="mt-8 text-[15px] font-semibold text-white/80">Explainer videos</h2>
+                <div className="mt-3 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                  {videos.map((v) => (
+                    <button key={v.id} onClick={() => navigate(`/?v=${v.id}`)} className="block w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] text-left transition-colors hover:border-white/30">
+                      <div className="flex aspect-video w-full items-center justify-center bg-black">
+                        {v.files.gif ? <img src={videoFile(v, "gif")} alt="" className="h-full w-full object-contain" loading="lazy" /> : <span className="text-[13px] text-white/40">{v.status === "running" ? "Being made…" : "No video"}</span>}
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="truncate text-[15px] font-semibold">{v.title}</h3>
+                          <div className="flex shrink-0 gap-1.5 text-[11px] text-white/55">
+                            <span>{v.aspect}</span>
+                            <span>·</span>
+                            <span>Explainer</span>
+                            {v.turns > 1 && (
+                              <>
+                                <span>·</span>
+                                <span>v{v.turns}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {!!creations?.length && videos.length > 0 && <h2 className="mt-8 text-[15px] font-semibold text-white/80">Templates</h2>}
             {!!creations?.length && (
-              <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <div className={videos.length ? "mt-3 grid gap-5 sm:grid-cols-2 xl:grid-cols-3" : "mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3"}>
                 {creations.map((t) => (
                   <div key={t.id} className="group relative">
                     <button onClick={() => navigate(`/?t=${t.id}`)} className="block w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] text-left transition-colors hover:border-white/30">

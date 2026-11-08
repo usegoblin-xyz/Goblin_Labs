@@ -79,11 +79,12 @@ export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, 
 }
 
 export type ChatMessage = { role: "user" | "assistant"; text: string };
-export type ChatReply = { reply: string; action: "chat" | "build" | "change"; brief: string; aspect: Aspect };
+export type ChatReply = { reply: string; action: "chat" | "build" | "change" | "explainer"; brief: string; title: string; aspect: Aspect };
 export type ChatContext = {
   aspect: Aspect;
   brand?: string;
   template?: { title: string; outcome: string; version: number; format: Aspect; seconds: number; copy: Record<string, string> };
+  video?: { title: string; format: Aspect };
 };
 
 // One conversational reply from Goblin, saying whether to build.
@@ -98,6 +99,35 @@ export async function chat(messages: ChatMessage[], ctx: ChatContext, signal?: A
   if (!r.ok) throw await errorOf(r);
   return r.json();
 }
+
+// Explainer videos, made by the explainer agent (api/_studio/videos.ts).
+export type VideoStep = { key: string; label: string; state: "active" | "done" | "failed" };
+export type ExplainerVideo = {
+  id: string;
+  title: string;
+  aspect: Aspect;
+  status: "running" | "done" | "failed";
+  message: string | null;
+  steps: VideoStep[];
+  files: { mp4: boolean; gif: boolean; png: boolean };
+  turns: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+async function videoCall(init?: RequestInit, query = ""): Promise<Record<string, any>> {
+  const r = await fetch(`/api/studio?op=video${query}`, { credentials: "same-origin", ...init, headers: init?.body ? { "content-type": "application/json" } : undefined });
+  if (!r.ok) throw await errorOf(r);
+  return r.json();
+}
+export const startVideo = async (req: { brief: string; title: string; aspect: Aspect; brand: Record<string, string> }) =>
+  (await videoCall({ method: "POST", body: JSON.stringify(req) })).video as ExplainerVideo;
+export const changeVideo = async (id: string, message: string) => (await videoCall({ method: "POST", body: JSON.stringify({ id, message }) })).video as ExplainerVideo;
+export const getVideo = async (id: string) => (await videoCall(undefined, `&id=${encodeURIComponent(id)}`)).video as ExplainerVideo;
+export const listVideos = async () => (await videoCall()).videos as ExplainerVideo[];
+// `v` busts the browser cache when a change makes new files.
+export const videoFile = (v: ExplainerVideo, kind: "mp4" | "gif" | "png", download = false) =>
+  `/api/studio?op=video&id=${encodeURIComponent(v.id)}&file=${kind}&v=${encodeURIComponent(v.updatedAt)}${download ? "&download=1" : ""}`;
 
 export const formatOf = (t: { width: number; height: number }): Aspect => (t.width < t.height ? "9:16" : t.width === t.height ? "1:1" : "16:9");
 

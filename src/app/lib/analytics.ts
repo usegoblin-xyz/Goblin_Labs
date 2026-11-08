@@ -79,6 +79,9 @@ type Events = {
   studio_chat: Record<string, never>;
   studio_downloaded: Record<string, never>;
   studio_export_failed: Record<string, never>;
+  studio_video: Record<string, never>;
+  studio_video_done: Record<string, never>;
+  studio_video_downloaded: Record<string, never>;
 };
 
 export function track<E extends keyof Events>(event: E, props: Events[E]) {

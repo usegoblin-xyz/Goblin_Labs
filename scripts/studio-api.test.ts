@@ -11,6 +11,7 @@ const { makeHandler: makeGen } = await import("../api/_studio/generate.ts");
 const { makeHandler: makeTpl } = await import("../api/_studio/templates.ts");
 const { db } = await import("../api/_studio/db.ts");
 const { makeHandler: makeChat, toMessages } = await import("../api/_studio/chat.ts");
+const { makeHandler: makeVideos, progress, cleanReply, agentMessage } = await import("../api/_studio/videos.ts");
 
 const [goodFile, badFile] = process.argv.length > 3 ? process.argv.slice(2) : ["scripts/studio-fixtures/good.tsx", "scripts/studio-fixtures/bad.tsx"];
 const good = fs.readFileSync(goodFile, "utf8");
@@ -68,7 +69,7 @@ async function tpl(user: string | null, method: string, body?: object, query?: R
   return { status: r.statusCode, json: r.json as Record<string, any> };
 }
 
-await db().query("delete from studio.generations; delete from studio.templates;");
+await db().query("delete from studio.generations; delete from studio.templates; delete from studio.videos;");
 let pass = 0;
 const ok = (name: string) => { pass++; console.log("  ✓", name); };
 
@@ -211,7 +212,7 @@ const T = (globalThis as any).T;
   assert.equal((await chat("u_other", null, { messages: [] })).status, 400);
   const talk = await chat("u_other", { reply: "Hey! What are you launching?", action: "chat", brief: "ignored", aspect: "none" }, { messages: [{ role: "user", text: "hey" }], aspect: "9:16", brand: "Notewise" });
   assert.equal(talk.status, 200);
-  assert.deepEqual(talk.json, { reply: "Hey! What are you launching?", action: "chat", brief: "", aspect: "9:16" });
+  assert.deepEqual(talk.json, { reply: "Hey! What are you launching?", action: "chat", brief: "", title: "", aspect: "9:16" });
   assert.match(replies.at(-1).system, /Notewise/);
   // "change" with no template becomes a build; a too-short brief stays chat.
   const b = await chat("u_other", { reply: "On it.", action: "change", brief: "A launch video with three features", aspect: "1:1" }, { messages: [{ role: "user", text: "build it" }] });
@@ -232,6 +233,101 @@ const T = (globalThis as any).T;
   const { sfxUsedIn } = await import("../src/library/sfx-names.ts").then(async () => import("../src/library/sfx.ts"));
   assert.deepEqual(sfxUsedIn(`jsx(Sfx, { name: 'impact' }); jsx(Sfx, { name: "ding" }); jsx(Sfx, { name: \`bass-drop\` }); "popcorn"`).sort(), ["bass-drop", "ding", "impact"]);
   ok("sound names found in any quote style");
+}
+
+// 9d. Explainer videos: start a session, follow its progress, stream the file, ask for a change.
+{
+  const now = () => new Date().toISOString();
+  const calls: string[] = [];
+  const sent: string[] = [];
+  let events: any[] = [];
+  let session: any = { id: "sesn_1", status: "running", usage: { list_cost: { amount: "0" } } };
+  let files: any[] = [];
+  const agent = {
+    async createSession(o: any) {
+      calls.push(`create:${o.agent}:${o.environmentId}:${o.budgetCents}`);
+      sent.push(o.text);
+      events = [{ id: "e1", type: "user.message", processed_at: now(), content: [{ type: "text", text: o.text }] }];
+      return { id: "sesn_1" };
+    },
+    async getSession() { return session; },
+    async listEvents() { return events; },
+    async sendMessage(_id: string, t: string) { calls.push("send"); events.push({ id: "u2", type: "user.message", processed_at: now(), content: [{ type: "text", text: t }] }); },
+    async listFiles() { return files; },
+    async fileContent(id: string) { return new Response(`bytes-of-${id}`, { headers: { "content-length": String(`bytes-of-${id}`.length) } }); },
+  };
+  const vh = makeVideos({ agent: agent as any, userId: async (r: any) => r.headers.user ?? null, configured: () => true });
+  process.env.GOBLIN_EXPLAINER_AGENT_ID = "agent_x";
+  process.env.GOBLIN_AGENT_ENVIRONMENT_ID = "env_x";
+  const call = async (user: string | null, method: string, body?: object, query: Record<string, string> = {}) => {
+    const { res, r } = mockRes();
+    const piped: Buffer[] = [];
+    (res as any).on = () => res; (res as any).once = () => res; (res as any).emit = () => true;
+    (res as any).write = (c: any) => { piped.push(Buffer.from(c)); return true; };
+    (res as any).end = (c?: any) => { if (c) piped.push(Buffer.from(c)); r.ended = true; };
+    await vh({ method, body, query, headers: { user } } as never, res);
+    if (query.file) await new Promise((ok) => setTimeout(ok, 50));
+    return { status: r.statusCode, json: r.json as Record<string, any>, body: Buffer.concat(piped).toString(), headers: r.headers };
+  };
+  assert.equal((await call(null, "GET")).status, 401);
+  const started = await call("u_obi", "POST", { brief: "How QR codes survive a torn corner", title: "Torn QR Codes", aspect: "9:16", brand: { name: "Notewise", background: "#101010", foreground: "#fafafa", primary: "#22a03a", accent: "#ffcc00", font: "inter" } });
+  assert.equal(started.status, 200, JSON.stringify(started.json));
+  const id = started.json.video.id;
+  assert.equal(started.json.video.status, "running");
+  assert.deepEqual(calls, ["create:agent_x:env_x:400"]);
+  assert.match(sent[0], /Format: 1080×1920 vertical/);
+  assert.match(sent[0], /background #101010/);
+  assert.match(sent[0], /End on the brand name "Notewise"/);
+  // Mid-run: the workflow is building scenes.
+  events.push(
+    { id: "w1", type: "workflow_run.created", processed_at: now(), phases: [{ id: "p1", name: "Build the scenes" }, { id: "p2", name: "Review the video" }] },
+    { id: "w2", type: "workflow_run.phase_started", processed_at: now(), workflow_run_phase_id: "p1" },
+    { id: "m1", type: "agent.message", processed_at: now(), content: [{ type: "text", text: "The run is **under way**: `4` agents." }] },
+  );
+  let v = (await call("u_obi", "GET", undefined, { id })).json.video;
+  assert.equal(v.status, "running");
+  assert.deepEqual(v.steps.map((s: any) => `${s.label}:${s.state}`), ["Planned the storyboard:done", "Build the scenes:active"]);
+  // Another user can't see it.
+  assert.equal((await call("u_other", "GET", undefined, { id })).status, 404);
+  // Finished: idle, files written.
+  events.push(
+    { id: "w3", type: "workflow_run.phase_ended", processed_at: now(), workflow_run_phase_id: "p1" },
+    { id: "w4", type: "workflow_run.status_ended", processed_at: now() },
+    { id: "m2", type: "agent.message", processed_at: now(), content: [{ type: "text", text: "I made the **30-second** explainer.<br>" }] },
+    { id: "i1", type: "session.status_idle", processed_at: now(), stop_reason: { type: "end_turn" } },
+  );
+  session = { ...session, status: "idle", usage: { list_cost: { amount: "112" } } };
+  files = [
+    { id: "file_mp4", filename: "explainer.mp4", created_at: now() },
+    { id: "file_gif", filename: "explainer-preview.gif", created_at: now() },
+    { id: "file_png", filename: "explainer-stills.png", created_at: now() },
+  ];
+  v = (await call("u_obi", "GET", undefined, { id })).json.video;
+  assert.equal(v.status, "done");
+  assert.deepEqual(v.files, { mp4: true, gif: true, png: true });
+  assert.equal(v.message, "I made the 30-second explainer.");
+  const f = await call("u_obi", "GET", undefined, { id, file: "mp4", download: "1" });
+  assert.equal(f.headers["content-type"], "video/mp4");
+  assert.match(f.headers["content-disposition"], /attachment; filename="torn-qr-codes.mp4"/);
+  assert.equal(f.body, "bytes-of-file_mp4");
+  // A change goes to the same session; old files don't count for the new turn.
+  const changed = await call("u_obi", "POST", { id, message: "Make scene 2 slower" });
+  assert.equal(changed.json.video.status, "running");
+  assert.equal(changed.json.video.turns, 2);
+  assert.deepEqual(calls, ["create:agent_x:env_x:400", "send"]);
+  assert.equal((await call("u_obi", "POST", { id, message: "again" })).status, 409);
+  const cost = await db().query("select cost_cents from studio.videos where id = $1", [id]);
+  assert.equal(cost.rows[0].cost_cents, 112);
+  // Pure helpers.
+  assert.equal(cleanReply("**Bold** and `code`<br>## Heading"), "Bold and code\nHeading");
+  const p = progress([{ id: "a", type: "user.message", processed_at: now() }, { id: "b", type: "session.status_idle", processed_at: now(), stop_reason: { type: "budget_reached" } }], { id: "s", status: "idle" }, [], Date.now());
+  assert.equal(p.status, "failed");
+  assert.match(p.message!, /spending limit/);
+  assert.doesNotMatch(agentMessage("x", "16:9", {}), /Brand colours/);
+  // Daily limit (3 per 24 h).
+  for (let i = 0; i < 2; i++) assert.equal((await call("u_obi", "POST", { brief: "Another explainer topic", aspect: "16:9" })).status, 200);
+  assert.equal((await call("u_obi", "POST", { brief: "One too many explainers", aspect: "16:9" })).status, 429);
+  ok("explainer videos: start, progress, file, change, limits");
 }
 
 // 10. Deleting the account removes everything.
