@@ -125,9 +125,11 @@ and `/library?q=`. A signed-in user talks with Goblin first
 (`api/studio.ts?op=chat`, `api/_studio/chat.ts`): Goblin helps shape the idea
 and only builds when asked ("build it", or a yes to its offer), handing the
 generator a complete brief. Each template comes back as a small card in the
-conversation with a Download button (the `.tsx` file); clicking the card opens
-it in a panel on the right to play it, download it, copy its prompt or edit
-its text. Later messages can ask for changes, which arrive as new versions.
+conversation with a Download button; clicking the card opens it in a panel on
+the right to play it, download it, copy its prompt or edit its text. Download
+renders an MP4 (H.264, with AAC sound when the template has sound effects) in
+the visitor's browser with `@remotion/web-renderer`, inside its own sandbox
+frame (`src/library/studio/exportMp4.ts`), so no render server is needed. Later messages can ask for changes, which arrive as new versions.
 "Your creations" (`/library/creations`) lists the user's templates; opening
 one (`/?t=<id>`) continues it in the chat. Old `/create` links redirect there.
 
@@ -140,9 +142,16 @@ one (`/?t=<id>`) continues it in the chat. Old `/create` links redirect there.
    colours or fonts, nothing random or time-based, it ends on `nameOf(b)`, and
    every field is used. Problems go back to Claude for up to two fixes, then the
    code is compiled to CommonJS and saved as a version.
+   When the user asks for sound, Claude adds `<Sfx name="…" at={seconds} />`
+   from the motion kit, picking from Goblin's own sound library
+   (`src/library/sfx-names.ts`, 23 effects synthesised by
+   `scripts/audio/sfx.py` into `public/sfx/`). The checks reject unknown
+   names, sounds nested in a Sequence, and CSS the MP4 renderer can't draw
+   (z-index, 3D transforms, backdrop-filter, `url(#…)` filters and masks).
 3. The page plays it in `sandbox.html`: an iframe with `sandbox="allow-scripts"`
    (opaque origin, no cookies or storage) and a CSP that blocks all network
-   access but fonts. The sandbox renders a spread of frames first. If one
+   access but fonts. Sound-effect files are fetched by the page and handed to
+   the sandbox as data, which plays them from blob URLs. The sandbox renders a spread of frames first. If one
    throws, the page asks Claude for a fix automatically (up to twice).
 4. Follow-up prompts edit the template as a new version, and any earlier
    version can be restored. `api/studio.ts?op=templates` lists, opens,

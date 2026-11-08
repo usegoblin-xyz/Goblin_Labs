@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Brand } from "../brand";
 import { GeckoLoader } from "@/app/components/ui/gecko-loader";
 import type { FromSandbox, ToSandbox } from "../../sandbox/protocol";
+import { sfxFiles } from "./sounds";
 
 type Props = {
   compiled: string;
@@ -60,7 +61,11 @@ export function SandboxPlayer({ compiled, width, height, fps, durationInFrames, 
     if (!ready) return;
     setLoaded(false);
     setGone(false);
-    send({ type: "load", compiled, width, height, fps, durationInFrames, controls, autoplay, ...latest.current });
+    let stale = false;
+    sfxFiles(compiled).then((sfx) => !stale && send({ type: "load", sfx, compiled, width, height, fps, durationInFrames, controls, autoplay, ...latest.current }));
+    return () => {
+      stale = true;
+    };
   }, [ready, compiled, width, height, fps, durationInFrames, controls, autoplay]);
 
   // Brand or copy edits: restyle without reloading the code.

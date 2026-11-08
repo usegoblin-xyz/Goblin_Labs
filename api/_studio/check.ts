@@ -6,6 +6,7 @@
 // iframe (public/sandbox.html), which is the actual security boundary.
 import ts from "typescript";
 import { MOTION_EXPORTS } from "./context.js";
+import { SFX_NAMES, isSfx } from "../../src/library/sfx-names.js";
 
 export type Problem = string;
 
@@ -36,6 +37,14 @@ const COLOUR_NAMES = new Set([
 ]);
 const FONT_PROPS = new Set(["fontFamily", "font"]);
 const MAX_CODE = 60_000;
+const MAX_SFX = 30;
+const RENDER_LIMITS: [RegExp, string][] = [
+  [/\bzIndex\b/, "uses zIndex, which the MP4 export ignores; order elements back to front instead."],
+  [/\bbackdropFilter\b/, "uses backdropFilter, which the MP4 export can't draw."],
+  [/perspective\(|rotate[XY]\(|rotate3d\(|transformStyle/, "uses a 3D transform (perspective, rotateX/rotateY), which the MP4 export can't draw; use 2D transforms."],
+  [/radial-gradient|conic-gradient|repeating-linear-gradient/, "uses a radial, conic or repeating gradient, which the MP4 export can't draw; use linear-gradient, or an SVG <radialGradient> fill inside <svg>."],
+  [/\b(?:filter|clipPath|mask|maskImage|WebkitMaskImage)\s*:\s*[`"'][^`"']*url\(#/, "points a CSS filter, clip-path or mask at an SVG element with url(#…), which the MP4 export can't draw; use CSS clip-path shapes or filter functions. (SVG gradient fills inside an <svg> are fine.)"],
+];
 
 export function checkTemplate(code: string): Problem[] {
   const problems: Problem[] = [];
@@ -66,6 +75,7 @@ export function checkTemplate(code: string): Problem[] {
   collect(sf);
 
   let hasDefault = false;
+  let sfxCount = 0;
   const called = new Set<string>();
 
   const visit = (node: ts.Node) => {
@@ -102,6 +112,22 @@ export function checkTemplate(code: string): Problem[] {
       add(node, `accesses ["${node.argumentExpression.text}"].`);
     } else if (ts.isIdentifier(node) && BANNED_GLOBALS.has(node.text) && !declared.has(node.text) && isGlobalRef(node)) {
       add(node, `uses ${node.text}, which templates can't use.`);
+    } else if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(sf) === "Sfx") {
+      sfxCount++;
+      const attrs = new Map<string, ts.JsxAttribute>();
+      for (const a of node.attributes.properties) if (ts.isJsxAttribute(a)) attrs.set(a.name.getText(sf), a);
+      const nameAttr = attrs.get("name")?.initializer;
+      const name = nameAttr && ts.isStringLiteral(nameAttr) ? nameAttr.text : null;
+      if (name === null) add(node, `<Sfx> needs name="…" written as a plain string, one of: ${SFX_NAMES.join(", ")}.`);
+      else if (!isSfx(name)) add(node, `<Sfx name="${name}"> isn't in the sound library. Use one of: ${SFX_NAMES.join(", ")}.`);
+      if (!attrs.has("at")) add(node, "<Sfx> needs at={seconds}.");
+      for (let p: ts.Node | undefined = node.parent; p; p = p.parent) {
+        const el = ts.isJsxElement(p) ? p.openingElement : null;
+        if (el && /^(Sequence|Series\.Sequence|Series)$/.test(el.tagName.getText(sf))) {
+          add(node, "<Sfx> is inside a Sequence, which shifts its timing. Put every <Sfx> at the top level of the returned tree.");
+          break;
+        }
+      }
     } else if (ts.isJsxAttribute(node)) {
       const name = node.name.getText(sf);
       if (name === "dangerouslySetInnerHTML") add(node, "uses dangerouslySetInnerHTML.");
@@ -122,6 +148,9 @@ export function checkTemplate(code: string): Problem[] {
   visit(sf);
 
   if (!hasDefault) add(null, "has no default export; export the component with `export default function`.");
+  // Things the MP4 renderer can't draw (see the guide's "Rendering to MP4").
+  for (const [re, msg] of RENDER_LIMITS) if (re.test(code)) add(null, msg);
+  if (sfxCount > MAX_SFX) add(null, `uses ${sfxCount} sound effects; keep it to ${MAX_SFX} or fewer.`);
   if (!called.has("palette")) add(null, "never calls palette(b); every colour must come from the brand kit.");
   if (!called.has("nameOf")) add(null, "never calls nameOf(b); the video has to end on the brand name.");
   if (!called.has("useT") && !called.has("useCurrentFrame")) add(null, "never reads the time (useT() or useCurrentFrame()), so nothing can animate.");

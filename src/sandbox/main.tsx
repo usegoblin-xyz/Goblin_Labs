@@ -1,6 +1,9 @@
 // The preview sandbox (sandbox.html). Receives a compiled template over
 // postMessage, runs it with only the modules templates may import, plays it
-// in a Remotion Player, and reports errors back to the parent page.
+// in a Remotion Player, and reports errors back to the parent page. In export
+// mode it renders the template to an MP4 in the browser instead and hands the
+// file back.
+import "./storage-shim";
 import * as React from "react";
 import { Component, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode, type Ref } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
@@ -10,6 +13,7 @@ import { Player as RemotionPlayer, type PlayerRef } from "@remotion/player";
 import * as kit from "../library/kit";
 import * as motion from "../library/motion";
 import type { Brand } from "../library/brand";
+import { setSfxResolver, isSfx } from "../library/sfx";
 import type { ToSandbox, FromSandbox } from "./protocol";
 
 const Player = RemotionPlayer as unknown as ComponentType<Record<string, unknown> & { ref?: Ref<PlayerRef> }>;
@@ -53,6 +57,34 @@ class Boundary extends Component<{ children: ReactNode; onError: (e: unknown) =>
   }
 }
 
+// Sound effects arrive as files from the page; templates find them by name.
+let sfxUrls: Record<string, string> = {};
+function useSounds(files: Record<string, ArrayBuffer>) {
+  for (const u of Object.values(sfxUrls)) URL.revokeObjectURL(u);
+  sfxUrls = {};
+  for (const [name, buf] of Object.entries(files ?? {})) if (isSfx(name)) sfxUrls[name] = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+  setSfxResolver((name) => sfxUrls[name] ?? null);
+}
+
+// The renderer only embeds fonts loaded this way (CSS @font-face isn't
+// carried into SVG text), so the brand fonts load through @remotion/google-fonts.
+async function loadExportFonts() {
+  const [inter, grotesk, serif, mono] = await Promise.all([
+    import("@remotion/google-fonts/Inter"),
+    import("@remotion/google-fonts/SpaceGrotesk"),
+    import("@remotion/google-fonts/InstrumentSerif"),
+    import("@remotion/google-fonts/JetBrainsMono"),
+  ]);
+  const opts = { subsets: ["latin"] as ["latin"], ignoreTooManyRequestsWarning: true };
+  await Promise.all([
+    inter.loadFont("normal", { ...opts, weights: ["400", "500", "600", "700", "800", "900"] }).waitUntilDone(),
+    grotesk.loadFont("normal", { ...opts, weights: ["400", "500", "600", "700"] }).waitUntilDone(),
+    serif.loadFont("normal", { ...opts, weights: ["400"] }).waitUntilDone(),
+    serif.loadFont("italic", { ...opts, weights: ["400"] }).waitUntilDone(),
+    mono.loadFont("normal", { ...opts, weights: ["400", "500", "600", "700"] }).waitUntilDone(),
+  ]);
+}
+
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
 function App() {
@@ -70,6 +102,7 @@ function App() {
       if (m.type === "load") {
         failed.current = false;
         try {
+          useSounds(m.sfx);
           const C = evaluate(m.compiled);
           setComp(() => C);
           setJob(m);
@@ -108,9 +141,45 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Comp, nonce]);
 
+  // Export mode: render every frame (and the sound effects) to an MP4.
+  useEffect(() => {
+    if (!Safe || !job || !job.export || !props) return;
+    const ctrl = new AbortController();
+    (async () => {
+      try {
+        const { renderMediaOnWeb, canRenderMediaOnWeb } = await import("@remotion/web-renderer");
+        const sound = Object.keys(sfxUrls).length > 0;
+        const settings = { container: "mp4" as const, videoCodec: "h264" as const, audioCodec: sound ? ("aac" as const) : null, muted: !sound };
+        const can = await canRenderMediaOnWeb({ ...settings, width: job.width, height: job.height } as never);
+        if (!(can as { canRender?: boolean }).canRender) {
+          const issues = ((can as { issues?: { message: string }[] }).issues ?? []).map((i) => i.message).join(" ");
+          throw new Error(`This browser can't make MP4 files${issues ? ` (${issues})` : ""}. Try the latest Chrome, Edge or Safari.`);
+        }
+        await loadExportFonts();
+        const res = await renderMediaOnWeb({
+          composition: { component: Safe as never, id: "goblin", durationInFrames: job.durationInFrames, fps: job.fps, width: job.width, height: job.height },
+          inputProps: props as never,
+          ...settings,
+          videoBitrate: "high",
+          licenseKey: "free-license",
+          signal: ctrl.signal,
+          onProgress: (p: { progress: number }) => post({ type: "export-progress", progress: p.progress }),
+        } as never);
+        if (failed.current) return;
+        const blob = await res.getBlob();
+        const data = await blob.arrayBuffer();
+        window.parent.postMessage({ type: "exported", data, mime: blob.type || "video/mp4" } satisfies FromSandbox, "*", [data]);
+      } catch (err) {
+        if (!ctrl.signal.aborted) post({ type: "export-error", message: describe(err) });
+      }
+    })();
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Safe, job]);
+
   // Smoke test: render a spread of frames before playing; any throw is reported.
   useEffect(() => {
-    if (!Safe || !job) return;
+    if (!Safe || !job || job.export) return;
     let cancelled = false;
     (async () => {
       await nextFrame();
@@ -122,9 +191,9 @@ function App() {
       }
       if (cancelled || failed.current) return;
       post({ type: "checked" });
-      // Generated templates have no sound, so the player is muted, which lets
-      // browsers autoplay it. If playback is still blocked, the paused frame
-      // is one from the middle, not a blank first frame.
+      // The player starts muted (sound effects play once the viewer unmutes),
+      // which lets browsers autoplay it. If playback is still blocked, the
+      // paused frame is one from the middle, not a blank first frame.
       const middle = Math.round(last * 0.55);
       const p = player.current;
       if (!p) return;
@@ -150,7 +219,7 @@ function App() {
     };
   }, [Safe, job]);
 
-  if (!Safe || !job || !props) return null;
+  if (!Safe || !job || !props || job.export) return null;
   const landscape = job.width / job.height >= 1;
   return (
     <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: props.brand.background }}>
@@ -164,8 +233,10 @@ function App() {
         compositionWidth={job.width}
         compositionHeight={job.height}
         loop
-        muted
-        // No sound in generated templates: no shared audio tags to wait on.
+        // Starts muted so it can autoplay; the volume button turns the sound
+        // effects on.
+        initiallyMuted
+        // Sound effects use @remotion/media, not shared <audio> tags.
         numberOfSharedAudioTags={0}
         controls={job.controls}
         clickToPlay={job.controls}

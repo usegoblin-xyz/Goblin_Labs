@@ -78,6 +78,7 @@ type Events = {
   studio_copied: { what: string };
   studio_chat: Record<string, never>;
   studio_downloaded: Record<string, never>;
+  studio_export_failed: Record<string, never>;
 };
 
 export function track<E extends keyof Events>(event: E, props: Events[E]) {

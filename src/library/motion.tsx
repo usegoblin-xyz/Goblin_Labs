@@ -1,9 +1,11 @@
 // Shared motion kit for library templates. Every value is a pure function of
 // time, so previews, scrubbing and MP4 renders always agree.
 import type { CSSProperties, ReactNode } from "react";
-import { Audio, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { Audio, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { Audio as MediaAudio } from "@remotion/media";
 import { alpha, FONTS, onColor, type Brand } from "./brand";
 import { charX, textWidth } from "./metrics";
+import { SFX, isSfx, sfxSrc, type SfxName } from "./sfx";
 
 export { charX, textWidth };
 
@@ -211,6 +213,21 @@ export const fit = (s: string, maxW: number, max: number, weight = 700, tracking
 // Soundtrack: plays only where audio is allowed (editor and renders).
 export function Track({ src, on }: { src: string; on?: boolean }) {
   return on ? <Audio src={staticFile(src)} /> : null;
+}
+
+// A sound effect from Goblin's library (src/library/sfx-names.ts), starting
+// `at` seconds into the video. Place these at the top level of the template,
+// not inside a Sequence, so `at` counts from the start of the video.
+export function Sfx({ name, at, volume = 1 }: { name: SfxName; at: number; volume?: number }) {
+  const { fps, durationInFrames } = useVideoConfig();
+  const src = isSfx(name) ? sfxSrc(name) : null;
+  const from = Math.max(0, Math.round((Number.isFinite(at) ? at : 0) * fps));
+  if (!src || from >= durationInFrames) return null;
+  return (
+    <Sequence from={from} durationInFrames={Math.min(durationInFrames - from, Math.ceil(SFX[name].seconds * fps) + 2)} layout="none" name={`sfx ${name}`}>
+      <MediaAudio src={src} volume={Math.min(1, Math.max(0, volume))} />
+    </Sequence>
+  );
 }
 
 // ---- devices & UI ------------------------------------------------------------------

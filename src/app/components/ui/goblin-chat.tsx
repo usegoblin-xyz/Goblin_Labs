@@ -16,8 +16,9 @@ import type { Brand } from "@/library/brand";
 import { buildPrompt } from "@/library/ui/TemplateDialog";
 import { SandboxPlayer } from "@/library/studio/SandboxPlayer";
 import { GeckoLoader } from "./gecko-loader";
+import { exportMp4 } from "@/library/studio/exportMp4";
 import {
-  asTemplate, chat, downloadTemplate, formatOf, generate, getTemplate,
+  asTemplate, chat, formatOf, generate, getTemplate, saveFile, slugOf,
   type Aspect, type ChatMessage, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
@@ -92,6 +93,9 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
   // The reply whose template is open in the panel.
   const [openTurn, setOpenTurn] = useState<number | null>(null);
+  // An MP4 export in progress (rendered in the browser, in its own sandbox).
+  const [exporting, setExporting] = useState<{ title: string; progress: number; ctrl: AbortController } | null>(null);
+  const exportHost = useRef<HTMLDivElement>(null);
   const [params, setParams] = useSearchParams();
   const openId = params.get("t");
   const nextId = useRef(1);
@@ -271,8 +275,33 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   };
 
   const download = (t: StudioTemplate) => {
-    downloadTemplate(t, contentFor(t));
+    if (exporting) return;
+    const ctrl = new AbortController();
+    setExporting({ title: t.title, progress: 0, ctrl });
     track("studio_downloaded", {});
+    // Wait a frame so the dialog (which hosts the render frame) is mounted.
+    requestAnimationFrame(async () => {
+      try {
+        if (!exportHost.current) throw new Error("Couldn't start the export.");
+        const blob = await exportMp4({
+          template: t,
+          brand,
+          content: contentFor(t),
+          host: exportHost.current,
+          signal: ctrl.signal,
+          onProgress: (p) => setExporting((x) => (x && x.ctrl === ctrl ? { ...x, progress: p } : x)),
+        });
+        saveFile(blob, `${slugOf(t.title)}.mp4`);
+        toast.success("MP4 downloaded", { description: `${t.title}, ${formatOf(t)}, ${seconds(t)}s` });
+      } catch (err) {
+        if (!ctrl.signal.aborted) {
+          toast.error("Couldn't export the MP4", { description: err instanceof Error ? err.message : undefined });
+          track("studio_export_failed", {});
+        }
+      } finally {
+        setExporting((x) => (x && x.ctrl === ctrl ? null : x));
+      }
+    });
   };
 
   const empty = turns.length === 0;
@@ -382,6 +411,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           size="sm"
           variant="outline"
           onClick={() => download(tpl)}
+          disabled={!!exporting}
+          aria-label={`Download ${tpl.title} as MP4`}
           className="h-8 shrink-0 rounded-full border-white/15 bg-transparent px-3 text-[12.5px] text-white/80 hover:bg-white/8 hover:text-white dark:bg-transparent"
         >
           <Download className="h-3.5 w-3.5" /> Download
@@ -491,7 +522,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
               </div>
             </div>
             <Button size="sm" onClick={() => download(panel.template!)} className="h-8 rounded-full bg-[#22A03A] px-3.5 text-[12.5px] font-semibold text-black hover:bg-[#22A03A]/90">
-              <Download className="h-3.5 w-3.5" /> Download
+              <Download className="h-3.5 w-3.5" /> Download MP4
             </Button>
             <button onClick={() => setOpenTurn(null)} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/8 hover:text-white">
               <X className="h-4 w-4" />
@@ -551,10 +582,45 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                   </label>
                 );
               })}
-              <p className="text-[11.5px] text-white/35">Text edits change the preview, the copied prompt and the download. To change the design, ask Goblin.</p>
+              <p className="text-[11.5px] text-white/35">Text edits change the preview, the copied prompt and the MP4. To change the design or the sound, ask Goblin.</p>
             </div>
           </div>
         </aside>
+      )}
+
+      {exporting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Exporting MP4">
+          <div className="w-full max-w-[380px] rounded-2xl border border-white/10 bg-[#0c0c0c] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+            <div className="flex items-center gap-3">
+              <span className="h-12 w-12 shrink-0">
+                <GeckoLoader small label="Exporting" />
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-[15px] font-semibold">Exporting “{exporting.title}”</div>
+                <div className="text-[12.5px] text-white/50">MP4 with sound, made in your browser</div>
+              </div>
+            </div>
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/8">
+              <div className="h-full rounded-full bg-[#22A03A] transition-[width] duration-200" style={{ width: `${Math.round(exporting.progress * 100)}%` }} />
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[12px] text-white/45">
+              <span>Keep this tab open until it finishes.</span>
+              <span className="tabular-nums">{Math.round(exporting.progress * 100)}%</span>
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              {/* The render frame lives here, visible but tiny, so the browser doesn't throttle it. */}
+              <div ref={exportHost} aria-hidden className="h-[2px] w-[2px] overflow-hidden" />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => exporting.ctrl.abort()}
+                className="h-8 rounded-full border-white/15 bg-transparent px-3.5 text-[12.5px] text-white/80 hover:bg-white/8 hover:text-white dark:bg-transparent"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
