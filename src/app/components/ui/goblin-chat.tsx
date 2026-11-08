@@ -61,12 +61,11 @@ type Reply = {
   error?: string;
   health?: "testing" | "ok" | "error";
 };
-type Turn = { id: number; role: "user"; text: string } | Reply;
+type Turn = { id: number; role: "user"; text: string; explainer?: boolean } | Reply;
 
 const QUICK: { icon: ReactNode; label: string; prompt: string }[] = [
   { icon: <Rocket className="h-4 w-4" />, label: "Product launch", prompt: "I'm launching a product and want a short video for it" },
   { icon: <Sparkles className="h-4 w-4" />, label: "Feature drop", prompt: "We just shipped a new feature. Can you help me announce it?" },
-  { icon: <Lightbulb className="h-4 w-4" />, label: "Explainer", prompt: "I want an explainer video that walks people through how something works" },
   { icon: <ListChecks className="h-4 w-4" />, label: "Changelog", prompt: "I want a changelog video for this week's updates" },
   { icon: <TrendingUp className="h-4 w-4" />, label: "Milestone", prompt: "We hit a milestone and want to celebrate it" },
   { icon: <BarChart3 className="h-4 w-4" />, label: "Stat reveal", prompt: "I have one big number I want to show off" },
@@ -93,6 +92,9 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     }
   });
   const [aspect, setAspect] = useState<Aspect>("16:9");
+  // Explainer mode, turned on only with the Explainer button. Goblin makes
+  // explainer videos (with the explainer agent) only while it's on.
+  const [explainerMode, setExplainerMode] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
   const turnsRef = useRef(turns);
   turnsRef.current = turns;
@@ -147,6 +149,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       if (busy) return;
       setTurns([]);
       setOpenTurn(null);
+      setExplainerMode(false);
       autoFixes.current = 0;
       setParams({}, { replace: true });
       requestAnimationFrame(() => textareaRef.current?.focus());
@@ -185,6 +188,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         const rid = nextId.current++;
         setTurns([{ id: rid, role: "assistant", text: video.status === "running" ? `I'm still making “${video.title}”.` : `Here's “${video.title}”. Tell me what to change, or open it to play and download it.`, steps: [], chars: 0, video }]);
         if (video.status === "done") setOpenTurn(rid);
+        setExplainerMode(true); // reopening an explainer continues it, in explainer mode
       })
       .catch(() => {
         toast.error("Couldn't open that video");
@@ -262,6 +266,12 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     }
   };
 
+  const toggleExplainer = (on = !explainerMode) => {
+    setExplainerMode(on);
+    track("studio_explainer_mode", { on });
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
   const brandFor = () => ({ name: brand.name, background: brand.background, foreground: brand.foreground, primary: brand.primary, accent: brand.accent, font: brand.font });
 
   // Starts (or changes) an explainer in reply `aid`. The agent works for a few
@@ -281,9 +291,17 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   };
 
   // The conversation so far, as Goblin sees it.
-  const history = (ts: Turn[]): ChatMessage[] =>
-    ts.flatMap((t): ChatMessage[] => {
-      if (t.role === "user") return [{ role: "user", text: t.text }];
+  // Each user message says when the Explainer button was switched since the last
+  // one, so Goblin knows why its answer changes.
+  const history = (ts: Turn[]): ChatMessage[] => {
+    let mode = false;
+    return ts.flatMap((t): ChatMessage[] => {
+      if (t.role === "user") {
+        const on = !!t.explainer;
+        const note = on !== mode ? `[The user turned Explainer ${on ? "on" : "off"} with the button.]\n` : "";
+        mode = on;
+        return [{ role: "user", text: note + t.text }];
+      }
       const parts = [t.text ?? ""];
       if (t.template) parts.push(`[Built template “${t.template.title}” v${t.template.version}, ${formatOf(t.template)}, ${seconds(t.template)}s]`);
       if (t.video) parts.push(`[Explainer video “${t.video.title}”, ${t.video.aspect}: ${t.video.status === "running" ? "still being made" : t.video.files.mp4 ? "finished" : "finished without a video"}]${t.video.message && t.video.status !== "running" ? `\nThe explainer agent said: ${t.video.message}` : ""}`);
@@ -291,6 +309,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       const text = parts.filter(Boolean).join("\n");
       return text ? [{ role: "assistant", text }] : [];
     });
+  };
 
   const send = async (override?: string) => {
     const text = (override ?? message).trim();
@@ -301,25 +320,26 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       adjustHeight(true);
     }
     const aid = nextId.current++;
-    const userTurn: Turn = { id: nextId.current++, role: "user", text };
+    const userTurn: Turn = { id: nextId.current++, role: "user", text, explainer: explainerMode };
     const before = turns;
     setTurns((ts) => [...ts, userTurn, { id: aid, role: "assistant", thinking: true, steps: [], chars: 0 }]);
     setBusy(true);
     track("studio_chat", {});
 
     try {
-      const r = await chat([...history(before), { role: "user", text }], {
+      const r = await chat(history([...before, userTurn]), {
         aspect,
         brand: brand.name,
         template: current
           ? { title: current.title, outcome: current.outcome, version: current.version, format: formatOf(current), seconds: seconds(current), copy: contentFor(current) }
           : undefined,
         video: currentVideo ? { title: currentVideo.title, format: currentVideo.aspect } : undefined,
+        mode: explainerMode ? "explainer" : undefined,
       });
       patch(aid, () => ({ thinking: false, text: r.reply }));
       if (r.action === "build") await build(aid, { mode: "create", prompt: r.brief, aspect: r.aspect });
-      else if (r.action === "explainer") await explainer(aid, () => startVideo({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor() }));
-      else if (r.action === "change" && currentVideo) await explainer(aid, () => changeVideo(currentVideo.id, r.brief));
+      else if (r.action === "explainer" && explainerMode) await explainer(aid, () => startVideo({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor() }));
+      else if (r.action === "change" && currentVideo && explainerMode) await explainer(aid, () => changeVideo(currentVideo.id, r.brief));
       else if (r.action === "change" && current) await build(aid, { mode: "edit", id: current.id, instruction: r.brief });
       else setBusy(false);
     } catch (err) {
@@ -400,7 +420,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           }}
           maxLength={1200}
           disabled={busy}
-          placeholder={empty ? "Tell Goblin what you're launching…" : "Reply to Goblin…"}
+          placeholder={explainerMode ? (currentVideo ? "Ask for a change, or describe another explainer…" : "What should the explainer explain?") : empty ? "Tell Goblin what you're launching…" : "Reply to Goblin…"}
           aria-label="Message Goblin"
           className={cn(
             "w-full resize-none border-none px-4 pt-4 pb-2",
@@ -411,6 +431,22 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           style={{ overflow: "hidden" }}
         />
         <div className="flex items-center justify-between gap-2 px-3 pb-3">
+          <div className="flex min-w-0 items-center gap-2">
+          {/* On the empty page the Explainer chip below does this; in a chat, the toggle lives here. */}
+          {!empty && (
+          <button
+            onClick={() => toggleExplainer()}
+            aria-pressed={explainerMode}
+            title={explainerMode ? "Explainer is on: Goblin makes 30 to 60 second explainer videos. Click to turn it off." : "Turn on Explainer to make a 30 to 60 second explainer video with captions and music"}
+            className={cn(
+              "inline-flex h-[30px] shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] transition-colors",
+              explainerMode ? "border-[#22A03A]/60 bg-[#22A03A]/15 text-[#7fe08f]" : "border-white/8 text-white/50 hover:border-white/20 hover:text-white",
+            )}
+          >
+            <Lightbulb className="h-3.5 w-3.5" /> Explainer
+            {explainerMode && <X className="h-3 w-3 opacity-70" />}
+          </button>
+          )}
           {current || currentVideo ? (
             <span className="truncate pl-1 text-[12px] text-white/40">
               Working on <span className="text-white/65">{(current ?? currentVideo)!.title}</span>
@@ -429,6 +465,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
               ))}
             </div>
           )}
+          </div>
           <Button
             onClick={() => send()}
             disabled={busy || !message.trim()}
@@ -551,10 +588,23 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
             <div className="w-full max-w-[720px]">
               <h1 className="text-center text-[30px] leading-tight font-semibold tracking-[-0.02em] sm:text-[40px]">What are you launching?</h1>
               <p className="mx-auto mt-3 max-w-[480px] text-center text-[15px] leading-relaxed text-white/55">
-                Talk it through with Goblin. When you're ready, ask it for a short launch video or a longer explainer, made in your brand.
+                {explainerMode
+                  ? "Explainer is on. Tell Goblin what to explain; it makes a 30 to 60 second video with captions and music in your brand."
+                  : "Talk it through with Goblin. When you're ready, ask it to build the video as a template in your brand."}
               </p>
               <div className="mt-8">{input}</div>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  onClick={() => toggleExplainer()}
+                  aria-pressed={explainerMode}
+                  className={cn(
+                    "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12.5px] transition-colors",
+                    explainerMode ? "border-[#22A03A]/60 bg-[#22A03A]/15 text-[#7fe08f]" : "border-white/10 text-white/60 hover:border-white/25 hover:text-white",
+                  )}
+                >
+                  <Lightbulb className={cn("h-4 w-4", explainerMode ? "text-[#7fe08f]" : "text-white/40")} />
+                  Explainer
+                </button>
                 {QUICK.map((q) => (
                   <button
                     key={q.label}

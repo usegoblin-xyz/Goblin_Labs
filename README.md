@@ -162,8 +162,13 @@ one (`/?t=<id>`) continues it in the chat. Old `/create` links redirect there.
 
 Longer explainers (30 to 60 seconds, captions and code-made music) come from
 the **Video explainer maker** agent built in the Claude Console with
-[Managed Agents](https://platform.claude.com/docs/en/managed-agents). When the
-chat decides the user wants an explainer (`action: "explainer"`), the page calls
+[Managed Agents](https://platform.claude.com/docs/en/managed-agents). The agent
+is used strictly in explainer mode, which the user turns on with the
+**Explainer** button (a chip under the empty chat, a toggle in the message box
+once a chat has started). With it off, `op=chat` never returns an explainer
+(or a change to one) and tells the user to click Explainer; with it on, it never
+builds a template. In explainer mode, when the user asks Goblin to make it
+(`action: "explainer"`), the page calls
 `api/studio.ts?op=video` (`api/_studio/videos.ts`), which starts a session with
 the agent, passing the brief, the format and the brand kit. The agent plans a
 storyboard, runs a workflow that builds the scenes and music in parallel,
