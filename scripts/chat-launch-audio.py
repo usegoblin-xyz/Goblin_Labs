@@ -9,6 +9,10 @@ from render/chat-launch-cues.json, the same file the picture uses.
     python3 scripts/chat-launch-audio.py   → public/launch/chat-launch-mix.wav
     python3 scripts/chat-launch-audio.py --sfx-only → public/launch/chat-launch-sfx.wav
       (just the sound effects, to lay over another music track)
+    python3 scripts/chat-launch-audio.py --music track.mp3 --drop 24.002 [--out out/mix.wav]
+      (the effects over a licensed track instead of the synth bed, with the
+      track's drop, in track seconds, landing on the title reveal; the track
+      isn't kept in the repo)
 """
 import json
 import os
@@ -83,5 +87,42 @@ RISE = cinematic.riser(1.6)
 s.put("fx", RISE, CUES["lockup"] - 1.6, 0.5)
 s.put("fx", cinematic.boom(), CUES["lockup"], 0.62)
 
-out = os.path.join(ROOT, "public", "launch", "chat-launch-sfx.wav" if SFX_ONLY else "chat-launch-mix.wav")
-s.write(out, levels=(-15, -19, -7) if not SFX_ONLY else (-60, -60, -3), fade=1.8)
+def arg(name, default=None):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
+
+
+MUSIC = arg("--music")
+if MUSIC:
+    import subprocess
+    import tempfile
+
+    # The effects alone, peaked like the --sfx-only stem.
+    fxbus = s.bus["fx"]
+    fxs = fxbus / (np.abs(fxbus).max() or 1) * 0.89
+    reveal = sc["title"][0] + 0.45  # when "Chat in Goblin" lands, with the hook's boom
+    start = float(arg("--drop", "0")) - reveal
+    with tempfile.TemporaryDirectory() as td:
+        wav = os.path.join(td, "m.wav")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{max(0, start):.3f}", "-i", MUSIC, "-t", str(DUR), "-ar", str(SR), "-ac", "2", wav], check=True)
+        mus, _ = sf.read(wav)
+    n = s.N
+    m = np.zeros((n, 2))
+    lead = int(max(0, -start) * SR)
+    m[lead: lead + len(mus)] = mus[: n - lead]
+    t = np.arange(n) / SR
+    # Let the hook's build breathe, then the drop and the boom hit together;
+    # dip again under the ending's riser and boom; fade out under the lockup.
+    duck = np.ones(n)
+    for a, b, depth in [(reveal - 3.4, reveal - 0.02, 0.4), (CUES["lockup"] - 1.7, DUR, 0.35)]:
+        duck = np.minimum(duck, 1 - depth * np.clip(np.minimum((t - a) / 0.5, (b - t) / 0.05 if b < DUR else 1), 0, 1))
+    fade = np.clip((DUR - t) / 2.6, 0, 1) ** 1.5
+    m *= (duck * fade)[:, None] * 0.55
+    mix = np.tanh((m + fxs * 0.8) * 1.05) / np.tanh(1.05)
+    mix = mix / np.abs(mix).max() * 0.93
+    out = arg("--out", os.path.join(ROOT, "out", "chat-launch-mix-licensed.wav"))
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    sf.write(out, mix, SR, subtype="PCM_16")
+    print("wrote", out)
+else:
+    out = os.path.join(ROOT, "public", "launch", "chat-launch-sfx.wav" if SFX_ONLY else "chat-launch-mix.wav")
+    s.write(out, levels=(-15, -19, -7) if not SFX_ONLY else (-60, -60, -3), fade=1.8)
