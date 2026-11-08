@@ -15,12 +15,15 @@ from render/chat-launch-cues.json, the same file the picture uses.
       isn't kept in the repo)
     Add --typing keyboard.wav to use a real typing recording for the messages
     typing out (a different unbroken stretch for each), instead of the synth one.
-    With --music it gets its own level, about 9 dB under whatever is playing
+    Add --swoosh swoosh.wav to use a recorded swoosh on the beat titles, the
+    tagline and the side panel opening, peaking with the first word.
+    With --music the typing gets its own level, about 9 dB under whatever is playing
     (TYPE_UNDER_DB), and the music dips about 2.5 dB while each message types.
 
     The released mix:
       python3 scripts/chat-launch-audio.py --music Taketones_Contrast.mp3 --drop 24.002 \
-        --typing Taketones_LaptopKeyboard_Typing.wav --out out/chat-launch-mix-final.wav
+        --typing Taketones_LaptopKeyboard_Typing.wav --swoosh Taketones_Swoosh004.wav \
+        --out out/chat-launch-mix-final.wav
 """
 import json
 import os
@@ -125,24 +128,59 @@ for m, take in zip(CUES["user"], takes):
         s.put("fx", take, m["at"] + 0.05, type_gain, pan=0.0 if TYPING else 0.2)
 for m in CUES["goblin"]:
     s.put("fx", fx("tick"), m["at"], 0.4, pan=-0.2)
-# Cinematic whoosh-hits on the beat titles: the hit lands with the first word.
-WH, WH_HIT = cinematic.whoosh_hit()
+# Swooshes on the beat titles, peaking with the first word: a recorded swoosh
+# with --swoosh, otherwise the cinematic whoosh-hit.
+def load_swoosh(path):
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        wav = os.path.join(td, "s.wav")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-ar", str(SR), "-ac", "2", wav], check=True)
+        x, _ = sf.read(wav)
+    env = np.abs(x).mean(1)
+    w = int(0.01 * SR)
+    peak = np.argmax([env[i:i + w].mean() for i in range(0, len(env) - w, w)]) * w / SR
+    return x / (np.abs(x).max() or 1), peak
+
+
+SWOOSH = arg("--swoosh")
+if SWOOSH:
+    WH, WH_HIT = load_swoosh(SWOOSH)
+    WH_GAIN = float(os.environ.get("SWOOSH_GAIN", 0.6))
+else:
+    WH, WH_HIT = cinematic.whoosh_hit()
+    WH_GAIN = 0.5
+# With a music track, recorded swooshes get their own level (FEATURED, mixed
+# below), set against whatever is playing at their peak.
+FEATURED = []  # (signal, peak time in the film, dB under the rest)
+
+
+def swoosh_at(peak_t, gain, under_db):
+    if SWOOSH and arg("--music"):
+        FEATURED.append((WH * (gain / 0.6 if WH_GAIN else 0), peak_t, under_db))
+    else:
+        s.put("fx", WH, peak_t - WH_HIT, gain)
+
+
 for b in CUES["beats"]:
-    s.put("fx", WH, b["at"] + 0.06 - WH_HIT, 0.5)
+    swoosh_at(b["at"] + 0.06, WH_GAIN, 3)
 # The title reveal: an epic hook whose final boom lands on "Chat in Goblin".
 HOOK, HOOK_BOOM = cinematic.hook()
 s.put("fx", HOOK, sc["title"][0] + 0.45 - HOOK_BOOM, 0.62)
 for st in CUES["steps"] + CUES["phases"]:
     s.put("fx", fx("tick"), st["at"], 0.35)
 s.put("fx", fx("success"), CUES["card1"], 0.4)
-s.put("fx", fx("swipe"), CUES["panelOpen"], 0.6)
+if SWOOSH:  # the panel sliding in, peaking mid-slide
+    swoosh_at(CUES["panelOpen"] + 0.3, WH_GAIN, 8)
+else:
+    s.put("fx", fx("swipe"), CUES["panelOpen"], 0.6)
 if not SEPARATE_TYPING:
     s.put("fx", takes[-1], CUES["fieldEdit"] + 0.5, type_gain * 0.9)
 s.put("fx", fx("ding"), CUES["card2"] + 0.3, 0.6)  # "add a ding at the end"
 s.put("fx", fx("click"), CUES["explainerToggle"], 0.7)
 s.put("fx", fx("sparkle"), CUES["videoCard"], 0.4)
 s.put("fx", fx("success"), CUES["exportDone"], 0.45)
-s.put("fx", WH, CUES["tagline"] - WH_HIT, 0.45)
+swoosh_at(CUES["tagline"], WH_GAIN, 4)
 RISE = cinematic.riser(1.6)
 s.put("fx", RISE, CUES["lockup"] - 1.6, 0.5)
 s.put("fx", cinematic.boom(), CUES["lockup"], 0.62)
@@ -187,6 +225,16 @@ if MUSIC:
             g = bg * 10 ** (-under_db / 20) / tr * (type_gain / 0.75)
             k = min(len(base) - i, len(take))
             base[i: i + k] += take[:k] * g
+    for sig, peak_t, under_db in FEATURED:
+        i0, j0 = int((peak_t - 0.15) * SR), int((peak_t + 0.15) * SR)
+        bg = np.sqrt((base[i0:j0] ** 2).mean()) or 1e-3
+        p0 = int(WH_HIT * SR)
+        sr_ = np.sqrt((sig[max(0, p0 - int(0.15 * SR)): p0 + int(0.15 * SR)] ** 2).mean()) or 1e-3
+        g = bg * 10 ** (-under_db / 20) / sr_
+        start = int((peak_t - WH_HIT) * SR)
+        a0 = max(0, start)
+        k = min(len(base) - a0, len(sig) - (a0 - start))
+        base[a0: a0 + k] += sig[a0 - start: a0 - start + k] * g
     mix = np.tanh(base * 1.05) / np.tanh(1.05)
     mix = mix / np.abs(mix).max() * 0.93
     out = arg("--out", os.path.join(ROOT, "out", "chat-launch-mix-licensed.wav"))
