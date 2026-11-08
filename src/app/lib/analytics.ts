@@ -77,6 +77,7 @@ type Events = {
   studio_preview_error: { auto: boolean };
   studio_copied: { what: string };
   // One per message sent to Goblin, after it answers: what Goblin did with it.
+  account_usage_opened: Record<string, never>;
   studio_chat: { conversation_id: string; turn: number; explainer_mode: boolean; action: "chat" | "build" | "change" | "explainer" | "error" };
   studio_downloaded: Record<string, never>;
   studio_export_failed: Record<string, never>;

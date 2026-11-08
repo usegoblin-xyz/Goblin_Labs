@@ -4,6 +4,7 @@
 //   ?op=templates  GET / POST / DELETE, see api/_studio/templates.ts
 //   ?op=chat       POST, see api/_studio/chat.ts
 //   ?op=video      GET / POST, explainer videos, see api/_studio/videos.ts
+//   ?op=usage      GET, today's usage against the limits, see api/_studio/usage.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserId } from "./_auth.js";
 import { callClaude, MODEL } from "./_studio/claude.js";
@@ -12,6 +13,7 @@ import { makeHandler as makeTemplates } from "./_studio/templates.js";
 import { CHAT_MODEL, callChat, makeHandler as makeChat } from "./_studio/chat.js";
 import { agentApi } from "./_studio/agent.js";
 import { makeHandler as makeVideos } from "./_studio/videos.js";
+import { makeHandler as makeUsage } from "./_studio/usage.js";
 import { traceFor, tracedChat, tracedTemplate } from "./_studio/llm.js";
 
 const templates = makeTemplates(getUserId);
@@ -25,6 +27,7 @@ function traced(req: VercelRequest) {
   return { trace, userId };
 }
 const videos = makeVideos({ agent: agentApi, userId: getUserId });
+const usage = makeUsage(getUserId);
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.query.op === "generate") {
@@ -37,5 +40,6 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     return makeChat({ call: tracedChat(callChat, trace, CHAT_MODEL), userId, configured: hasKey })(req, res);
   }
   if (req.query.op === "video") return videos(req, res);
+  if (req.query.op === "usage") return usage(req, res);
   return res.status(404).json({ error: "Not found" });
 }
