@@ -23,7 +23,7 @@ import { GeckoLoader } from "./gecko-loader";
 import { exportMp4 } from "@/library/studio/exportMp4";
 import { sfxUsedIn } from "@/library/sfx";
 import {
-  asTemplate, changeVideo, chat, formatOf, generate, getTemplate, getVideo, saveFile, slugOf, startVideo, videoFile,
+  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveFile, slugOf, startVideo, videoFile,
   type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
@@ -153,6 +153,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   useEffect(() => {
     const onNew = () => {
       if (busy) return;
+      newConversation();
       setTurns([]);
       setOpenTurn(null);
       setExplainerMode(false);
@@ -240,7 +241,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     const firstStep: Step[] = req.mode === "repair" ? [{ key: "preview-error", label: "The preview hit an error: fixing it", state: "active" }] : [];
     patch(aid, () => ({ building: true, steps: firstStep, chars: 0 }));
     setBusy(true);
-    track("studio_generate", { mode: req.mode, ...(req.mode === "create" ? { aspect: req.aspect } : {}) });
+    track("studio_generate", { mode: req.mode, conversation_id: conversationId(), ...(req.mode === "create" ? { aspect: req.aspect } : {}) });
 
     const step = (key: string, label: string) =>
       patch(aid, (t) => ({ steps: [...t.steps.map((s) => (s.state === "active" ? { ...s, state: "done" as const } : s)), { key, label, state: "active" }] }));
@@ -283,7 +284,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   // Starts (or changes) an explainer in reply `aid`. The agent works for a few
   // minutes; the polling effect above follows it from here.
   const explainer = async (aid: number, start: () => Promise<ExplainerVideo>) => {
-    track("studio_video", {});
+    track("studio_video", { conversation_id: conversationId() });
     try {
       const v = await start();
       patch(aid, () => ({ video: v }));
@@ -330,7 +331,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     const before = turns;
     setTurns((ts) => [...ts, userTurn, { id: aid, role: "assistant", thinking: true, steps: [], chars: 0 }]);
     setBusy(true);
-    track("studio_chat", {});
+    const said = { conversation_id: conversationId(), turn: before.filter((t) => t.role === "user").length + 1, explainer_mode: explainerMode };
 
     try {
       const r = await chat(history([...before, userTurn]), {
@@ -343,6 +344,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         mode: explainerMode ? "explainer" : undefined,
       });
       patch(aid, () => ({ thinking: false, text: r.reply }));
+      track("studio_chat", { ...said, action: r.action });
       if (r.action === "build") await build(aid, { mode: "create", prompt: r.brief, aspect: r.aspect });
       else if (r.action === "explainer" && explainerMode) await explainer(aid, () => startVideo({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor() }));
       else if (r.action === "change" && currentVideo && explainerMode) await explainer(aid, () => changeVideo(currentVideo.id, r.brief));
@@ -350,6 +352,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       else setBusy(false);
     } catch (err) {
       if ((err as { status?: number }).status === 401) return toLogin();
+      track("studio_chat", { ...said, action: "error" });
       patch(aid, () => ({ thinking: false, error: err instanceof Error ? err.message : "Goblin couldn't reply just now." }));
       setBusy(false);
     }

@@ -6,22 +6,36 @@
 //   ?op=video      GET / POST, explainer videos, see api/_studio/videos.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserId } from "./_auth.js";
-import { callClaude } from "./_studio/claude.js";
+import { callClaude, MODEL } from "./_studio/claude.js";
 import { makeHandler as makeGenerate } from "./_studio/generate.js";
 import { makeHandler as makeTemplates } from "./_studio/templates.js";
-import { callChat, makeHandler as makeChat } from "./_studio/chat.js";
+import { CHAT_MODEL, callChat, makeHandler as makeChat } from "./_studio/chat.js";
 import { agentApi } from "./_studio/agent.js";
 import { makeHandler as makeVideos } from "./_studio/videos.js";
+import { traceFor, tracedChat, tracedTemplate } from "./_studio/llm.js";
 
-const generate = makeGenerate({ call: callClaude, userId: getUserId });
 const templates = makeTemplates(getUserId);
-const chat = makeChat({ call: callChat, userId: getUserId });
+const hasKey = () => !!process.env.ANTHROPIC_API_KEY;
+
+// Chat and generation are built per request, so each Claude call can be
+// reported to PostHog under the signed-in user and the chat it belongs to.
+function traced(req: VercelRequest) {
+  const trace = traceFor(req);
+  const userId = async (r: VercelRequest) => (trace.userId = await getUserId(r));
+  return { trace, userId };
+}
 const videos = makeVideos({ agent: agentApi, userId: getUserId });
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.query.op === "generate") return generate(req, res);
+  if (req.query.op === "generate") {
+    const { trace, userId } = traced(req);
+    return makeGenerate({ call: tracedTemplate(callClaude, trace, MODEL), userId, configured: hasKey })(req, res);
+  }
   if (req.query.op === "templates") return templates(req, res);
-  if (req.query.op === "chat") return chat(req, res);
+  if (req.query.op === "chat") {
+    const { trace, userId } = traced(req);
+    return makeChat({ call: tracedChat(callChat, trace, CHAT_MODEL), userId, configured: hasKey })(req, res);
+  }
   if (req.query.op === "video") return videos(req, res);
   return res.status(404).json({ error: "Not found" });
 }
