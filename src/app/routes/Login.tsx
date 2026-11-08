@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AuthForm, authErrorMessage } from "@/app/lib/auth";
 import { Link, useSearchParams } from "react-router";
+import goblinLogo from "@/assets/goblin-logo.png";
+import { GeckoMark } from "@/app/components/ui/gecko-mark";
 
 export default function Login() {
   const [params] = useSearchParams();
@@ -19,58 +21,49 @@ export default function Login() {
     window.history.replaceState(null, "", url.pathname + url.search);
   }, [params]);
 
+  const [shown, setShown] = useState(mode);
+  const signUp = shown === "sign-up";
   return (
-    <div className="grid min-h-screen w-full bg-white text-[#0d1512] lg:grid-cols-2">
-      {/* ---------- LEFT: form ---------- */}
-      <section className="relative flex flex-col px-6 py-6 sm:px-12">
-        <header className="flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5">
-            <img
-              src="/favicon-192.png"
-              alt=""
-              className="h-[34px] w-[34px] rounded-lg"
-            />
-            <span className="text-[17px] font-bold tracking-tight">
-              Goblin Labs
-            </span>
-          </Link>
-          <Link
-            to="/"
-            className="text-[11px] uppercase tracking-[0.18em] text-[#6b7669] hover:text-[#0d1512]"
-          >
-            Back to lab
-          </Link>
-        </header>
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#050505] text-white">
+      {/* The chat's soft green glow */}
+      <div aria-hidden className="pointer-events-none absolute -top-56 left-1/2 h-[460px] w-[980px] max-w-[160%] -translate-x-1/2 rounded-[50%] blur-[110px]" style={{ background: "radial-gradient(closest-side, #22A03A33, transparent)" }} />
 
-        <main className="mx-auto flex w-full max-w-[380px] flex-1 flex-col justify-center py-16">
-          <h1 className="text-[28px] font-extrabold tracking-tight">{mode === "sign-up" ? "Create your account" : "Welcome back"}</h1>
-          <p className="mt-1 mb-7 text-[14px] text-[#6b7669]">{mode === "sign-up" ? "Free, and it takes a few seconds." : "Sign in to Goblin."}</p>
-          <AuthForm
-            tone="light"
-            initialMode={mode}
-            callbackURL={redirect}
-            initialError={oauthError}
-            onDone={() => {
-              window.location.href = redirect;
-            }}
-          />
+      <header className="relative z-10 flex items-center justify-between px-5 py-5 sm:px-8">
+        <Link to="/" className="flex items-center gap-2.5">
+          <img src={goblinLogo} alt="" className="h-8 w-8 rounded-lg" />
+          <span className="text-[16px] font-semibold tracking-tight">Goblin</span>
+        </Link>
+        <Link to="/" className="text-[13px] text-white/50 transition-colors hover:text-white">
+          Back to Goblin
+        </Link>
+      </header>
 
-          <p className="mt-8 text-center text-[11px] leading-relaxed text-[#9aa295]">
-            Visitors talking to your deployed personas never need an account.
-            This sign-in is for builders.
-          </p>
-        </main>
-      </section>
-
-      {/* ---------- RIGHT: Mia, halved, no text ---------- */}
-      <aside className="relative hidden overflow-hidden bg-white lg:block">
-        <img
-          src="/auth/mia.jpg"
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full object-cover object-right"
+      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-88px)] w-full max-w-[400px] flex-col justify-center px-5 pb-16">
+        <GeckoMark label="" className="mb-5 h-14 w-14" />
+        <h1 className="text-[30px] leading-tight font-semibold tracking-[-0.02em]">{signUp ? "Create your account" : "Welcome back"}</h1>
+        <p className="mt-1.5 mb-7 text-[14.5px] text-white/55">{signUp ? "Free, and it takes a few seconds." : "Sign in to keep making launch videos."}</p>
+        <AuthForm
+          tone="dark"
+          initialMode={mode}
+          callbackURL={redirect}
+          initialError={oauthError}
+          onModeChange={setShown}
+          onDone={() => {
+            window.location.href = redirect;
+          }}
         />
-      </aside>
+        <p className="mt-8 text-center text-[12px] leading-relaxed text-white/35">
+          By continuing you agree to the{" "}
+          <Link to="/terms" className="underline decoration-white/20 underline-offset-2 hover:text-white/60">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="underline decoration-white/20 underline-offset-2 hover:text-white/60">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+      </main>
     </div>
   );
 }

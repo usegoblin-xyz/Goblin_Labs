@@ -148,12 +148,15 @@ export function AuthForm({
   onDone,
   tone = "dark",
   initialError = "",
+  onModeChange,
 }: {
   initialMode?: "sign-up" | "sign-in";
   callbackURL?: string;
   onDone?: () => void;
   tone?: "dark" | "light";
   initialError?: string;
+  // Lets the page's heading follow the form's sign-in / sign-up switch.
+  onModeChange?: (mode: "sign-up" | "sign-in") => void;
 }) {
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState("");
@@ -241,7 +244,7 @@ export function AuthForm({
       )}
       <p className={`mt-4 text-center text-[12.5px] ${dark ? "text-white/60" : "text-[#5d6b5b]"}`}>
         {mode === "sign-up" ? "Already have an account? " : "New here? "}
-        <button type="button" onClick={() => { setMode(mode === "sign-up" ? "sign-in" : "sign-up"); setError(""); }} className="font-semibold text-[#22a03a] hover:underline">
+        <button type="button" onClick={() => { const next = mode === "sign-up" ? "sign-in" : "sign-up"; setMode(next); onModeChange?.(next); setError(""); }} className="font-semibold text-[#22a03a] hover:underline">
           {mode === "sign-up" ? "Sign in" : "Create an account"}
         </button>
       </p>
