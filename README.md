@@ -158,6 +158,32 @@ one (`/?t=<id>`) continues it in the chat. Old `/create` links redirect there.
    restores and deletes a user's templates. Both share one function to stay
    within the Hobby plan's 12-function limit.
 
+### Explainer videos (Managed Agents)
+
+Longer explainers (30 to 60 seconds, captions and code-made music) come from
+the **Video explainer maker** agent built in the Claude Console with
+[Managed Agents](https://platform.claude.com/docs/en/managed-agents). When the
+chat decides the user wants an explainer (`action: "explainer"`), the page calls
+`api/studio.ts?op=video` (`api/_studio/videos.ts`), which starts a session with
+the agent, passing the brief, the format and the brand kit. The agent plans a
+storyboard, runs a workflow that builds the scenes and music in parallel,
+reviews them and joins them with ffmpeg, writing `explainer.mp4`, a preview
+GIF and a stills sheet to its outputs. The page polls the session every few
+seconds and shows the workflow's phases as steps; the API streams the finished
+files from the session to the owner. A follow-up asking for a change goes to
+the same session, so the agent keeps its scenes. Each video row lives in
+`studio.videos`.
+
+| Variable | What it is |
+|---|---|
+| `GOBLIN_EXPLAINER_AGENT_ID` | The agent's ID from the Console (`agent_…`) |
+| `GOBLIN_AGENT_ENVIRONMENT_ID` | The cloud environment it runs in (`env_…`) |
+| `STUDIO_VIDEO_LIMIT` | Explainers per user per 24 hours, default 3 |
+| `STUDIO_VIDEO_BUDGET_CENTS` | Spending cap per video session in US cents, default 400 |
+
+To change what the agent does, edit it in the Console (a new version is used
+by the next session); nothing in Goblin needs redeploying.
+
 Data lives in the `studio` schema (`db/studio.sql`: templates, versions, and a
 log of every Claude call with token counts). Apply it once to the auth database.
 

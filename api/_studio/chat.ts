@@ -14,26 +14,38 @@ export const CHAT_MODEL = process.env.STUDIO_CHAT_MODEL || process.env.STUDIO_MO
 export const CHAT_LIMIT = Number(process.env.STUDIO_CHAT_LIMIT || 200);
 const ASPECTS = ["16:9", "9:16", "1:1"] as const;
 
-export type ChatAction = "chat" | "build" | "change";
-export type ChatOut = { reply: string; action: ChatAction; brief: string; aspect: (typeof ASPECTS)[number] | "none" };
+export type ChatAction = "chat" | "build" | "change" | "explainer";
+export type ChatOut = { reply: string; action: ChatAction; brief: string; title: string; aspect: (typeof ASPECTS)[number] | "none" };
+const explainersOn = () => !!(process.env.GOBLIN_EXPLAINER_AGENT_ID && process.env.GOBLIN_AGENT_ENVIRONMENT_ID);
 export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => Promise<{ out: ChatOut | null; usage: Usage }>;
 
 export const CHAT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "action", "brief", "aspect"],
+  required: ["reply", "action", "brief", "title", "aspect"],
   properties: {
     reply: { type: "string", description: "What Goblin says to the user. Plain text, usually one to three sentences." },
-    action: { type: "string", enum: ["chat", "build", "change"], description: "chat: just talk. build: make a new template now. change: change the current template now." },
+    action: {
+      type: "string",
+      enum: ["chat", "build", "change", "explainer"],
+      description: "chat: just talk. build: make a new short template now. change: change the current template or explainer now. explainer: make a new explainer video now.",
+    },
     brief: {
       type: "string",
-      description: "For build: a complete, self-contained description of the video for the template writer (scenes in order, the on-screen copy, timing, feel). For change: the exact change to make. Empty string for chat.",
+      description: "For build: a complete, self-contained description of the video for the template writer (scenes in order, the on-screen copy, timing, feel). For explainer: the topic, audience, length, any scenes asked for, and every fact, number and name the user gave, with any source text they pasted copied in full. For change: the exact change to make. Empty string for chat.",
     },
+    title: { type: "string", description: "For build or explainer: a 2 to 5 word title in title case. Empty string otherwise." },
     aspect: { type: "string", enum: [...ASPECTS, "none"], description: "The format the user asked for, or none if they didn't say." },
   },
 };
 
-export function chatSystem(ctx: { brand?: string; aspect: string; template?: { title: string; outcome: string; version: number; format: string; seconds: number; copy: Record<string, string> } }) {
+export function chatSystem(ctx: {
+  brand?: string;
+  aspect: string;
+  template?: { title: string; outcome: string; version: number; format: string; seconds: number; copy: Record<string, string> };
+  video?: { title: string; format: string };
+  explainers?: boolean;
+}) {
   return `You are Goblin, the assistant on usegoblin.xyz. Goblin builds short motion-graphics videos as templates: code-based animations, 4 to 15 seconds long, in 16:9, 9:16 or 1:1, styled automatically from the user's brand kit (colours, font, motion feel), with editable text fields. They can carry sound effects from Goblin's library (whooshes, pops, clicks, ticks, typing, dings, chimes, sparkles, impacts, booms, bass drops, risers, glitches, drumrolls and more) timed to the motion, but no music. Users preview them on the site and download them as MP4 files, with sound.
 
 How to talk:
@@ -50,10 +62,16 @@ When to build (action "build" or "change"):
 - A build brief must stand alone: the template writer sees only the brief, not this conversation. Include the scenes in order, the exact on-screen copy, the length and the feel. Leave colours and fonts to the brand kit.
 - Sound: if the user wants sound or sound effects, say so in the brief and describe which sounds go where (for example "a whoosh as each card slides in, a ding on the final stat, a riser into the logo"). If they haven't mentioned sound, you can ask whether they want sound effects before building; if they don't want any, or never said, leave sound out of the brief.
 
-Context:
+${ctx.explainers ? `Explainer videos (action "explainer"):
+- Goblin also makes explainer videos with a separate explainer agent: 30 to 60 seconds, 4 scenes by default (up to 8), each with an on-screen caption, quiet background music made with code, in the brand's colours, delivered as an MP4. They take a few minutes to make, and the user can keep chatting meanwhile. The agent has no internet access: it uses what the user gives it and what it already knows.
+- Use "explainer" when the user asks for an explainer, a walkthrough of how something works, a lesson or tutorial, or a video longer than 15 seconds with captions or music. Use "build" for short 4 to 15 second launch-style videos with editable text. If it's unclear which they want, ask.
+- The same rule applies: only when they ask you to make it now. The reply is one short line saying what you're making and that it takes a few minutes.
+- If the current item is an explainer and they ask for a change to it, use "change" with the exact change as the brief.
+
+` : ""}Context:
 - The user's brand: ${ctx.brand || "not named yet"}.
 - Format selected in the input: ${ctx.aspect}. Use it unless the user asks for another.
-- ${ctx.template ? `Current template: "${ctx.template.title}" (v${ctx.template.version}, ${ctx.template.format}, ${ctx.template.seconds}s): ${ctx.template.outcome}. Its text: ${JSON.stringify(ctx.template.copy)}.` : "No template has been built in this chat yet."}`;
+- ${ctx.video ? `Current item: the explainer video "${ctx.video.title}" (${ctx.video.format}). A change re-edits this video.` : ctx.template ? `Current template: "${ctx.template.title}" (v${ctx.template.version}, ${ctx.template.format}, ${ctx.template.seconds}s): ${ctx.template.outcome}. Its text: ${JSON.stringify(ctx.template.copy)}.` : "Nothing has been built in this chat yet."}`;
 }
 
 let client: Anthropic | null = null;
@@ -135,7 +153,9 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       const started = Date.now();
       let result: Awaited<ReturnType<CallChat>>;
       try {
-        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template }), messages);
+        const v = body.video && typeof body.video === "object" ? body.video : null;
+        const video = v ? { title: str(v.title, 80), format: ASPECTS.includes(v.format) ? v.format : "16:9" } : undefined;
+        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn() }), messages);
       } catch (e) {
         await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: false, error: (e as Error).message, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0, ms: Date.now() - started });
         return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
@@ -144,18 +164,20 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: !!out, ...result.usage, ms: Date.now() - started });
       if (!out || !out.reply) return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
 
-      let action: ChatAction = out.action === "build" || out.action === "change" ? out.action : "chat";
-      if (action === "change" && !template) action = "build";
-      const brief = action === "chat" ? "" : str(out.brief, 1200);
+      let action: ChatAction = out.action === "build" || out.action === "change" || out.action === "explainer" ? out.action : "chat";
+      if (action === "explainer" && !explainersOn()) action = "build";
+      if (action === "change" && !template && !body.video) action = "build";
+      const brief = action === "chat" ? "" : str(out.brief, action === "explainer" ? 4000 : 1200);
       if (action !== "chat" && brief.length < 8) action = "chat";
       // A build counts toward the daily generation limit; say so before starting.
-      if (action !== "chat") {
+      // (Explainers have their own limit, checked when one starts.)
+      if (action === "build" || (action === "change" && !body.video)) {
         const limit = Number(process.env.STUDIO_DAILY_LIMIT || 20);
         if ((await usedToday(userId)) >= limit) {
           return res.status(200).json({ reply: `I'd love to, but you've used all ${limit} builds for today. We can keep planning it, and I'll build it tomorrow.`, action: "chat", brief: "", aspect });
         }
       }
-      return res.status(200).json({ reply: str(out.reply, 2000), action, brief, aspect: out.aspect === "none" || !ASPECTS.includes(out.aspect as never) ? aspect : out.aspect });
+      return res.status(200).json({ reply: str(out.reply, 2000), action, brief, title: action === "build" || action === "explainer" ? str(out.title, 80) : "", aspect: out.aspect === "none" || !ASPECTS.includes(out.aspect as never) ? aspect : out.aspect });
     } catch (e) {
       console.error("studio chat failed", (e as Error).message);
       if (!res.headersSent) res.status(500).json({ error: "Something went wrong. Try again in a moment." });

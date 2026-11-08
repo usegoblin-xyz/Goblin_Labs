@@ -1,11 +1,13 @@
 // The homepage chat (the whole main area of the app). Goblin talks the idea
-// through first and builds a template only when asked. Each template comes
-// back as a small card in the conversation; clicking it opens the template in
-// a panel on the right, where it plays and can be downloaded. Adapted from the
+// through first and builds only when asked: a short template (written here,
+// previewed in the sandbox) or a longer explainer video (made by the explainer
+// agent in the Claude Console, which takes a few minutes). Each result comes
+// back as a small card in the conversation; clicking it opens it in a panel on
+// the right, where it plays and can be downloaded. Adapted from the
 // Ruixen "moon chat" layout, recoloured to Goblin green.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
-import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, ListChecks, Loader2, Megaphone, Rocket, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
+import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, Lightbulb, ListChecks, Loader2, Megaphone, Rocket, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./button";
 import { Textarea } from "./textarea";
@@ -19,8 +21,8 @@ import { GeckoLoader } from "./gecko-loader";
 import { exportMp4 } from "@/library/studio/exportMp4";
 import { sfxUsedIn } from "@/library/sfx";
 import {
-  asTemplate, chat, formatOf, generate, getTemplate, saveFile, slugOf,
-  type Aspect, type ChatMessage, type GenEvent, type GenRequest, type StudioTemplate,
+  asTemplate, changeVideo, chat, formatOf, generate, getTemplate, getVideo, saveFile, slugOf, startVideo, videoFile,
+  type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
 const GREEN = "#22A03A";
@@ -55,6 +57,7 @@ type Reply = {
   steps: Step[];
   chars: number;
   template?: StudioTemplate;
+  video?: ExplainerVideo; // an explainer made by the explainer agent
   error?: string;
   health?: "testing" | "ok" | "error";
 };
@@ -63,6 +66,7 @@ type Turn = { id: number; role: "user"; text: string } | Reply;
 const QUICK: { icon: ReactNode; label: string; prompt: string }[] = [
   { icon: <Rocket className="h-4 w-4" />, label: "Product launch", prompt: "I'm launching a product and want a short video for it" },
   { icon: <Sparkles className="h-4 w-4" />, label: "Feature drop", prompt: "We just shipped a new feature. Can you help me announce it?" },
+  { icon: <Lightbulb className="h-4 w-4" />, label: "Explainer", prompt: "I want an explainer video that walks people through how something works" },
   { icon: <ListChecks className="h-4 w-4" />, label: "Changelog", prompt: "I want a changelog video for this week's updates" },
   { icon: <TrendingUp className="h-4 w-4" />, label: "Milestone", prompt: "We hit a milestone and want to celebrate it" },
   { icon: <BarChart3 className="h-4 w-4" />, label: "Stat reveal", prompt: "I have one big number I want to show off" },
@@ -90,6 +94,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   });
   const [aspect, setAspect] = useState<Aspect>("16:9");
   const [turns, setTurns] = useState<Turn[]>([]);
+  const turnsRef = useRef(turns);
+  turnsRef.current = turns;
   const [busy, setBusy] = useState(false);
   // Copy edits per template, made without asking Claude ("Text" in the panel).
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
@@ -100,14 +106,19 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   const exportHost = useRef<HTMLDivElement>(null);
   const [params, setParams] = useSearchParams();
   const openId = params.get("t");
+  const openVideoId = params.get("v");
   const nextId = useRef(1);
   const autoFixes = useRef(0);
   const scroller = useRef<HTMLDivElement>(null);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({ minHeight: 52, maxHeight: 160 });
 
   const latest = [...turns].reverse().find((t): t is Reply => t.role === "assistant" && !!t.template);
-  const current = latest?.template ?? null;
-  const panel = turns.find((t): t is Reply => t.id === openTurn && t.role === "assistant" && !!t.template) ?? null;
+  // What follow-up messages change: the newest template or explainer in the chat.
+  const lastItem = [...turns].reverse().find((t): t is Reply => t.role === "assistant" && !!(t.template || t.video));
+  const current = lastItem?.template ?? null;
+  const currentVideo = lastItem?.video ?? null;
+  const panel = turns.find((t): t is Reply => t.id === openTurn && t.role === "assistant" && !!(t.template || t.video)) ?? null;
+  const running = turns.some((t) => t.role === "assistant" && t.video?.status === "running");
 
   useEffect(() => {
     try {
@@ -166,6 +177,47 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn, openId]);
 
+  // /?v=<id> reopens an explainer video.
+  useEffect(() => {
+    if (!isSignedIn || !openVideoId || currentVideo?.id === openVideoId || busy) return;
+    getVideo(openVideoId)
+      .then((video) => {
+        const rid = nextId.current++;
+        setTurns([{ id: rid, role: "assistant", text: video.status === "running" ? `I'm still making “${video.title}”.` : `Here's “${video.title}”. Tell me what to change, or open it to play and download it.`, steps: [], chars: 0, video }]);
+        if (video.status === "done") setOpenTurn(rid);
+      })
+      .catch(() => {
+        toast.error("Couldn't open that video");
+        setParams({}, { replace: true });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, openVideoId]);
+
+  // Explainers take minutes: check on the ones still being made every few seconds.
+  useEffect(() => {
+    if (!running) return;
+    let stopped = false;
+    const tick = async () => {
+      const ids = new Set<string>();
+      for (const t of turnsRef.current) if (t.role === "assistant" && t.video?.status === "running") ids.add(t.video.id);
+      for (const id of ids) {
+        try {
+          const v = await getVideo(id);
+          if (stopped) return;
+          setTurns((ts) => ts.map((t) => (t.role === "assistant" && t.video?.id === id && t.video.status === "running" ? { ...t, video: v.steps.length || v.status !== "running" ? v : { ...v, steps: t.video.steps } } : t)));
+          if (v.status === "done" && v.files.mp4) track("studio_video_done", {});
+        } catch {
+          /* try again next tick */
+        }
+      }
+    };
+    const timer = window.setInterval(tick, 5000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [running]);
+
   const patch = (id: number, f: (t: Reply) => Partial<Reply>) =>
     setTurns((ts) => ts.map((t) => (t.id === id && t.role === "assistant" ? { ...t, ...f(t) } : t)));
 
@@ -210,12 +262,31 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     }
   };
 
+  const brandFor = () => ({ name: brand.name, background: brand.background, foreground: brand.foreground, primary: brand.primary, accent: brand.accent, font: brand.font });
+
+  // Starts (or changes) an explainer in reply `aid`. The agent works for a few
+  // minutes; the polling effect above follows it from here.
+  const explainer = async (aid: number, start: () => Promise<ExplainerVideo>) => {
+    track("studio_video", {});
+    try {
+      const v = await start();
+      patch(aid, () => ({ video: v }));
+      setParams({ v: v.id }, { replace: true });
+    } catch (err) {
+      if ((err as { status?: number }).status === 401) return toLogin();
+      patch(aid, () => ({ error: err instanceof Error ? err.message : "Couldn't start the explainer." }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // The conversation so far, as Goblin sees it.
   const history = (ts: Turn[]): ChatMessage[] =>
     ts.flatMap((t): ChatMessage[] => {
       if (t.role === "user") return [{ role: "user", text: t.text }];
       const parts = [t.text ?? ""];
       if (t.template) parts.push(`[Built template “${t.template.title}” v${t.template.version}, ${formatOf(t.template)}, ${seconds(t.template)}s]`);
+      if (t.video) parts.push(`[Explainer video “${t.video.title}”, ${t.video.aspect}: ${t.video.status === "running" ? "still being made" : t.video.files.mp4 ? "finished" : "finished without a video"}]${t.video.message && t.video.status !== "running" ? `\nThe explainer agent said: ${t.video.message}` : ""}`);
       if (t.error) parts.push(`[The build failed: ${t.error}]`);
       const text = parts.filter(Boolean).join("\n");
       return text ? [{ role: "assistant", text }] : [];
@@ -243,9 +314,12 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         template: current
           ? { title: current.title, outcome: current.outcome, version: current.version, format: formatOf(current), seconds: seconds(current), copy: contentFor(current) }
           : undefined,
+        video: currentVideo ? { title: currentVideo.title, format: currentVideo.aspect } : undefined,
       });
       patch(aid, () => ({ thinking: false, text: r.reply }));
       if (r.action === "build") await build(aid, { mode: "create", prompt: r.brief, aspect: r.aspect });
+      else if (r.action === "explainer") await explainer(aid, () => startVideo({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor() }));
+      else if (r.action === "change" && currentVideo) await explainer(aid, () => changeVideo(currentVideo.id, r.brief));
       else if (r.action === "change" && current) await build(aid, { mode: "edit", id: current.id, instruction: r.brief });
       else setBusy(false);
     } catch (err) {
@@ -337,9 +411,9 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           style={{ overflow: "hidden" }}
         />
         <div className="flex items-center justify-between gap-2 px-3 pb-3">
-          {current ? (
+          {current || currentVideo ? (
             <span className="truncate pl-1 text-[12px] text-white/40">
-              Working on <span className="text-white/65">{current.title}</span>
+              Working on <span className="text-white/65">{(current ?? currentVideo)!.title}</span>
             </span>
           ) : (
             <div className="flex items-center gap-0.5 rounded-lg border border-white/8 p-0.5" role="group" aria-label="Format">
@@ -423,6 +497,47 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     );
   };
 
+  // The card an explainer video appears as.
+  const videoCard = (t: Reply) => {
+    const v = t.video!;
+    const ready = v.status === "done" && v.files.mp4;
+    return (
+      <div className={cn("ml-9 flex max-w-[460px] items-center gap-3 rounded-xl border bg-white/[0.03] p-2 pr-2.5 transition-colors", openTurn === t.id ? "border-white/30" : "border-white/10 hover:border-white/25")}>
+        <button onClick={() => setOpenTurn(t.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Open ${v.title}`}>
+          <span className="relative flex h-[54px] w-[96px] shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/8 bg-[#0a0a0a]">
+            {ready && v.files.gif ? (
+              <img src={videoFile(v, "gif")} alt="" className="h-full w-full object-cover" />
+            ) : v.status === "running" ? (
+              <span className="h-10 w-10">
+                <GeckoLoader small label="Making the video" />
+              </span>
+            ) : (
+              <Clapperboard className="h-5 w-5 text-white/40" />
+            )}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[14.5px] font-medium text-white">{v.title}</span>
+            <span className="block truncate text-[12.5px] text-white/45">
+              Explainer · {v.aspect} · {v.status === "running" ? "being made" : ready ? "MP4 with music" : "no video"}
+              {v.turns > 1 ? ` · v${v.turns}` : ""}
+            </span>
+          </span>
+        </button>
+        {ready ? (
+          <a
+            href={videoFile(v, "mp4", true)}
+            download
+            onClick={() => track("studio_video_downloaded", {})}
+            aria-label={`Download ${v.title} as MP4`}
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3 text-[12.5px] text-white/80 hover:bg-white/8 hover:text-white"
+          >
+            <Download className="h-3.5 w-3.5" /> Download
+          </a>
+        ) : null}
+      </div>
+    );
+  };
+
   return (
     <div className={cn("relative flex h-full w-full", className)}>
       <div className="relative flex h-full min-w-0 flex-1 flex-col">
@@ -436,7 +551,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
             <div className="w-full max-w-[720px]">
               <h1 className="text-center text-[30px] leading-tight font-semibold tracking-[-0.02em] sm:text-[40px]">What are you launching?</h1>
               <p className="mx-auto mt-3 max-w-[480px] text-center text-[15px] leading-relaxed text-white/55">
-                Talk it through with Goblin. When you're ready, ask it to build the video as a template in your brand.
+                Talk it through with Goblin. When you're ready, ask it for a short launch video or a longer explainer, made in your brand.
               </p>
               <div className="mt-8">{input}</div>
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
@@ -465,7 +580,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                         {t.text}
                       </div>
                     );
-                  const working = !!t.thinking || !!t.building || (!!t.template && t.health === "testing" && t === latest);
+                  const working = !!t.thinking || !!t.building || (!!t.template && t.health === "testing" && t === latest) || t.video?.status === "running";
+                  const steps = t.video ? t.video.steps : t.steps;
                   return (
                     <div key={t.id} className="flex flex-col gap-3">
                       <div className="flex items-start gap-3">
@@ -479,14 +595,14 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                             </div>
                           )}
                           {t.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap text-white/90">{t.text}</p>}
-                          {(t.building || t.steps.length > 0) && (
+                          {(t.building || steps.length > 0) && (
                             <div className={cn(t.text && "mt-2")}>
                               {t.building && t.steps.length === 0 && (
                                 <div className="flex items-center gap-2 py-0.5 text-[14px] text-white/60">
                                   <Dot /> Starting…
                                 </div>
                               )}
-                              {t.steps.map((s) => (
+                              {steps.map((s) => (
                                 <div key={s.key} className="flex items-center gap-2 py-0.5 text-[14px]">
                                   {s.state === "active" ? <Dot /> : s.state === "done" ? <Check className="h-3.5 w-3.5 shrink-0 text-[#22A03A]" /> : <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
                                   <span className={s.state === "active" ? "text-white" : "text-white/50"}>{s.label}</span>
@@ -496,9 +612,21 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                             </div>
                           )}
                           {t.error && <div className="mt-1 text-[14px] text-amber-200">{t.error}</div>}
+                          {t.video && t.video.status !== "running" && t.video.message && (
+                            <p className={cn("mt-2 text-[14px] leading-relaxed whitespace-pre-wrap", t.video.status === "failed" ? "text-amber-200" : "text-white/70")}>
+                              {/* The agent's full report (scenes, choices, review notes) is in the panel; the chat gets its first paragraph. */}
+                              {t.video.message.split(/\n\s*\n/)[0]}
+                              {t.video.message.includes("\n\n") && t.video.files.mp4 && (
+                                <button onClick={() => setOpenTurn(t.id)} className="ml-1 text-[#5fd67a] hover:underline">
+                                  Scenes and notes
+                                </button>
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
                       {t.template && card(t)}
+                      {t.video && videoCard(t)}
                     </div>
                   );
                 })}
@@ -510,6 +638,71 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           </>
         )}
       </div>
+
+      {panel?.video && (
+        <aside
+          aria-label={`${panel.video.title} video`}
+          className="fixed inset-0 z-40 flex flex-col bg-[#080808] lg:static lg:z-auto lg:w-[min(48%,680px)] lg:shrink-0 lg:border-l lg:border-white/8 lg:pt-[58px]"
+        >
+          <div className="flex items-center gap-3 border-b border-white/8 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[15px] font-semibold">{panel.video.title}</div>
+              <div className="truncate text-[12px] text-white/45">
+                Explainer · {panel.video.aspect} · {panel.video.status === "running" ? "being made" : "MP4 with captions and music"}
+              </div>
+            </div>
+            {panel.video.status === "done" && panel.video.files.mp4 && (
+              <a
+                href={videoFile(panel.video, "mp4", true)}
+                download
+                onClick={() => track("studio_video_downloaded", {})}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#22A03A] px-3.5 text-[12.5px] font-semibold text-black hover:bg-[#22A03A]/90"
+              >
+                <Download className="h-3.5 w-3.5" /> Download MP4
+              </a>
+            )}
+            <button onClick={() => setOpenTurn(null)} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-full text-white/60 hover:bg-white/8 hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0a0a0a]">
+              <div className={cn("relative mx-auto", panel.video.aspect === "16:9" ? "aspect-video" : panel.video.aspect === "1:1" ? "aspect-square max-h-[60vh]" : "aspect-[9/16] max-h-[64vh]")}>
+                {panel.video.status === "done" && panel.video.files.mp4 ? (
+                  <video key={panel.video.updatedAt} src={videoFile(panel.video, "mp4")} poster={panel.video.files.gif ? videoFile(panel.video, "gif") : undefined} controls playsInline preload="metadata" className="h-full w-full bg-black object-contain" />
+                ) : panel.video.status === "running" ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                    <span className="h-28 w-28">
+                      <GeckoLoader label="Making the video" />
+                    </span>
+                    <span className="text-[13px] text-white/55">The explainer agent is building the scenes. This takes a few minutes; you can keep chatting.</span>
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center p-6 text-center text-[13px] text-white/50">No video came back this time.</div>
+                )}
+              </div>
+            </div>
+            {panel.video.steps.length > 0 && (
+              <div className="mt-3">
+                {panel.video.steps.map((s) => (
+                  <div key={s.key} className="flex items-center gap-2 py-0.5 text-[13.5px]">
+                    {s.state === "active" ? <Dot /> : s.state === "done" ? <Check className="h-3.5 w-3.5 shrink-0 text-[#22A03A]" /> : <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-300" />}
+                    <span className={s.state === "active" ? "text-white" : "text-white/50"}>{s.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {panel.video.message && panel.video.status !== "running" && <p className="mt-3 text-[13.5px] leading-relaxed whitespace-pre-wrap text-white/60">{panel.video.message}</p>}
+            {panel.video.status === "done" && panel.video.files.png && (
+              <>
+                <div className="mt-6 text-[12px] font-medium text-white/45">Scenes</div>
+                <img src={videoFile(panel.video, "png")} alt={`Stills from every scene of ${panel.video.title}`} className="mt-2 w-full rounded-lg border border-white/10" />
+              </>
+            )}
+            <p className="mt-4 text-[11.5px] text-white/35">Made by Goblin's explainer agent. To change it, tell Goblin what to change; it keeps the scenes and redoes only what's needed.</p>
+          </div>
+        </aside>
+      )}
 
       {panel?.template && (
         <aside

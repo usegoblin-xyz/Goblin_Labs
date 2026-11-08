@@ -64,3 +64,27 @@ create index if not exists generations_user_idx on studio.generations (user_id, 
 
 grant select, insert, update, delete on studio.templates, studio.template_versions, studio.generations to goblin_auth;
 grant usage, select on sequence studio.generations_id_seq to goblin_auth;
+
+-- Explainer videos made by the Managed Agents explainer agent
+-- (api/_studio/videos.ts). One row per video; the agent session keeps the
+-- files, which the API streams back to the owner.
+create table if not exists studio.videos (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null references better_auth."user"(id) on delete cascade,
+  session_id text not null,
+  title text not null,
+  brief text not null,
+  aspect text not null,
+  status text not null default 'running' check (status in ('running', 'done', 'failed')),
+  message text,
+  -- Output file ids by kind (mp4, gif, png) from the latest finished turn.
+  files jsonb not null default '{}'::jsonb,
+  -- When the latest request to the agent was sent; outputs older than this belong to an earlier turn.
+  turn_at timestamptz not null default now(),
+  turns int not null default 1,
+  cost_cents int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists videos_user_idx on studio.videos (user_id, created_at desc);
+grant select, insert, update, delete on studio.videos to goblin_auth;
