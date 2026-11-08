@@ -12,6 +12,7 @@ import { CameraMotionBlur } from "@remotion/motion-blur";
 import { DEFAULT_BRAND, type Brand } from "../src/library/brand";
 import { TEMPLATES } from "../src/library/registry";
 import { GoblinLaunch } from "./GoblinLaunch";
+import { ChatLaunch, CHAT_LAUNCH_SECONDS } from "./ChatLaunch";
 
 type Props = { brand: Brand; content: Record<string, string | number>; templateId: string; blur: number };
 type Comp = React.ComponentType<{ brand: Brand; content: Record<string, string | number>; audio?: boolean }>;
@@ -51,6 +52,7 @@ export function Root() {
           <Composition key={t.id} {...common} lazyComponent={() => t.lazy!().then((m) => ({ default: withRender(m.default as Comp, t.soundtrack) })) as never} />
         );
       })}
+      <Composition id="goblin-chat-launch" component={ChatLaunch as never} width={1920} height={1080} fps={30} durationInFrames={CHAT_LAUNCH_SECONDS * 30} defaultProps={{ audio: true } as never} />
       <Composition id="goblin-launch" component={GoblinLaunch as never} width={1920} height={1080} fps={60} durationInFrames={990} defaultProps={{ blur: 0 } as never} />
     </>
   );
