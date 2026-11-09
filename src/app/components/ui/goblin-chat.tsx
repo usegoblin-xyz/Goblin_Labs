@@ -7,7 +7,7 @@
 // Ruixen "moon chat" layout, recoloured to Goblin green.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
-import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, FileText, Film, ImageIcon, Music2, Paperclip, Lightbulb, ListChecks, Loader2, Megaphone, Plus, Rocket, Scissors, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
+import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, FileText, Film, ImageIcon, Music2, Lightbulb, ListChecks, Loader2, Megaphone, Plus, Rocket, Scissors, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./button";
 import { Textarea } from "./textarea";
@@ -116,7 +116,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   const [busy, setBusy] = useState(false);
   // Photos and clips attached to the next message.
   const [pending, setPending] = useState<Pending[]>([]);
-  const [plusOpen, setPlusOpen] = useState(false);
   const [musicBusy, setMusicBusy] = useState(false);
   const [trimming, setTrimming] = useState<{ src: string; duration: number; initial: { start: number; end: number } | null; done: (t: { start: number; end: number } | null) => void; cancel: () => void } | null>(null);
   const [splitting, setSplitting] = useState<{ kind: "template"; t: StudioTemplate } | { kind: "video"; v: ExplainerVideo; duration: number } | null>(null);
@@ -334,7 +333,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       }
       setPending((xs) => [...xs, { key, file, preview, kind: info.kind, use: info.kind === "doc" ? "reference" : info.kind === "audio" ? "video" : "auto", duration: info.durationSeconds, trim, progress: 0, status: "uploading", width: info.width, height: info.height }]);
       track("studio_media_attached", { kind: info.kind, conversation_id: conversationId() });
-      setPlusOpen(false);
       startUpload(key, file);
     }
     requestAnimationFrame(() => textareaRef.current?.focus());
@@ -426,13 +424,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     return () => window.clearTimeout(timer);
   }, [edits]);
 
-  // The + menu closes on a click anywhere else.
-  useEffect(() => {
-    if (!plusOpen) return;
-    const close = (e: PointerEvent) => !(e.target as HTMLElement).closest?.('[role="menu"], [aria-label="Add files, music or references"]') && setPlusOpen(false);
-    document.addEventListener("pointerdown", close);
-    return () => document.removeEventListener("pointerdown", close);
-  }, [plusOpen]);
 
   // A music field in the panel.
   const setMusic = (tpl: StudioTemplate, key: string, ref: string) => setEdits((x) => ({ ...x, [tpl.id]: { ...contentFor(tpl), [key]: ref } }));
@@ -698,30 +689,15 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         />
         <div className="flex items-center justify-between gap-2 px-3 pb-3">
           <div className="flex min-w-0 items-center gap-2">
-          <div className="relative">
-            <button
-              onClick={() => (isSignedIn ? setPlusOpen((o) => !o) : toLogin())}
-              disabled={busy || pending.length >= 6}
-              aria-label="Add files, music or references"
-              aria-expanded={plusOpen}
-              title="Add photos, clips, music, documents or references"
-              className={cn("inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg border text-white/55 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40", plusOpen ? "border-white/25 text-white" : "border-white/8")}
-            >
-              <Plus className={cn("h-4 w-4 transition-transform", plusOpen && "rotate-45")} />
-            </button>
-            {plusOpen && (
-              <div className="absolute bottom-full left-0 z-30 mb-2 w-[270px] rounded-xl border border-white/10 bg-[#161616] p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.55)]" role="menu">
-                <button role="menuitem" onClick={() => picker.current?.click()} className="flex w-full items-start gap-3 rounded-lg px-2.5 py-2 text-left hover:bg-white/[0.07]">
-                  <Paperclip className="mt-0.5 h-4 w-4 shrink-0 text-white/60" />
-                  <span>
-                    <span className="block text-[13.5px] text-white">Upload files</span>
-                    <span className="block text-[11.5px] text-white/45">Photos, clips, music, PDFs, Word or text files</span>
-                  </span>
-                </button>
-                <div className="border-t border-white/8 px-2.5 pt-2 pb-1 text-[11px] leading-snug text-white/40">Want music? Just ask in your message, like “upbeat music, cut on the beat”. Paste a link and Goblin reads it.</div>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => (isSignedIn ? picker.current?.click() : toLogin())}
+            disabled={busy || pending.length >= 6}
+            aria-label="Add files"
+            title="Add photos, clips, music, PDFs, Word or text files"
+            className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg border border-white/8 text-white/55 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
           {/* On the empty page the Explainer chip below does this; in a chat, the toggle lives here. */}
           {!empty && (
           <button
