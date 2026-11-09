@@ -4,7 +4,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { db, chatsToday, usedToday } from "./db.js";
 import { DAILY_LIMIT } from "./generate.js";
 import { CHAT_LIMIT } from "./chat.js";
-import { VIDEO_LIMIT } from "./videos.js";
+import { EDIT_LIMIT, VIDEO_LIMIT } from "./videos.js";
 
 export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | null>) {
   return async (req: VercelRequest, res: VercelResponse) => {
@@ -15,8 +15,8 @@ export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | n
       usedToday(userId),
       chatsToday(userId),
       db()
-        .query(`select count(*)::int as n from studio.videos where user_id = $1 and created_at > now() - interval '24 hours'`, [userId])
-        .then((r) => r.rows[0].n as number),
+        .query(`select count(*) filter (where kind = 'explainer')::int as explainers, count(*) filter (where kind = 'edit')::int as edits from studio.videos where user_id = $1 and created_at > now() - interval '24 hours'`, [userId])
+        .then((r) => r.rows[0] as { explainers: number; edits: number }),
     ]);
     res.setHeader("cache-control", "no-store");
     return res.status(200).json({
@@ -24,7 +24,8 @@ export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | n
       window: "24h",
       limits: [
         { key: "builds", label: "Videos built or changed", used: builds, limit: DAILY_LIMIT },
-        { key: "explainers", label: "Explainer videos", used: videos, limit: VIDEO_LIMIT() },
+        { key: "explainers", label: "Explainer videos", used: videos.explainers, limit: VIDEO_LIMIT() },
+        { key: "edits", label: "Edits by Goblin Editor", used: videos.edits, limit: EDIT_LIMIT() },
         { key: "messages", label: "Messages to Goblin", used: chats, limit: CHAT_LIMIT },
       ],
     });
