@@ -95,7 +95,7 @@ export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, 
 }
 
 export type ChatMessage = { role: "user" | "assistant"; text: string; media?: { ref: string; use: "auto" | "video" | "reference" }[] };
-export type ChatReply = { reply: string; action: "chat" | "build" | "change" | "explainer" | "edit"; brief: string; title: string; aspect: Aspect; music?: string; links?: { url: string; title: string; ok: boolean; text: string }[] };
+export type ChatReply = { reply: string; action: "chat" | "build" | "change" | "explainer" | "edit"; brief: string; title: string; aspect: Aspect; music?: string; photos?: string[]; links?: { url: string; title: string; ok: boolean; text: string }[] };
 export type ChatContext = {
   aspect: Aspect;
   brand?: string;
@@ -218,6 +218,14 @@ export function asTemplate(s: StudioTemplate): Template {
 }
 
 // ---- saved chats ----------------------------------------------------------------
+// Free stock photos from Pexels, saved to the user's media (api/_studio/stock.ts).
+export type StockPhoto = { id: string; ref: string; name: string; query: string; alt: string; width: number; height: number; url: string; credit: { photographer: string; url: string } };
+export async function stockPhotos(queries: string[], aspect: Aspect): Promise<StockPhoto[]> {
+  const r = await fetch("/api/studio?op=stock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ queries, aspect }), credentials: "same-origin" });
+  if (!r.ok) throw await errorOf(r);
+  return (await r.json()).photos;
+}
+
 export type ChatSummary = { id: string; title: string; updatedAt: string };
 const chatsCall = async (init?: RequestInit, query = "") => {
   const r = await fetch(`/api/studio?op=chats${query}`, { credentials: "same-origin", ...init, headers: init?.body ? { "content-type": "application/json" } : undefined });

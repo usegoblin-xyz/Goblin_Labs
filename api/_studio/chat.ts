@@ -9,6 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { logGeneration, usedToday, chatsToday } from "./db.js";
 import type { Usage } from "./claude.js";
+import { stockOn, cleanQueries } from "./stock.js";
 import { blocks, describe, linksIn, loadAttachments, readLinkPage, type AttachmentIn, type LinkRead } from "./refs.js";
 
 export const CHAT_MODEL = process.env.STUDIO_CHAT_MODEL || process.env.STUDIO_MODEL || "claude-opus-5-5";
@@ -17,7 +18,7 @@ const ASPECTS = ["16:9", "9:16", "1:1"] as const;
 
 export type ChatAction = "chat" | "build" | "change" | "explainer" | "edit";
 export const MOODS = ["calm", "upbeat", "cinematic", "lofi", "epic", "playful", "corporate"] as const;
-export type ChatOut = { reply: string; action: ChatAction; brief: string; title: string; aspect: (typeof ASPECTS)[number] | "none"; music: "none" | (typeof MOODS)[number] };
+export type ChatOut = { reply: string; action: ChatAction; brief: string; title: string; aspect: (typeof ASPECTS)[number] | "none"; music: "none" | (typeof MOODS)[number]; photos?: string[] };
 const explainersOn = () => !!(process.env.GOBLIN_EXPLAINER_AGENT_ID && process.env.GOBLIN_AGENT_ENVIRONMENT_ID);
 const editorOn = () => !!(process.env.GOBLIN_EDITOR_AGENT_ID && process.env.GOBLIN_EDITOR_ENVIRONMENT_ID);
 export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => Promise<{ out: ChatOut | null; usage: Usage }>;
@@ -25,7 +26,7 @@ export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => P
 export const CHAT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "action", "brief", "title", "aspect", "music"],
+  required: ["reply", "action", "brief", "title", "aspect", "music", "photos"],
   properties: {
     reply: { type: "string", description: "What Goblin says to the user. Plain text, usually one to three sentences." },
     action: {
@@ -44,6 +45,11 @@ export const CHAT_SCHEMA = {
       enum: ["none", ...MOODS],
       description: "For build or change: the mood of Goblin-made music to add, only when the user wants music and hasn't attached their own track (their track is used as is). Otherwise none.",
     },
+    photos: {
+      type: "array",
+      items: { type: "string" },
+      description: "For build, change or edit: stock photo searches, one photo each (at most 6), only when the user wants photos of things they haven't attached. Each is a short, concrete search like \"misty pine forest\" or \"close-up of a dew-covered leaf\". Empty array otherwise.",
+    },
   },
 };
 
@@ -57,6 +63,8 @@ export function chatSystem(ctx: {
   explainerMode?: boolean;
   // Goblin Editor (a Managed Agent with a real editing machine) is set up.
   editor?: boolean;
+  // Pexels is set up, so Goblin can add stock photos itself.
+  stock?: boolean;
 }) {
   return `You are Goblin, the assistant on usegoblin.xyz. Goblin builds short motion-graphics videos as templates: code-based animations, 4 to 15 seconds long, in 16:9, 9:16 or 1:1, styled automatically from the user's brand kit (colours, font, motion feel), with editable text fields, and optionally the user's own photo or clip as the background. They can carry sound effects from Goblin's library (whooshes, pops, clicks, ticks, typing, dings, chimes, sparkles, impacts, booms, bass drops, risers, glitches, drumrolls and more) timed to the motion, and music: the user's own track or original Goblin-made music. Users preview them on the site and download them as MP4 files, with sound.
 
@@ -79,7 +87,9 @@ Attachments, references and links:
 - Each attachment is marked for the video (put it in), as a reference (look at it, don't put it in), or left for you to judge from what they said. A screenshot of an ad, a brand board or a competitor's video is usually a reference; "put my quote on this" means it goes in.
 - Use what you see. Describe a reference's style concretely in the brief for the template writer (layout, pacing, type treatment, colour mood, motion), pull exact facts, names, numbers and copy from documents and links, and ask about things you can't tell.
 - In a build brief, name each attachment by its file name and say how it's used: "the attached photo beach.jpg full-bleed behind the quote, slow push-in", "match the layout and pacing of the reference ad.png", "use the attached track song.mp3 as the soundtrack and cut on its beats". The template writer gets the same files.
-- A clip stays silent unless the user wants its sound. Any finished video can be cut into shorter clips with the Clips button in the video panel.
+${ctx.stock ? `- Stock photos: when the user wants photos of things they haven't attached ("add some nature photos", "show a city at night", "random real-life objects"), add them yourself: put one concrete search per photo in "photos" (at most 6, varied, matching the look they want), and Goblin fetches free photos from Pexels and attaches them to the video. Never tell the user you can't get photos or ask them to find their own. In the brief, say how the stock photos are used (for example "flash the stock photos one after another in stark black and white, with glitch cuts between them"); their file names are added for you. If they ask for the photos on a change, use change. Photos only: there's no stock footage or music.
+` : `- You can't find photos on the web yourself: if the user wants photos they haven't attached, ask them to attach them with the + button.
+`}- A clip stays silent unless the user wants its sound. Any finished video can be cut into shorter clips with the Clips button in the video panel.
 
 Music:
 - Goblin can use the user's own track, or make original music in code in a mood (calm, upbeat, cinematic, lofi, epic, playful or corporate). If the user wants music and hasn't attached a track, set "music" to the mood closest to how they describe it, in their words ("something chill", "hype", "like a movie trailer"). Don't offer them a list of moods to pick from; if they haven't said what they want, choose what suits the video. For different music later, use change with the new mood. Music is mixed under the sound effects (it dips when they play).
@@ -247,7 +257,7 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       try {
         const v = body.video && typeof body.video === "object" ? body.video : null;
         const video = v ? { title: str(v.title, 80), format: ASPECTS.includes(v.format) ? v.format : "16:9", kind: v.kind === "edit" ? ("edit" as const) : ("explainer" as const) } : undefined;
-        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn(), explainerMode, editor: editorOn() }), messages);
+        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn(), explainerMode, editor: editorOn(), stock: stockOn() }), messages);
       } catch (e) {
         await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: false, error: (e as Error).message, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0, ms: Date.now() - started });
         return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
@@ -290,6 +300,7 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
         title: action === "build" || action === "explainer" || action === "edit" ? str(out.title, 80) : "",
         aspect: out.aspect === "none" || !ASPECTS.includes(out.aspect as never) ? aspect : out.aspect,
         music,
+        photos: action === "build" || action === "change" || action === "edit" ? (stockOn() ? cleanQueries(out.photos) : []) : [],
         // What the links said, for the page to keep with the message.
         links: links.map((l) => ({ url: l.url, title: l.title, ok: l.ok, text: l.text.slice(0, 3000) })),
       });

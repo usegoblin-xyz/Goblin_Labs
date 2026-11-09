@@ -19,6 +19,7 @@ import { makeHandler as makeVideos } from "./_studio/videos.js";
 import { makeHandler as makeUsage } from "./_studio/usage.js";
 import { makeHandler as makeMedia } from "./_studio/media.js";
 import { makeHandler as makeChats } from "./_studio/chats.js";
+import { makeHandler as makeStock } from "./_studio/stock.js";
 import { traceFor, tracedChat, tracedTemplate } from "./_studio/llm.js";
 
 const templates = makeTemplates(getUserId);
@@ -35,6 +36,7 @@ const videos = makeVideos({ agent: agentApi, userId: getUserId });
 const usage = makeUsage(getUserId);
 const media = makeMedia(getUserId);
 const chats = makeChats(getUserId);
+const stock = makeStock(getUserId);
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.query.op === "generate") {
@@ -51,5 +53,6 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.query.op === "media") return media.media(req, res);
   if (req.query.op === "media-upload") return media.upload(req, res);
   if (req.query.op === "chats") return chats(req, res);
+  if (req.query.op === "stock") return stock(req, res);
   return res.status(404).json({ error: "Not found" });
 }
