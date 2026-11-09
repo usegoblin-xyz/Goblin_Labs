@@ -203,7 +203,7 @@ export default function Home() {
                   : creations!.length || videos.length
                     ? [
                         creations!.length ? `${creations!.length} template${creations!.length === 1 ? "" : "s"}` : "",
-                        videos.length ? `${videos.length} explainer${videos.length === 1 ? "" : "s"}` : "",
+                        videos.length ? `${videos.length} video${videos.length === 1 ? "" : "s"}` : "",
                       ].filter(Boolean).join(" and ") + " you made in the chat. Open one to keep changing it."
                     : "Nothing yet. Templates you create in the chat are saved here."}
             </p>
@@ -219,7 +219,7 @@ export default function Home() {
             )}
             {videos.length > 0 && (
               <>
-                <h2 className="mt-8 text-[15px] font-semibold text-white/80">Explainer videos</h2>
+                <h2 className="mt-8 text-[15px] font-semibold text-white/80">Explainers and edits</h2>
                 <div className="mt-3 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                   {videos.map((v) => (
                     <button key={v.id} onClick={() => navigate(`/?v=${v.id}`)} className="block w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a0a] text-left transition-colors hover:border-white/30">
@@ -232,7 +232,7 @@ export default function Home() {
                           <div className="flex shrink-0 gap-1.5 text-[11px] text-white/55">
                             <span>{v.aspect}</span>
                             <span>·</span>
-                            <span>Explainer</span>
+                            <span>{v.kind === "edit" ? "Edit" : "Explainer"}</span>
                             {v.turns > 1 && (
                               <>
                                 <span>·</span>

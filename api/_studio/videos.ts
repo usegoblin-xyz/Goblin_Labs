@@ -7,13 +7,22 @@
 //   POST { id, message }                  → { video }   ask the agent for a change
 //   GET  ?id=                             → { video }   progress, refreshed from the session
 //   GET  ?id=&file=mp4|gif|png[&download=1]             the output file
-//   GET                                   → { videos }  the user's explainers
+//   GET                                   → { videos }  the user's explainers and edits
+//
+// Edits: { mode: "edit", brief, title, aspect, brand, media } hands the user's
+// own files (as short-lived private links) to Goblin Editor, a second agent
+// with a real editing machine; a change can bring new media too.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { Readable } from "node:stream";
 import { agentApi, type AgentApi, type AgentEvent, type OutputFile, type SessionInfo } from "./agent.js";
 import { db } from "./db.js";
+import { loadAttachments, type Attachment } from "./refs.js";
+import { readLink } from "./media.js";
+import { parseMediaRef } from "../../src/library/media.js";
 
 export const VIDEO_LIMIT = () => Number(process.env.STUDIO_VIDEO_LIMIT || 3);
+export const EDIT_LIMIT = () => Number(process.env.STUDIO_EDIT_LIMIT || 5);
+const EDIT_BUDGET_CENTS = () => Number(process.env.STUDIO_EDIT_BUDGET_CENTS || 500);
 const BUDGET_CENTS = () => Number(process.env.STUDIO_VIDEO_BUDGET_CENTS || 400);
 // Output files can show up a few seconds after the session goes idle.
 const FILE_GRACE_MS = 45_000;
@@ -30,12 +39,13 @@ const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice
 export type Step = { key: string; label: string; state: "active" | "done" | "failed" };
 export type Video = {
   id: string;
+  kind: "explainer" | "edit";
   title: string;
   aspect: string;
   status: "running" | "done" | "failed";
   message: string | null;
   steps: Step[];
-  files: { mp4: boolean; gif: boolean; png: boolean };
+  files: { mp4: boolean; gif: boolean; png: boolean; srt: boolean };
   turns: number;
   createdAt: string;
   updatedAt: string;
@@ -43,14 +53,14 @@ export type Video = {
 
 type Row = {
   id: string; user_id: string; session_id: string; title: string; brief: string; aspect: string; status: Video["status"];
-  message: string | null; files: Partial<Record<"mp4" | "gif" | "png", string>>; turn_at: Date; turns: number; cost_cents: number;
-  created_at: Date; updated_at: Date;
+  message: string | null; files: Partial<Record<"mp4" | "gif" | "png" | "srt", string>>; turn_at: Date; turns: number; cost_cents: number;
+  created_at: Date; updated_at: Date; kind: "explainer" | "edit";
 };
-const COLS = "id, user_id, session_id, title, brief, aspect, status, message, files, turn_at, turns, cost_cents, created_at, updated_at";
+const COLS = "id, user_id, session_id, title, brief, aspect, status, message, files, turn_at, turns, cost_cents, created_at, updated_at, kind";
 
 const toVideo = (r: Row, steps: Step[] = []): Video => ({
-  id: r.id, title: r.title, aspect: r.aspect, status: r.status, message: r.message, steps,
-  files: { mp4: !!r.files.mp4, gif: !!r.files.gif, png: !!r.files.png },
+  id: r.id, kind: r.kind ?? "explainer", title: r.title, aspect: r.aspect, status: r.status, message: r.message, steps,
+  files: { mp4: !!r.files.mp4, gif: !!r.files.gif, png: !!r.files.png, srt: !!r.files.srt },
   turns: r.turns, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
 });
 
@@ -72,6 +82,39 @@ export function agentMessage(brief: string, aspect: string, brand: Record<string
   ].join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
+// What Goblin tells the editor: the brief, the user's files as download links,
+// the format and the brand.
+const fmtS = (s: number) => (s >= 10 ? Math.round(s) : +s.toFixed(1)) + " s";
+export function describeFile(a: Attachment, url: string) {
+  const r = parseMediaRef(a.ref);
+  const bits = [a.kind === "image" ? "photo" : a.kind === "video" ? "video clip" : a.kind === "audio" ? (a.meta.generated ? "music (made by Goblin)" : "audio") : "document"];
+  if (a.width && a.height) bits.push(`${a.width}x${a.height}`);
+  if (a.durationSeconds) bits.push(fmtS(a.durationSeconds));
+  if (r?.start != null || r?.end != null) bits.push(`the user trimmed it to ${fmtS(r?.start ?? 0)} to ${r?.end != null ? fmtS(r.end) : "the end"}: use only that part`);
+  if (a.kind === "audio" && typeof a.meta.bpm === "number") bits.push(`${Math.round(a.meta.bpm as number)} BPM`);
+  if (a.use === "reference") bits.push("a reference: look at it for style, don't put it in the video");
+  return `- "${a.name}" (${bits.join(", ")}): ${url}`;
+}
+export function editorMessage(brief: string, aspect: string, brand: Record<string, string>, files: string[], change = false) {
+  const colours = ["background", "foreground", "primary", "accent"].filter((k) => HEX.test(brand[k] ?? "")).map((k) => `${k === "foreground" ? "text" : k} ${brand[k]}`);
+  return [
+    change
+      ? "[From Goblin: the user asks for a change to the video you made. Make new output files (new names), keep what they didn't ask to change. Reply in short plain text.]"
+      : "[Sent by Goblin (usegoblin.xyz) for one of its users. They read your replies in Goblin's chat and watch the result in Goblin's player. Send a short status line before each stage, finish with a short plain-text summary, and make reasonable choices instead of asking questions.]",
+    "",
+    change ? "The change:" : "The edit:",
+    brief,
+    "",
+    files.length ? (change ? "New files from the user (download them first; the links expire in about an hour):" : "The user's files (download them first; the links expire in about an hour):") : change ? "" : "The user attached no files: say so, and make what you can from the brief.",
+    ...files,
+    "",
+    change ? "" : `Format: ${ASPECTS[aspect] ?? ASPECTS["16:9"]}, 30 fps, unless the edit says otherwise.`,
+    colours.length ? `Brand colours for anything you add (captions, titles, overlays): ${colours.join(", ")}.` : "",
+    brand.font && FONT_LABELS[brand.font] ? `Brand font: ${FONT_LABELS[brand.font]}.` : "",
+    brand.name && !change ? `The brand is "${brand.name}".` : "",
+  ].join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
 // The agent's replies are written for a terminal; tidy them for the chat.
 export function cleanReply(t: string) {
   return t
@@ -87,7 +130,7 @@ const textOf = (e: AgentEvent) => ((e.content as { type: string; text?: string }
 const at = (e: AgentEvent) => (e.processed_at ? Date.parse(e.processed_at) : 0);
 
 // Progress of the latest turn (everything after the last user message).
-export function progress(events: AgentEvent[], session: SessionInfo, files: OutputFile[], turnAt: number, now = Date.now()) {
+export function progress(events: AgentEvent[], session: SessionInfo, files: OutputFile[], turnAt: number, now = Date.now(), kind: "explainer" | "edit" = "explainer") {
   let start = 0;
   events.forEach((e, i) => {
     if (e.type === "user.message") start = i;
@@ -100,8 +143,15 @@ export function progress(events: AgentEvent[], session: SessionInfo, files: Outp
   const messages = turn.filter((e) => e.type === "agent.message").map(textOf).filter(Boolean);
   const message = messages.length ? cleanReply(messages[messages.length - 1]) : null;
 
-  steps.push({ key: "plan", label: created ? "Planned the storyboard" : "Planning the storyboard", state: created || idle ? "done" : "active" });
-  if (created) {
+  if (kind === "edit") {
+    // The editor sends a short status line before each stage; the last
+    // message of a finished turn is its summary, not a step.
+    const lines = turn.filter((e) => e.type === "agent.message").map((e) => cleanReply(textOf(e))).filter(Boolean);
+    const statuses = (idle ? lines.slice(0, -1) : lines).filter((l) => l.length <= 80 && !l.includes("\n"));
+    steps.push({ key: "files", label: statuses.length ? "Got your files" : "Getting your files", state: statuses.length || idle ? "done" : "active" });
+    statuses.forEach((l, i) => steps.push({ key: `s${i}`, label: l.replace(/[.…]+$/, ""), state: i === statuses.length - 1 && !idle ? "active" : "done" }));
+  } else steps.push({ key: "plan", label: created ? "Planned the storyboard" : "Planning the storyboard", state: created || idle ? "done" : "active" });
+  if (created && kind === "explainer") {
     const phases = (created.phases as { id: string; name: string }[] | undefined) ?? [];
     for (const p of phases) {
       const started = turn.some((e) => e.type === "workflow_run.phase_started" && e.workflow_run_phase_id === p.id);
@@ -115,14 +165,20 @@ export function progress(events: AgentEvent[], session: SessionInfo, files: Outp
     files
       .filter((f) => f.filename.toLowerCase().endsWith(ext) && Date.parse(f.created_at) >= turnAt - 5_000)
       .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0]?.id;
-  const out = { mp4: pick(".mp4"), gif: pick(".gif"), png: pick(".png") };
+  // An edit can make several clips: the main video is the one not called clip-N, or clip-1.
+  const mainMp4 = () => {
+    const fresh = files.filter((f) => f.filename.toLowerCase().endsWith(".mp4") && Date.parse(f.created_at) >= turnAt - 5_000);
+    const main = fresh.filter((f) => !/^clip-\d+\.mp4$/i.test(f.filename)).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0] ?? fresh.find((f) => /^clip-1\.mp4$/i.test(f.filename));
+    return main?.id ?? pick(".mp4");
+  };
+  const out = { mp4: kind === "edit" ? mainMp4() : pick(".mp4"), gif: pick(".gif"), png: pick(".png"), srt: pick(".srt") };
   const stop = (idle?.stop_reason as { type?: string } | undefined)?.type;
 
   let status: Video["status"] = "running";
   let error: string | null = null;
   if (errored) {
     status = "failed";
-    error = "The explainer agent hit an error and stopped.";
+    error = kind === "edit" ? "The editor hit an error and stopped." : "The explainer agent hit an error and stopped.";
   } else if (idle && session.status === "idle" && stop === "budget_reached") {
     status = "failed";
     error = "This video reached its spending limit before it finished.";
@@ -134,21 +190,29 @@ export function progress(events: AgentEvent[], session: SessionInfo, files: Outp
   return { status, steps, message: error ? (message ? `${error} ${message}` : error) : message, files: out };
 }
 
-type Deps = { agent: AgentApi; userId: (req: VercelRequest) => Promise<string | null>; configured?: () => boolean };
+type Deps = { agent: AgentApi; userId: (req: VercelRequest) => Promise<string | null>; configured?: () => boolean; editorConfigured?: () => boolean };
 
 export function makeHandler(deps: Deps) {
   const agentId = () => process.env.GOBLIN_EXPLAINER_AGENT_ID ?? "";
   const envId = () => process.env.GOBLIN_AGENT_ENVIRONMENT_ID ?? "";
   const configured = deps.configured ?? (() => !!(process.env.ANTHROPIC_API_KEY && agentId() && envId()));
+  const editorId = () => process.env.GOBLIN_EDITOR_AGENT_ID ?? "";
+  const editorEnv = () => process.env.GOBLIN_EDITOR_ENVIRONMENT_ID ?? "";
+  const editorReady = deps.editorConfigured ?? (() => !!(process.env.ANTHROPIC_API_KEY && editorId() && editorEnv()));
+  // The user's files for the editor, as hour-long private links.
+  const linksFor = async (userId: string, media: unknown) => {
+    const list = await loadAttachments(userId, media, 12);
+    return { list, lines: await Promise.all(list.map(async (a) => describeFile(a, await readLink(a.pathname)))) };
+  };
 
   async function refresh(r: Row): Promise<{ row: Row; steps: Step[] }> {
     if (r.status !== "running") return { row: r, steps: [] };
     const [session, events] = await Promise.all([deps.agent.getSession(r.session_id), deps.agent.listEvents(r.session_id)]);
     const idle = session.status === "idle" || session.status === "terminated";
     const files = idle ? await deps.agent.listFiles(r.session_id) : [];
-    const p = progress(events, session, files, r.turn_at.getTime());
+    const p = progress(events, session, files, r.turn_at.getTime(), Date.now(), r.kind ?? "explainer");
     const cost = Number(session.usage?.list_cost?.amount ?? r.cost_cents) || 0;
-    const nextFiles = p.status === "done" && p.files.mp4 ? { mp4: p.files.mp4, gif: p.files.gif, png: p.files.png } : r.files;
+    const nextFiles = p.status === "done" && p.files.mp4 ? { mp4: p.files.mp4, gif: p.files.gif, png: p.files.png, srt: p.files.srt } : r.files;
     const { rows } = await db().query(
       `update studio.videos set status = $2, message = coalesce($3, message), files = $4::jsonb, cost_cents = $5, updated_at = now() where id = $1 returning ${COLS}`,
       [r.id, p.status, p.message, JSON.stringify(nextFiles), cost],
@@ -176,19 +240,19 @@ export function makeHandler(deps: Deps) {
         const row = await load();
         if (!row) return res.status(404).json({ error: "Video not found." });
         const kind = req.query.file;
-        if (kind === "mp4" || kind === "gif" || kind === "png") {
+        if (kind === "mp4" || kind === "gif" || kind === "png" || kind === "srt") {
           const fileId = row.files[kind];
           if (!fileId) return res.status(404).json({ error: "That file isn't ready." });
           const r = await deps.agent.fileContent(fileId);
           if (!r.ok || !r.body) return res.status(502).json({ error: "Couldn't fetch the file." });
-          const slug = row.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "explainer";
+          const slug = row.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || (row.kind === "edit" ? "edit" : "explainer");
           res.statusCode = 200;
-          res.setHeader("content-type", kind === "mp4" ? "video/mp4" : kind === "gif" ? "image/gif" : "image/png");
+          res.setHeader("content-type", kind === "mp4" ? "video/mp4" : kind === "gif" ? "image/gif" : kind === "srt" ? "application/x-subrip" : "image/png");
           const len = r.headers.get("content-length");
           if (len) res.setHeader("content-length", len);
           // Files never change once made (a change makes new ones), so the browser can keep them.
           res.setHeader("cache-control", "private, max-age=86400, immutable");
-          res.setHeader("content-disposition", `${req.query.download ? "attachment" : "inline"}; filename="${slug}${kind === "mp4" ? "" : kind === "gif" ? "-preview" : "-stills"}.${kind}"`);
+          res.setHeader("content-disposition", `${req.query.download ? "attachment" : "inline"}; filename="${slug}${kind === "mp4" ? "" : kind === "gif" ? "-preview" : kind === "srt" ? "-captions" : "-stills"}.${kind}"`);
           Readable.fromWeb(r.body as never).pipe(res);
           return;
         }
@@ -198,8 +262,9 @@ export function makeHandler(deps: Deps) {
       }
 
       if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-      if (!configured()) return res.status(503).json({ error: "Explainer videos aren't switched on yet." });
       const body = (typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body) ?? {};
+      const editing = body.mode === "edit";
+      if (editing ? !editorReady() : !configured() && !body.id) return res.status(503).json({ error: editing ? "Editing isn't switched on yet." : "Explainer videos aren't switched on yet." });
 
       // A change to an existing explainer: same session, so the agent keeps its scenes.
       if (body.id) {
@@ -210,14 +275,37 @@ export function makeHandler(deps: Deps) {
         })();
         if (!row) return res.status(404).json({ error: "Video not found." });
         if (row.status === "running") return res.status(409).json({ error: "This video is still being made. Try again when it's done." });
-        const message = str(body.message, 1200);
+        if (row.kind === "edit" ? !editorReady() : !configured()) return res.status(503).json({ error: "This isn't switched on right now." });
+        const message = str(body.message, row.kind === "edit" ? 4000 : 1200);
         if (message.length < 3) return res.status(400).json({ error: "Say what to change." });
-        await deps.agent.sendMessage(row.session_id, `[From Goblin: the user asks for a change. Re-render and replace the output files. Reply in short plain text.]\n\n${message}`);
+        if (row.kind === "edit") {
+          const { list, lines } = await linksFor(userId, body.media);
+          await deps.agent.sendMessage(row.session_id, editorMessage(message, row.aspect, {}, lines, true));
+          if (list.length) await db().query(`update studio.videos set media = media || $2::jsonb where id = $1`, [row.id, JSON.stringify(list.map((a) => ({ ref: a.ref, use: a.use })))]);
+        } else await deps.agent.sendMessage(row.session_id, `[From Goblin: the user asks for a change. Re-render and replace the output files. Reply in short plain text.]\n\n${message}`);
         const { rows } = await db().query(
           `update studio.videos set status = 'running', turn_at = now(), turns = turns + 1, updated_at = now() where id = $1 returning ${COLS}`,
           [row.id],
         );
         return res.status(200).json({ video: toVideo(rows[0], [{ key: "plan", label: "Working on your change", state: "active" }]) });
+      }
+
+      // A new edit of the user's own files, by Goblin Editor.
+      if (editing) {
+        const brief = str(body.brief, 4000);
+        if (brief.length < 8) return res.status(400).json({ error: "Say what the edit should do." });
+        const title = str(body.title, 80) || brief.split(/[.\n]/)[0].slice(0, 60);
+        const aspect = ASPECTS[body.aspect] ? body.aspect : "16:9";
+        const brand = Object.fromEntries(Object.entries(body.brand && typeof body.brand === "object" ? body.brand : {}).map(([k, v]) => [k, str(v, 60)]));
+        const { rows: used } = await db().query(`select count(*)::int as n from studio.videos where user_id = $1 and kind = 'edit' and created_at > now() - interval '24 hours'`, [userId]);
+        if (used[0].n >= EDIT_LIMIT()) return res.status(429).json({ error: `You've made ${EDIT_LIMIT()} edits today, the daily limit. Try again tomorrow.` });
+        const { list, lines } = await linksFor(userId, body.media);
+        const session = await deps.agent.createSession({ agent: editorId(), environmentId: editorEnv(), title: `Goblin edit: ${title}`, text: editorMessage(brief, aspect, brand, lines), budgetCents: EDIT_BUDGET_CENTS() });
+        const { rows } = await db().query(
+          `insert into studio.videos (user_id, session_id, title, brief, aspect, kind, media) values ($1,$2,$3,$4,$5,'edit',$6) returning ${COLS}`,
+          [userId, session.id, title, brief, aspect, JSON.stringify(list.map((a) => ({ ref: a.ref, use: a.use })))],
+        );
+        return res.status(200).json({ video: toVideo(rows[0], [{ key: "files", label: "Getting your files", state: "active" }]) });
       }
 
       const brief = str(body.brief, 4000);
@@ -226,7 +314,7 @@ export function makeHandler(deps: Deps) {
       const aspect = ASPECTS[body.aspect] ? body.aspect : "16:9";
       const brand = Object.fromEntries(Object.entries(body.brand && typeof body.brand === "object" ? body.brand : {}).map(([k, v]) => [k, str(v, 60)]));
 
-      const { rows: used } = await db().query(`select count(*)::int as n from studio.videos where user_id = $1 and created_at > now() - interval '24 hours'`, [userId]);
+      const { rows: used } = await db().query(`select count(*)::int as n from studio.videos where user_id = $1 and kind = 'explainer' and created_at > now() - interval '24 hours'`, [userId]);
       if (used[0].n >= VIDEO_LIMIT()) {
         return res.status(429).json({ error: `You've made ${VIDEO_LIMIT()} explainer videos today, the daily limit. Try again tomorrow.` });
       }

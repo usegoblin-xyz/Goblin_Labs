@@ -91,12 +91,12 @@ export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, 
 }
 
 export type ChatMessage = { role: "user" | "assistant"; text: string; media?: { ref: string; use: "auto" | "video" | "reference" }[] };
-export type ChatReply = { reply: string; action: "chat" | "build" | "change" | "explainer"; brief: string; title: string; aspect: Aspect; music?: string; links?: { url: string; title: string; ok: boolean; text: string }[] };
+export type ChatReply = { reply: string; action: "chat" | "build" | "change" | "explainer" | "edit"; brief: string; title: string; aspect: Aspect; music?: string; links?: { url: string; title: string; ok: boolean; text: string }[] };
 export type ChatContext = {
   aspect: Aspect;
   brand?: string;
   template?: { title: string; outcome: string; version: number; format: Aspect; seconds: number; copy: Record<string, string> };
-  video?: { title: string; format: Aspect };
+  video?: { title: string; format: Aspect; kind?: "explainer" | "edit" };
   mode?: "explainer";
 };
 
@@ -115,14 +115,17 @@ export async function chat(messages: ChatMessage[], ctx: ChatContext, signal?: A
 
 // Explainer videos, made by the explainer agent (api/_studio/videos.ts).
 export type VideoStep = { key: string; label: string; state: "active" | "done" | "failed" };
+// An explainer (from the explainer agent) or an edit of the user's own files
+// (from Goblin Editor). Both are made in a cloud session and polled.
 export type ExplainerVideo = {
   id: string;
+  kind: "explainer" | "edit";
   title: string;
   aspect: Aspect;
   status: "running" | "done" | "failed";
   message: string | null;
   steps: VideoStep[];
-  files: { mp4: boolean; gif: boolean; png: boolean };
+  files: { mp4: boolean; gif: boolean; png: boolean; srt?: boolean };
   turns: number;
   createdAt: string;
   updatedAt: string;
@@ -135,11 +138,13 @@ async function videoCall(init?: RequestInit, query = ""): Promise<Record<string,
 }
 export const startVideo = async (req: { brief: string; title: string; aspect: Aspect; brand: Record<string, string> }) =>
   (await videoCall({ method: "POST", body: JSON.stringify(req) })).video as ExplainerVideo;
-export const changeVideo = async (id: string, message: string) => (await videoCall({ method: "POST", body: JSON.stringify({ id, message }) })).video as ExplainerVideo;
+export const changeVideo = async (id: string, message: string, media?: { ref: string; use: string }[]) => (await videoCall({ method: "POST", body: JSON.stringify({ id, message, media }) })).video as ExplainerVideo;
+export const startEdit = async (req: { brief: string; title: string; aspect: Aspect; brand: Record<string, string>; media: { ref: string; use: string }[] }) =>
+  (await videoCall({ method: "POST", body: JSON.stringify({ mode: "edit", ...req }) })).video as ExplainerVideo;
 export const getVideo = async (id: string) => (await videoCall(undefined, `&id=${encodeURIComponent(id)}`)).video as ExplainerVideo;
 export const listVideos = async () => (await videoCall()).videos as ExplainerVideo[];
 // `v` busts the browser cache when a change makes new files.
-export const videoFile = (v: ExplainerVideo, kind: "mp4" | "gif" | "png", download = false) =>
+export const videoFile = (v: ExplainerVideo, kind: "mp4" | "gif" | "png" | "srt", download = false) =>
   `/api/studio?op=video&id=${encodeURIComponent(v.id)}&file=${kind}&v=${encodeURIComponent(v.updatedAt)}${download ? "&download=1" : ""}`;
 
 export const formatOf = (t: { width: number; height: number }): Aspect => (t.width < t.height ? "9:16" : t.width === t.height ? "1:1" : "16:9");

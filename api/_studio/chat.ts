@@ -15,10 +15,11 @@ export const CHAT_MODEL = process.env.STUDIO_CHAT_MODEL || process.env.STUDIO_MO
 export const CHAT_LIMIT = Number(process.env.STUDIO_CHAT_LIMIT || 200);
 const ASPECTS = ["16:9", "9:16", "1:1"] as const;
 
-export type ChatAction = "chat" | "build" | "change" | "explainer";
+export type ChatAction = "chat" | "build" | "change" | "explainer" | "edit";
 export const MOODS = ["calm", "upbeat", "cinematic", "lofi", "epic", "playful", "corporate"] as const;
 export type ChatOut = { reply: string; action: ChatAction; brief: string; title: string; aspect: (typeof ASPECTS)[number] | "none"; music: "none" | (typeof MOODS)[number] };
 const explainersOn = () => !!(process.env.GOBLIN_EXPLAINER_AGENT_ID && process.env.GOBLIN_AGENT_ENVIRONMENT_ID);
+const editorOn = () => !!(process.env.GOBLIN_EDITOR_AGENT_ID && process.env.GOBLIN_EDITOR_ENVIRONMENT_ID);
 export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => Promise<{ out: ChatOut | null; usage: Usage }>;
 
 export const CHAT_SCHEMA = {
@@ -29,14 +30,14 @@ export const CHAT_SCHEMA = {
     reply: { type: "string", description: "What Goblin says to the user. Plain text, usually one to three sentences." },
     action: {
       type: "string",
-      enum: ["chat", "build", "change", "explainer"],
-      description: "chat: just talk. build: make a new short template now. change: change the current template or explainer now. explainer: make a new explainer video now.",
+      enum: ["chat", "build", "change", "explainer", "edit"],
+      description: "chat: just talk. build: make a new short template now. change: change the current template, explainer or edit now. explainer: make a new explainer video now. edit: hand the user's own footage and audio to Goblin Editor for real editing now.",
     },
     brief: {
       type: "string",
-      description: "For build: a complete, self-contained description of the video for the template writer (scenes in order, the on-screen copy, timing, feel). For explainer: the topic, audience, length, any scenes asked for, and every fact, number and name the user gave, with any source text they pasted copied in full. For change: the exact change to make. Empty string for chat.",
+      description: "For build: a complete, self-contained description of the video for the template writer (scenes in order, the on-screen copy, timing, feel). For explainer: the topic, audience, length, any scenes asked for, and every fact, number and name the user gave, with any source text they pasted copied in full. For edit: complete instructions for the editor: every attached file by name and what to do with it, in order (cuts with times, joins, captions and their style, reframing, audio cleanup, music and sound effects, colour, overlays), plus the format and length. For change: the exact change to make. Empty string for chat.",
     },
-    title: { type: "string", description: "For build or explainer: a 2 to 5 word title in title case. Empty string otherwise." },
+    title: { type: "string", description: "For build, explainer or edit: a 2 to 5 word title in title case. Empty string otherwise." },
     aspect: { type: "string", enum: [...ASPECTS, "none"], description: "The format the user asked for, or none if they didn't say." },
     music: {
       type: "string",
@@ -50,10 +51,12 @@ export function chatSystem(ctx: {
   brand?: string;
   aspect: string;
   template?: { title: string; outcome: string; version: number; format: string; seconds: number; copy: Record<string, string> };
-  video?: { title: string; format: string };
+  video?: { title: string; format: string; kind?: "explainer" | "edit" };
   explainers?: boolean;
   // The user turned on Explainer (the button). Only then can Goblin make explainers.
   explainerMode?: boolean;
+  // Goblin Editor (a Managed Agent with a real editing machine) is set up.
+  editor?: boolean;
 }) {
   return `You are Goblin, the assistant on usegoblin.xyz. Goblin builds short motion-graphics videos as templates: code-based animations, 4 to 15 seconds long, in 16:9, 9:16 or 1:1, styled automatically from the user's brand kit (colours, font, motion feel), with editable text fields, and optionally the user's own photo or clip as the background. They can carry sound effects from Goblin's library (whooshes, pops, clicks, ticks, typing, dings, chimes, sparkles, impacts, booms, bass drops, risers, glitches, drumrolls and more) timed to the motion, and music: the user's own track or original Goblin-made music. Users preview them on the site and download them as MP4 files, with sound.
 
@@ -93,9 +96,15 @@ ${ctx.explainers && ctx.explainerMode ? `Explainer mode is ON (the user clicked 
 - Never make explainer videos in this conversation, and never use action "explainer". Longer explainer videos are only made when the user turns on Explainer with the Explainer button (next to the message box). If they ask for an explainer, a walkthrough, a lesson or a 30 to 60 second video with captions and music, tell them to click Explainer first, in one short line, with action "chat".
 
 `}Context:
-- The user's brand: ${ctx.brand || "not named yet"}.
+${ctx.editor && !ctx.explainerMode ? `Goblin Editor (real video editing):
+- Besides quick motion videos, you can hand the user's own footage, photos and audio to Goblin Editor, an editor with a real editing machine (ffmpeg, speech-to-text, OpenCV). Use action "edit" when the request needs real editing of their files: captions from what's said in a clip, cutting, trimming, joining or reordering their clips, removing silences, changing speed, reframing footage to vertical or square while following the subject, cleaning up or levelling audio, mixing music under a voice, adding sound effects at exact moments, colour grading, stabilising, blurring faces or logos, or putting text, titles or a logo over their footage.
+- Keep "build" for motion videos made from words (a photo or clip used only as a background is still a build).
+- Edits take a few minutes; the user can keep chatting. If the files aren't attached yet, ask for them. If the request is clear, go ahead without asking more. The reply is one short line saying what you're editing and that it takes a few minutes.
+- If the current item is an edit and they ask for a change to it, use "change" with the exact change as the brief; new attachments in that message go to the editor too.
+
+` : ""}- The user's brand: ${ctx.brand || "not named yet"}.
 - Format selected in the input: ${ctx.aspect}. Use it unless the user asks for another.
-- ${ctx.video ? `Current item: the explainer video "${ctx.video.title}" (${ctx.video.format}). A change re-edits this video.` : ctx.template ? `Current template: "${ctx.template.title}" (v${ctx.template.version}, ${ctx.template.format}, ${ctx.template.seconds}s): ${ctx.template.outcome}. Its text: ${JSON.stringify(ctx.template.copy)}.` : "Nothing has been built in this chat yet."}`;
+- ${ctx.video ? `Current item: the ${ctx.video.kind === "edit" ? "edited video" : "explainer video"} "${ctx.video.title}" (${ctx.video.format}). A change re-edits this video.` : ctx.template ? `Current template: "${ctx.template.title}" (v${ctx.template.version}, ${ctx.template.format}, ${ctx.template.seconds}s): ${ctx.template.outcome}. Its text: ${JSON.stringify(ctx.template.copy)}.` : "Nothing has been built in this chat yet."}`;
 }
 
 let client: Anthropic | null = null;
@@ -237,8 +246,8 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       let result: Awaited<ReturnType<CallChat>>;
       try {
         const v = body.video && typeof body.video === "object" ? body.video : null;
-        const video = v ? { title: str(v.title, 80), format: ASPECTS.includes(v.format) ? v.format : "16:9" } : undefined;
-        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn(), explainerMode }), messages);
+        const video = v ? { title: str(v.title, 80), format: ASPECTS.includes(v.format) ? v.format : "16:9", kind: v.kind === "edit" ? ("edit" as const) : ("explainer" as const) } : undefined;
+        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn(), explainerMode, editor: editorOn() }), messages);
       } catch (e) {
         await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: false, error: (e as Error).message, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0, ms: Date.now() - started });
         return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
@@ -247,7 +256,9 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: !!out, ...result.usage, ms: Date.now() - started });
       if (!out || !out.reply) return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
 
-      let action: ChatAction = out.action === "build" || out.action === "change" || out.action === "explainer" ? out.action : "chat";
+      let action: ChatAction = out.action === "build" || out.action === "change" || out.action === "explainer" || out.action === "edit" ? out.action : "chat";
+      const editingVideo = body.video?.kind === "edit";
+      if (action === "edit" && (!editorOn() || explainerMode)) action = explainerMode ? "explainer" : "build";
       let reply = str(out.reply, 2000);
       // The agent is used strictly in explainer mode: outside it, an explainer
       // never starts; inside it, a template is never built.
@@ -255,13 +266,13 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
         action = "chat";
         reply = explainersOn() ? "To make an explainer video, click the Explainer button next to the message box, then tell me what it should explain." : "Explainer videos aren't switched on yet.";
       }
-      if (action === "change" && body.video && !explainerMode) {
+      if (action === "change" && body.video && !explainerMode && !editingVideo) {
         action = "chat";
         reply = "To change this explainer, turn on Explainer with the button next to the message box, then tell me what to change.";
       }
       if (action === "change" && !template && !body.video) action = "build";
       if (action === "build" && explainerMode) action = "explainer";
-      const brief = action === "chat" ? "" : str(out.brief, action === "explainer" ? 4000 : 1200);
+      const brief = action === "chat" ? "" : str(out.brief, action === "explainer" || action === "edit" ? 4000 : 1200);
       if (action !== "chat" && brief.length < 8) action = "chat";
       // A build counts toward the daily generation limit; say so before starting.
       // (Explainers have their own limit, checked when one starts.)
@@ -276,7 +287,7 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
         reply,
         action,
         brief,
-        title: action === "build" || action === "explainer" ? str(out.title, 80) : "",
+        title: action === "build" || action === "explainer" || action === "edit" ? str(out.title, 80) : "",
         aspect: out.aspect === "none" || !ASPECTS.includes(out.aspect as never) ? aspect : out.aspect,
         music,
         // What the links said, for the page to keep with the message.

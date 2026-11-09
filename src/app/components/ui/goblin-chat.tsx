@@ -28,7 +28,7 @@ import { cutMp4 } from "@/library/studio/cut";
 import { AttachmentChips, MAX_TRIM_SECONDS, MOOD_LIST, MusicControls, SplitDialog, TrimDialog, type ClipRange, type MixState, type Pending, type Use } from "./media-ui";
 import { compose, type Mood } from "@/library/studio/compose";
 import {
-  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveDefaults, saveFile, slugOf, startVideo, videoFile,
+  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
   type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
@@ -204,7 +204,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn, openId]);
 
-  // /?v=<id> reopens an explainer video.
+  // /?v=<id> reopens an explainer or an edit.
   useEffect(() => {
     if (!isSignedIn || !openVideoId || currentVideo?.id === openVideoId || busy) return;
     getVideo(openVideoId)
@@ -212,7 +212,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         const rid = nextId.current++;
         setTurns([{ id: rid, role: "assistant", text: video.status === "running" ? `I'm still making “${video.title}”.` : `Here's “${video.title}”. Tell me what to change, or open it to play and download it.`, steps: [], chars: 0, video }]);
         if (video.status === "done") setOpenTurn(rid);
-        setExplainerMode(true); // reopening an explainer continues it, in explainer mode
+        // Reopening an explainer continues it in explainer mode; an edit needs no mode.
+        if (video.kind !== "edit") setExplainerMode(true);
       })
       .catch(() => {
         toast.error("Couldn't open that video");
@@ -351,6 +352,12 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       return xs.filter((x) => x.key !== key);
     });
 
+  // Attachments sent since the newest video or template (for a change to an edit).
+  const mediaSince = (ts: Turn[]): { ref: string; use: Use }[] => {
+    let since = 0;
+    ts.forEach((t, i) => t.role === "assistant" && (t.template || t.video) && (since = i));
+    return ts.slice(since).flatMap((t) => (t.role === "user" ? (t.media ?? []).map((m) => ({ ref: m.ref, use: m.use })) : []));
+  };
   const setUse = (key: string, use: Use) => setPending((xs) => xs.map((x) => (x.key === key ? { ...x, use } : x)));
 
   // Goblin-made music: composed here, then uploaded like any track.
@@ -497,7 +504,10 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       }
       const parts = [t.text ?? ""];
       if (t.template) parts.push(`[Built template “${t.template.title}” v${t.template.version}, ${formatOf(t.template)}, ${seconds(t.template)}s]`);
-      if (t.video) parts.push(`[Explainer video “${t.video.title}”, ${t.video.aspect}: ${t.video.status === "running" ? "still being made" : t.video.files.mp4 ? "finished" : "finished without a video"}]${t.video.message && t.video.status !== "running" ? `\nThe explainer agent said: ${t.video.message}` : ""}`);
+      if (t.video) {
+        const edit = t.video.kind === "edit";
+        parts.push(`[${edit ? "Edited video" : "Explainer video"} “${t.video.title}”, ${t.video.aspect}: ${t.video.status === "running" ? "still being made" : t.video.files.mp4 ? "finished" : "finished without a video"}]${t.video.message && t.video.status !== "running" ? `\nThe ${edit ? "editor" : "explainer agent"} said: ${t.video.message}` : ""}`);
+      }
       if (t.error) parts.push(`[The build failed: ${t.error}]`);
       const text = parts.filter(Boolean).join("\n");
       return text ? [{ role: "assistant", text }] : [];
@@ -529,7 +539,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         template: current
           ? { title: current.title, outcome: current.outcome, version: current.version, format: formatOf(current), seconds: seconds(current), copy: contentFor(current) }
           : undefined,
-        video: currentVideo ? { title: currentVideo.title, format: currentVideo.aspect } : undefined,
+        video: currentVideo ? { title: currentVideo.title, format: currentVideo.aspect, kind: currentVideo.kind ?? "explainer" } : undefined,
         mode: explainerMode ? "explainer" : undefined,
       });
       patch(aid, () => ({ thinking: false, text: r.reply }));
@@ -554,6 +564,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       }
       if (r.action === "build") await build(aid, { mode: "create", prompt: r.brief, aspect: r.aspect, media: mediaForBuild(all, "create") });
       else if (r.action === "explainer" && explainerMode) await explainer(aid, () => startVideo({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor() }));
+      else if (r.action === "edit") await explainer(aid, () => startEdit({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor(), media: mediaForBuild(all, "create") }));
+      else if (r.action === "change" && currentVideo?.kind === "edit") await explainer(aid, () => changeVideo(currentVideo.id, r.brief, mediaSince(all)));
       else if (r.action === "change" && currentVideo && explainerMode) await explainer(aid, () => changeVideo(currentVideo.id, r.brief));
       else if (r.action === "change" && current) await build(aid, { mode: "edit", id: current.id, instruction: r.brief, media: mediaForBuild(all, "edit") });
       else setBusy(false);
@@ -821,7 +833,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[14.5px] font-medium text-white">{v.title}</span>
             <span className="block truncate text-[12.5px] text-white/45">
-              Explainer · {v.aspect} · {v.status === "running" ? "being made" : ready ? "MP4 with music" : "no video"}
+              {v.kind === "edit" ? "Edit" : "Explainer"} · {v.aspect} · {v.status === "running" ? (v.kind === "edit" ? "being edited" : "being made") : ready ? (v.kind === "edit" ? "MP4" : "MP4 with music") : "no video"}
               {v.turns > 1 ? ` · v${v.turns}` : ""}
             </span>
           </span>
@@ -1023,7 +1035,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                     <span className="h-28 w-28">
                       <GeckoLoader label="Making the video" />
                     </span>
-                    <span className="text-[13px] text-white/55">The explainer agent is building the scenes. This takes a few minutes; you can keep chatting.</span>
+                    <span className="text-[13px] text-white/55">{panel.video.kind === "edit" ? "Goblin Editor is working on your files. This takes a few minutes; you can keep chatting." : "The explainer agent is building the scenes. This takes a few minutes; you can keep chatting."}</span>
                   </div>
                 ) : (
                   <div className="flex h-full items-center justify-center p-6 text-center text-[13px] text-white/50">No video came back this time.</div>
@@ -1047,7 +1059,16 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                 <img src={videoFile(panel.video, "png")} alt={`Stills from every scene of ${panel.video.title}`} className="mt-2 w-full rounded-lg border border-white/10" />
               </>
             )}
-            <p className="mt-4 text-[11.5px] text-white/35">Made by Goblin's explainer agent. To change it, tell Goblin what to change; it keeps the scenes and redoes only what's needed.</p>
+            {panel.video.status === "done" && panel.video.files.srt && (
+              <a href={videoFile(panel.video, "srt", true)} className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-full border border-white/15 px-3 text-[12.5px] text-white/80 hover:bg-white/8 hover:text-white">
+                <Download className="h-3.5 w-3.5" /> Captions (.srt)
+              </a>
+            )}
+            <p className="mt-4 text-[11.5px] text-white/35">
+              {panel.video.kind === "edit"
+                ? "Edited by Goblin Editor on a real editing machine. To change it, tell Goblin what to change; the editor keeps your files and redoes only what's needed."
+                : "Made by Goblin's explainer agent. To change it, tell Goblin what to change; it keeps the scenes and redoes only what's needed."}
+            </p>
           </div>
         </aside>
       )}

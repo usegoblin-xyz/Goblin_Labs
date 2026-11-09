@@ -116,3 +116,10 @@ alter table studio.media drop constraint if exists media_kind_check;
 alter table studio.media add constraint media_kind_check check (kind in ('image', 'video', 'audio', 'doc'));
 alter table studio.media add column if not exists preview_pathname text;
 alter table studio.media add column if not exists meta jsonb not null default '{}'::jsonb;
+
+-- Goblin Editor (Nov 2026): the same table holds edits of the user's own
+-- footage, made by the editor agent. media lists the refs the edit was given.
+alter table studio.videos add column if not exists kind text not null default 'explainer';
+alter table studio.videos drop constraint if exists videos_kind_check;
+alter table studio.videos add constraint videos_kind_check check (kind in ('explainer', 'edit'));
+alter table studio.videos add column if not exists media jsonb not null default '[]'::jsonb;
