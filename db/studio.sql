@@ -88,3 +88,22 @@ create table if not exists studio.videos (
 );
 create index if not exists videos_user_idx on studio.videos (user_id, created_at desc);
 grant select, insert, update, delete on studio.videos to goblin_auth;
+
+-- Photos and short clips users upload to put in their videos. The files live
+-- in a private Vercel Blob store (goblin-media) under media/<user id>/; this
+-- table records who owns each one. Templates refer to them as "media:<id>".
+create table if not exists studio.media (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null references better_auth."user"(id) on delete cascade,
+  pathname text not null unique,
+  kind text not null check (kind in ('image', 'video')),
+  mime text not null,
+  bytes bigint not null,
+  name text not null default '',
+  width int,
+  height int,
+  duration_seconds real,
+  created_at timestamptz not null default now()
+);
+create index if not exists media_user on studio.media (user_id, created_at desc);
+grant select, insert, update, delete on studio.media to goblin_auth;

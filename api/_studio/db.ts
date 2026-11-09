@@ -9,7 +9,7 @@ export const db = () =>
     ssl: process.env.STUDIO_DB_NO_SSL ? false : { rejectUnauthorized: false },
   }));
 
-export type Field = { key: string; label: string; type: "text" | "textarea"; hint?: string };
+export type Field = { key: string; label: string; type: "text" | "textarea" | "media"; hint?: string };
 
 // Everything that defines one version of a template.
 export type Snapshot = {

@@ -3,6 +3,8 @@ import type { Brand } from "../brand";
 import { GeckoLoader } from "@/app/components/ui/gecko-loader";
 import type { FromSandbox, ToSandbox } from "../../sandbox/protocol";
 import { sfxFiles } from "./sounds";
+import { mediaFiles } from "./media";
+import { mediaIdsIn } from "../media";
 
 type Props = {
   compiled: string;
@@ -39,6 +41,8 @@ export function SandboxPlayer({ compiled, width, height, fps, durationInFrames, 
   latest.current = { brand, content };
 
   const send = (m: ToSandbox) => frame.current?.contentWindow?.postMessage(m, "*");
+  // Which photos and clips the sandbox already has.
+  const sentMedia = useRef(new Set<string>());
 
   useEffect(() => {
     const onMessage = (e: MessageEvent<FromSandbox>) => {
@@ -62,7 +66,11 @@ export function SandboxPlayer({ compiled, width, height, fps, durationInFrames, 
     setLoaded(false);
     setGone(false);
     let stale = false;
-    sfxFiles(compiled).then((sfx) => !stale && send({ type: "load", sfx, compiled, width, height, fps, durationInFrames, controls, autoplay, ...latest.current }));
+    Promise.all([sfxFiles(compiled), mediaFiles(latest.current.content)]).then(([sfx, media]) => {
+      if (stale) return;
+      sentMedia.current = new Set(Object.keys(media));
+      send({ type: "load", sfx, media, compiled, width, height, fps, durationInFrames, controls, autoplay, ...latest.current });
+    });
     return () => {
       stale = true;
     };
@@ -70,7 +78,18 @@ export function SandboxPlayer({ compiled, width, height, fps, durationInFrames, 
 
   // Brand or copy edits: restyle without reloading the code.
   useEffect(() => {
-    if (ready) send({ type: "props", brand, content });
+    if (!ready) return;
+    send({ type: "props", brand, content });
+    // A photo or clip swapped in: send the new file.
+    const missing = mediaIdsIn(content).filter((id) => !sentMedia.current.has(id));
+    if (missing.length) {
+      mediaFiles(content).then((media) => {
+        const fresh = Object.fromEntries(Object.entries(media).filter(([id]) => !sentMedia.current.has(id)));
+        if (!Object.keys(fresh).length) return;
+        for (const id of Object.keys(fresh)) sentMedia.current.add(id);
+        send({ type: "media", media: fresh });
+      });
+    }
   }, [ready, brand, content]);
 
   return (

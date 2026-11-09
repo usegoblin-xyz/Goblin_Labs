@@ -29,7 +29,7 @@ export const TEMPLATE_SCHEMA = {
           properties: {
             key: { type: "string", description: "camelCase key used as c.<key> in the code." },
             label: { type: "string", description: "Short label shown in the editor." },
-            type: { type: "string", enum: ["text", "textarea"] },
+            type: { type: "string", enum: ["text", "textarea", "media"], description: "media: the user's photo or clip; its default is the attached media ref." },
             hint: { type: "string", description: "Short help text, e.g. 'Comma separated'. Empty string if none." },
             default: { type: "string", description: "Realistic default copy." },
           },
@@ -41,7 +41,7 @@ export const TEMPLATE_SCHEMA = {
 
 export type ToolInput = {
   title: string; outcome: string; category: string; tags: string[]; durationSeconds: number;
-  fields: { key: string; label: string; type: "text" | "textarea"; hint: string; default: string }[];
+  fields: { key: string; label: string; type: "text" | "textarea" | "media"; hint: string; default: string }[];
   code: string;
 };
 export type Usage = { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number };

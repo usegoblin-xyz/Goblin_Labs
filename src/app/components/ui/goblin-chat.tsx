@@ -7,7 +7,7 @@
 // Ruixen "moon chat" layout, recoloured to Goblin green.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
-import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, Lightbulb, ListChecks, Loader2, Megaphone, Rocket, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
+import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, Film, ImageIcon, Lightbulb, ListChecks, Loader2, Megaphone, Plus, Rocket, Scissors, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./button";
 import { Textarea } from "./textarea";
@@ -22,6 +22,10 @@ import { SandboxPlayer } from "@/library/studio/SandboxPlayer";
 import { GeckoLoader } from "./gecko-loader";
 import { exportMp4 } from "@/library/studio/exportMp4";
 import { sfxUsedIn } from "@/library/sfx";
+import { mediaRef, parseMediaRef } from "@/library/media";
+import { ACCEPT, cachedInfo, checkFile, mediaInfos, probe, uploadMedia, type UploadedMedia } from "@/library/studio/media";
+import { cutMp4 } from "@/library/studio/cut";
+import { AttachmentChips, MAX_TRIM_SECONDS, SplitDialog, TrimDialog, type ClipRange, type Pending } from "./media-ui";
 import {
   asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveFile, slugOf, startVideo, videoFile,
   type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
@@ -63,7 +67,15 @@ type Reply = {
   error?: string;
   health?: "testing" | "ok" | "error";
 };
-type Turn = { id: number; role: "user"; text: string; explainer?: boolean } | Reply;
+// A photo or clip sent with a message.
+type Sent = { ref: string; kind: "image" | "video"; name: string; preview: string; width: number | null; height: number | null; duration: number | null; trim: { start: number; end: number } | null };
+type Turn = { id: number; role: "user"; text: string; explainer?: boolean; media?: Sent[] } | Reply;
+
+const fmtSecs = (s: number) => `${s >= 10 ? Math.round(s) : s.toFixed(1)}s`;
+const describeSent = (m: Sent) =>
+  m.kind === "image"
+    ? `[Attached photo "${m.name}"${m.width && m.height ? `, ${m.width}x${m.height}` : ""}]`
+    : `[Attached clip "${m.name}"${m.trim ? `, trimmed to ${fmtSecs(m.trim.end - m.trim.start)} (from ${fmtSecs(m.trim.start)} to ${fmtSecs(m.trim.end)})` : m.duration ? `, ${fmtSecs(m.duration)}` : ""}]`;
 
 const QUICK: { icon: ReactNode; label: string; prompt: string }[] = [
   { icon: <Rocket className="h-4 w-4" />, label: "Product launch", prompt: "I'm launching a product and want a short video for it" },
@@ -105,6 +117,13 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   const turnsRef = useRef(turns);
   turnsRef.current = turns;
   const [busy, setBusy] = useState(false);
+  // Photos and clips attached to the next message.
+  const [pending, setPending] = useState<Pending[]>([]);
+  const [trimming, setTrimming] = useState<{ src: string; duration: number; initial: { start: number; end: number } | null; done: (t: { start: number; end: number } | null) => void; cancel: () => void } | null>(null);
+  const [splitting, setSplitting] = useState<{ kind: "template"; t: StudioTemplate } | { kind: "video"; v: ExplainerVideo; duration: number } | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const renderHost = useRef<HTMLDivElement>(null);
+  const uploading = pending.some((p) => p.status === "uploading");
   // Copy edits per template, made without asking Claude ("Text" in the panel).
   const [edits, setEdits] = useState<Record<string, Record<string, string>>>({});
   // The reply whose template is open in the panel.
@@ -273,6 +292,116 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     }
   };
 
+  // ---- photos and clips ----------------------------------------------------------
+  const askTrim = (src: string, duration: number, initial: { start: number; end: number } | null) =>
+    new Promise<{ start: number; end: number } | null | undefined>((resolve) =>
+      setTrimming({ src, duration, initial, done: (t) => (setTrimming(null), resolve(t)), cancel: () => (setTrimming(null), resolve(undefined)) }),
+    );
+
+  const startUpload = (key: string, file: File) => {
+    if (!user) return;
+    uploadMedia(file, user.id, (p) => setPending((xs) => xs.map((x) => (x.key === key ? { ...x, progress: p } : x))))
+      .then((m) => setPending((xs) => xs.map((x) => (x.key === key ? { ...x, status: "ready", progress: 1, mediaId: m.id, width: m.width, height: m.height } : x))))
+      .catch((e) => setPending((xs) => xs.map((x) => (x.key === key ? { ...x, status: "error", error: e instanceof Error ? e.message : "Upload failed" } : x))));
+  };
+
+  const pickFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    if (!isSignedIn) return toLogin();
+    for (const file of Array.from(files).slice(0, 4 - pending.length)) {
+      let info;
+      try {
+        info = await probe(file);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "That file couldn't be opened.");
+        continue;
+      }
+      const problem = checkFile(file, info);
+      if (problem) {
+        toast.error(problem);
+        continue;
+      }
+      const key = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const preview = URL.createObjectURL(file);
+      let trim: { start: number; end: number } | null = null;
+      // Long clips have to be trimmed before they can go in a video.
+      if (info.kind === "video" && (info.durationSeconds ?? 0) > MAX_TRIM_SECONDS) {
+        const t = await askTrim(preview, info.durationSeconds!, { start: 0, end: Math.min(15, info.durationSeconds!) });
+        if (t === undefined) {
+          URL.revokeObjectURL(preview);
+          continue;
+        }
+        trim = t;
+      }
+      setPending((xs) => [...xs, { key, file, preview, kind: info.kind, duration: info.durationSeconds, trim, progress: 0, status: "uploading", width: info.width, height: info.height }]);
+      track("studio_media_attached", { kind: info.kind, conversation_id: conversationId() });
+      startUpload(key, file);
+    }
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
+  const trimPending = async (key: string) => {
+    const a = pending.find((x) => x.key === key);
+    if (!a || !a.duration) return;
+    const t = await askTrim(a.preview, a.duration, a.trim);
+    if (t !== undefined) setPending((xs) => xs.map((x) => (x.key === key ? { ...x, trim: t } : x)));
+  };
+  const removePending = (key: string) =>
+    setPending((xs) => {
+      const a = xs.find((x) => x.key === key);
+      if (a) URL.revokeObjectURL(a.preview);
+      return xs.filter((x) => x.key !== key);
+    });
+
+  // Refs to hand the template writer: everything attached in this chat for a
+  // new build, or what was attached since the last build for a change.
+  const mediaForBuild = (ts: Turn[], mode: "create" | "edit"): string[] => {
+    let since = 0;
+    if (mode === "edit") ts.forEach((t, i) => t.role === "assistant" && t.template && (since = i));
+    const refs = ts.slice(since).flatMap((t) => (t.role === "user" ? (t.media ?? []).map((m) => m.ref) : []));
+    return [...new Set(refs)].slice(-4);
+  };
+
+  // A media field in the panel: swap in another photo or clip, trim it, or clear it.
+  const replaceFieldMedia = async (tpl: StudioTemplate, key: string, file: File) => {
+    if (!user) return toLogin();
+    try {
+      const info = await probe(file);
+      const problem = checkFile(file, info);
+      if (problem) return void toast.error(problem);
+      let trim: { start: number; end: number } | null = null;
+      if (info.kind === "video" && (info.durationSeconds ?? 0) > MAX_TRIM_SECONDS) {
+        const url = URL.createObjectURL(file);
+        const t = await askTrim(url, info.durationSeconds!, { start: 0, end: Math.min(15, info.durationSeconds!) });
+        URL.revokeObjectURL(url);
+        if (t === undefined) return;
+        trim = t;
+      }
+      const id = toast.loading("Uploading…");
+      const m = await uploadMedia(file, user.id).finally(() => toast.dismiss(id));
+      setEdits((x) => ({ ...x, [tpl.id]: { ...contentFor(tpl), [key]: mediaRef(m.id, trim) } }));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    }
+  };
+  const trimFieldMedia = async (tpl: StudioTemplate, key: string) => {
+    const r = parseMediaRef(contentFor(tpl)[key]);
+    if (!r) return;
+    const info = (await mediaInfos([r.id]))[r.id];
+    if (!info || info.kind !== "video" || !info.durationSeconds) return;
+    const t = await askTrim(info.url, info.durationSeconds, r.start !== null && r.end !== null ? { start: r.start, end: r.end } : null);
+    if (t !== undefined) setEdits((x) => ({ ...x, [tpl.id]: { ...contentFor(tpl), [key]: mediaRef(r.id, t) } }));
+  };
+
+  // An explainer's length comes from the file itself.
+  const splitVideo = (v: ExplainerVideo) => {
+    const el = document.createElement("video");
+    el.preload = "metadata";
+    el.onloadedmetadata = () => (Number.isFinite(el.duration) ? setSplitting({ kind: "video", v, duration: el.duration }) : toast.error("Couldn't read the video's length."));
+    el.onerror = () => toast.error("Couldn't load the video.");
+    el.src = videoFile(v, "mp4");
+  };
+
   const toggleExplainer = (on = !explainerMode) => {
     setExplainerMode(on);
     track("studio_explainer_mode", { on });
@@ -307,7 +436,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         const on = !!t.explainer;
         const note = on !== mode ? `[The user turned Explainer ${on ? "on" : "off"} with the button.]\n` : "";
         mode = on;
-        return [{ role: "user", text: note + t.text }];
+        const media = (t.media ?? []).map(describeSent).join("\n");
+        return [{ role: "user", text: note + [t.text, media].filter(Boolean).join("\n") }];
       }
       const parts = [t.text ?? ""];
       if (t.template) parts.push(`[Built template “${t.template.title}” v${t.template.version}, ${formatOf(t.template)}, ${seconds(t.template)}s]`);
@@ -320,14 +450,17 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
 
   const send = async (override?: string) => {
     const text = (override ?? message).trim();
-    if (!text || busy) return;
+    const ready = override ? [] : pending.filter((p) => p.status === "ready" && p.mediaId);
+    if ((!text && !ready.length) || busy || (!override && uploading)) return;
     if (!isSignedIn) return toLogin();
     if (!override) {
       setMessage("");
       adjustHeight(true);
     }
     const aid = nextId.current++;
-    const userTurn: Turn = { id: nextId.current++, role: "user", text, explainer: explainerMode };
+    const sent: Sent[] = ready.map((p) => ({ ref: mediaRef(p.mediaId!, p.trim), kind: p.kind, name: p.file.name, preview: p.preview, width: p.width ?? null, height: p.height ?? null, duration: p.duration, trim: p.trim }));
+    if (!override) setPending((xs) => xs.filter((x) => x.status !== "ready"));
+    const userTurn: Turn = { id: nextId.current++, role: "user", text, explainer: explainerMode, ...(sent.length ? { media: sent } : {}) };
     const before = turns;
     setTurns((ts) => [...ts, userTurn, { id: aid, role: "assistant", thinking: true, steps: [], chars: 0 }]);
     setBusy(true);
@@ -345,10 +478,11 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       });
       patch(aid, () => ({ thinking: false, text: r.reply }));
       track("studio_chat", { ...said, action: r.action });
-      if (r.action === "build") await build(aid, { mode: "create", prompt: r.brief, aspect: r.aspect });
+      const all = [...before, userTurn];
+      if (r.action === "build") await build(aid, { mode: "create", prompt: r.brief, aspect: r.aspect, media: mediaForBuild(all, "create") });
       else if (r.action === "explainer" && explainerMode) await explainer(aid, () => startVideo({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor() }));
       else if (r.action === "change" && currentVideo && explainerMode) await explainer(aid, () => changeVideo(currentVideo.id, r.brief));
-      else if (r.action === "change" && current) await build(aid, { mode: "edit", id: current.id, instruction: r.brief });
+      else if (r.action === "change" && current) await build(aid, { mode: "edit", id: current.id, instruction: r.brief, media: mediaForBuild(all, "edit") });
       else setBusy(false);
     } catch (err) {
       if ((err as { status?: number }).status === 401) return toLogin();
@@ -409,11 +543,52 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     });
   };
 
+  // One clip of a finished video: templates re-render just those frames;
+  // explainer MP4s are cut as files.
+  const clipCount = useRef(0);
+  const makeClip = async (what: NonNullable<typeof splitting>, r: ClipRange, onProgress: (p: number) => void, signal: AbortSignal) => {
+    clipCount.current++;
+    if (what.kind === "template") {
+      const t = what.t;
+      if (!renderHost.current) throw new Error("Couldn't start the export.");
+      const from = Math.max(0, Math.round(r.start * t.fps));
+      const to = Math.min(t.durationInFrames - 1, Math.round(r.end * t.fps) - 1);
+      const blob = await exportMp4({ template: t, brand, content: contentFor(t), host: renderHost.current, signal, onProgress, frameRange: [from, Math.max(from, to)] });
+      track("studio_clips_made", { what: "template", clips: clipCount.current });
+      return blob;
+    }
+    const res = await fetch(videoFile(what.v, "mp4"), { credentials: "same-origin", signal });
+    if (!res.ok) throw new Error("Couldn't load the video.");
+    const blob = await cutMp4(await res.blob(), r, onProgress, signal);
+    track("studio_clips_made", { what: "explainer", clips: clipCount.current });
+    return blob;
+  };
+
   const empty = turns.length === 0;
 
   const input = (
     <div className="w-full">
-      <div className="relative rounded-2xl border border-white/12 bg-[#0c0c0c]/90 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md transition-colors focus-within:border-[#22A03A]/60">
+      <div
+        className="relative rounded-2xl border border-white/12 bg-[#0c0c0c]/90 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-md transition-colors focus-within:border-[#22A03A]/60"
+        onDragOver={(e) => e.dataTransfer.types.includes("Files") && e.preventDefault()}
+        onDrop={(e) => {
+          if (!e.dataTransfer.files.length) return;
+          e.preventDefault();
+          pickFiles(e.dataTransfer.files);
+        }}
+      >
+        <AttachmentChips items={pending} onRemove={removePending} onTrim={trimPending} />
+        <input
+          ref={picker}
+          type="file"
+          accept={ACCEPT}
+          multiple
+          hidden
+          onChange={(e) => {
+            pickFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
         <Textarea
           ref={textareaRef}
           value={message}
@@ -441,6 +616,15 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         />
         <div className="flex items-center justify-between gap-2 px-3 pb-3">
           <div className="flex min-w-0 items-center gap-2">
+          <button
+            onClick={() => (isSignedIn ? picker.current?.click() : toLogin())}
+            disabled={busy || pending.length >= 4}
+            aria-label="Add a photo or clip"
+            title="Add a photo or clip from your device"
+            className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg border border-white/8 text-white/55 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
           {/* On the empty page the Explainer chip below does this; in a chat, the toggle lives here. */}
           {!empty && (
           <button
@@ -477,14 +661,14 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           </div>
           <Button
             onClick={() => send()}
-            disabled={busy || !message.trim()}
+            disabled={!((message.trim() || pending.some((p) => p.status === "ready")) && !busy && !uploading)}
             aria-label="Send"
             className={cn(
               "h-9 w-9 rounded-full p-0 transition-colors disabled:opacity-100",
-              message.trim() && !busy ? "bg-[#22A03A] text-black hover:bg-[#22A03A]/90" : "bg-white/8 text-white/35",
+              (message.trim() || pending.some((p) => p.status === "ready")) && !busy && !uploading ? "bg-[#22A03A] text-black hover:bg-[#22A03A]/90" : "bg-white/8 text-white/35",
             )}
           >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpIcon className="h-4 w-4" />}
+            {busy || uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpIcon className="h-4 w-4" />}
           </Button>
         </div>
       </div>
@@ -633,8 +817,23 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                 {turns.map((t) => {
                   if (t.role === "user")
                     return (
-                      <div key={t.id} className="ml-12 self-end rounded-2xl rounded-br-md bg-white/[0.07] px-4 py-2.5 text-[14.5px] leading-relaxed whitespace-pre-wrap text-white">
-                        {t.text}
+                      <div key={t.id} className="ml-12 flex flex-col items-end gap-1.5 self-end">
+                        {t.media?.length ? (
+                          <div className="flex flex-wrap justify-end gap-1.5">
+                            {t.media.map((m) => (
+                              <span key={m.ref} className="relative h-24 w-24 overflow-hidden rounded-xl border border-white/10 bg-black" title={m.name}>
+                                {m.kind === "image" ? <img src={m.preview} alt={m.name} className="h-full w-full object-cover" /> : <video src={m.preview} muted playsInline preload="metadata" className="h-full w-full object-cover" />}
+                                {m.kind === "video" && (
+                                  <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1 text-[10.5px] text-white/85">
+                                    <Film className="h-3 w-3" />
+                                    {m.trim ? fmtSecs(m.trim.end - m.trim.start) : m.duration ? fmtSecs(m.duration) : ""}
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        {t.text && <div className="rounded-2xl rounded-br-md bg-white/[0.07] px-4 py-2.5 text-[14.5px] leading-relaxed whitespace-pre-wrap text-white">{t.text}</div>}
                       </div>
                     );
                   const working = !!t.thinking || !!t.building || (!!t.template && t.health === "testing" && t === latest) || t.video?.status === "running";
@@ -709,6 +908,15 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
               </div>
             </div>
             {panel.video.status === "done" && panel.video.files.mp4 && (
+              <button
+                onClick={() => splitVideo(panel.video!)}
+                title="Cut this video into shorter clips"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/15 px-3 text-[12.5px] text-white/80 hover:bg-white/8 hover:text-white"
+              >
+                <Scissors className="h-3.5 w-3.5" /> Clips
+              </button>
+            )}
+            {panel.video.status === "done" && panel.video.files.mp4 && (
               <a
                 href={videoFile(panel.video, "mp4", true)}
                 download
@@ -773,6 +981,16 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                 Template · {formatOf(panel.template)} · {seconds(panel.template)}s{hasSound(panel.template) ? " · sound" : ""} · v{panel.template.version}
               </div>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSplitting({ kind: "template", t: panel.template! })}
+              disabled={!!exporting}
+              title="Cut this video into shorter clips"
+              className="h-8 rounded-full border-white/15 bg-transparent px-3 text-[12.5px] text-white/80 hover:bg-white/8 hover:text-white dark:bg-transparent"
+            >
+              <Scissors className="h-3.5 w-3.5" /> Clips
+            </Button>
             <Button size="sm" onClick={() => download(panel.template!)} className="h-8 rounded-full bg-[#22A03A] px-3.5 text-[12.5px] font-semibold text-black hover:bg-[#22A03A]/90">
               <Download className="h-3.5 w-3.5" /> Download MP4
             </Button>
@@ -813,11 +1031,12 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
               </Button>
             </div>
 
-            <div className="mt-6 text-[12px] font-medium text-white/45">Text</div>
+            <div className="mt-6 text-[12px] font-medium text-white/45">Content</div>
             <div className="mt-2 grid gap-3">
               {panel.template.fields.map((f) => {
                 const tpl = panel.template!;
                 const set = (v: string) => setEdits((x) => ({ ...x, [tpl.id]: { ...contentFor(tpl), [f.key]: v } }));
+                if (f.type === "media") return <MediaField key={f.key} label={f.label} value={contentFor(tpl)[f.key] ?? ""} onPick={(file) => replaceFieldMedia(tpl, f.key, file)} onTrim={() => trimFieldMedia(tpl, f.key)} onClear={() => set("")} />;
                 return (
                   <label key={f.key} className="block">
                     <span className="mb-1 block text-[12px] text-white/55">{f.label}</span>
@@ -839,11 +1058,27 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                   </label>
                 );
               })}
-              <p className="text-[11.5px] text-white/35">Text edits change the preview, the copied prompt and the MP4. To change the design or the sound, ask Goblin.</p>
+              <p className="text-[11.5px] text-white/35">Edits here change the preview and the MP4. To change the design or the sound, ask Goblin.</p>
             </div>
           </div>
         </aside>
       )}
+
+      {trimming && <TrimDialog src={trimming.src} duration={trimming.duration} initial={trimming.initial} onCancel={trimming.cancel} onDone={trimming.done} />}
+      {splitting && (
+        <SplitDialog
+          title={splitting.kind === "template" ? splitting.t.title : splitting.v.title}
+          duration={splitting.kind === "template" ? splitting.t.durationInFrames / splitting.t.fps : splitting.duration}
+          onClose={() => setSplitting(null)}
+          make={(r, onProgress, signal) => makeClip(splitting, r, onProgress, signal)}
+          save={(blob, i) => {
+            const title = splitting.kind === "template" ? splitting.t.title : splitting.v.title;
+            saveFile(blob, `${slugOf(title)}-clip-${i + 1}.mp4`);
+          }}
+        />
+      )}
+      {/* Clip renders run in a tiny visible frame here, so the browser doesn't throttle them. */}
+      <div ref={renderHost} aria-hidden className="pointer-events-none fixed right-0 bottom-0 h-[2px] w-[2px] overflow-hidden opacity-[0.01]" />
 
       {exporting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Exporting MP4">
@@ -879,6 +1114,68 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// A photo or clip field in the panel: shows what's there, and lets the user
+// swap it, trim it (clips) or clear it.
+function MediaField({ label, value, onPick, onTrim, onClear }: { label: string; value: string; onPick: (file: File) => void; onTrim: () => void; onClear: () => void }) {
+  const ref = parseMediaRef(value);
+  const [info, setInfo] = useState<UploadedMedia | null>(() => (ref ? cachedInfo(ref.id) : null));
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!ref) return setInfo(null);
+    let live = true;
+    mediaInfos([ref.id]).then((m) => live && setInfo(m[ref.id] ?? null));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref?.id]);
+  const kept = ref && ref.start !== null && ref.end !== null ? ref.end - ref.start : info?.durationSeconds ?? null;
+  return (
+    <div>
+      <span className="mb-1 block text-[12px] text-white/55">{label}</span>
+      <div className="flex items-center gap-3 rounded-lg border border-white/12 bg-white/[0.03] p-2">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black">
+          {info ? (
+            info.kind === "image" ? <img src={info.url} alt="" className="h-full w-full object-cover" /> : <video src={info.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+          ) : ref ? (
+            <Loader2 className="h-4 w-4 animate-spin text-white/40" />
+          ) : (
+            <ImageIcon className="h-5 w-5 text-white/30" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] text-white/85">{info?.name || (ref ? "Your upload" : "Nothing here yet")}</span>
+          <span className="block text-[11.5px] text-white/45">{info ? (info.kind === "image" ? "Photo" : `Clip${kept ? `, ${kept.toFixed(1)}s` : ""}`) : ref ? "Loading…" : "Add a photo or clip"}</span>
+        </span>
+        <input
+          ref={input}
+          type="file"
+          accept={ACCEPT}
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onPick(f);
+            e.target.value = "";
+          }}
+        />
+        {info?.kind === "video" && (
+          <button onClick={onTrim} title="Trim" aria-label={`Trim ${label}`} className="rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white">
+            <Scissors className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <button onClick={() => input.current?.click()} className="h-8 rounded-full border border-white/15 px-3 text-[12px] text-white/80 hover:bg-white/8 hover:text-white">
+          {ref ? "Replace" : "Add"}
+        </button>
+        {ref && (
+          <button onClick={onClear} title="Remove" aria-label={`Remove ${label}`} className="rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
