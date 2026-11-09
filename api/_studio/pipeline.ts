@@ -5,6 +5,10 @@ import { checkTemplate, compileTemplate } from "./check.js";
 import type { CallClaude, ToolInput, Usage } from "./claude.js";
 import type { Snapshot } from "./db.js";
 import { EDIT_NOTE, REPAIR_NOTE } from "./guide.js";
+import { parseMediaRef } from "../../src/library/media.js";
+
+// A photo or clip the user attached, as Claude is told about it.
+export type Attachment = { ref: string; kind: "image" | "video"; name: string; width: number | null; height: number | null; durationSeconds: number | null };
 
 export const ASPECTS = { "16:9": [1920, 1080], "9:16": [1080, 1920], "1:1": [1080, 1080] } as const;
 export type Aspect = keyof typeof ASPECTS;
@@ -16,8 +20,19 @@ export type Event =
   | { type: "progress"; chars: number };
 
 export type Job =
-  | { mode: "create"; prompt: string; aspect: Aspect }
-  | { mode: "edit" | "repair"; current: Snapshot; instruction: string };
+  | { mode: "create"; prompt: string; aspect: Aspect; media?: Attachment[] }
+  | { mode: "edit" | "repair"; current: Snapshot; instruction: string; media?: Attachment[] };
+
+function describeMedia(media: Attachment[] | undefined): string {
+  if (!media?.length) return "";
+  const lines = media.map((m) => {
+    const r = parseMediaRef(m.ref);
+    const size = m.width && m.height ? `${m.width}x${m.height}` : "size unknown";
+    const len = m.kind === "video" ? (r?.start != null && r?.end != null ? `, trimmed to ${(r.end - r.start).toFixed(1)} s` : m.durationSeconds ? `, ${m.durationSeconds.toFixed(1)} s long` : "") : "";
+    return `- ${m.kind === "image" ? "Photo" : "Clip"} "${m.name || "upload"}" (${size}${len}): ref "${m.ref}"`;
+  });
+  return `\n\nThe user attached their own media:\n${lines.join("\n")}\nUse it: declare a field of type "media" for each one, with exactly that ref as its default, and draw it with <Media src={c.<key>} /> from ../../motion, as the user's brief describes (usually full-bleed behind the copy). Keep text readable on top of it, for example with a linear-gradient scrim of rgba(0,0,0,a). Always keep a fallback design for when the field is empty (check hasMedia(c.<key>)).`;
+}
 
 export type Outcome = {
   snapshot: Snapshot | null;
@@ -32,13 +47,13 @@ const canvas = (w: number, h: number, s?: number) =>
 function firstMessage(job: Job): string {
   if (job.mode === "create") {
     const [w, h] = ASPECTS[job.aspect];
-    return `${canvas(w, h)}\n\nThe user's brief:\n<brief>\n${job.prompt}\n</brief>\n\nDesign the template and save it.`;
+    return `${canvas(w, h)}\n\nThe user's brief:\n<brief>\n${job.prompt}\n</brief>${describeMedia(job.media)}\n\nDesign the template and save it.`;
   }
   const c = job.current;
   const meta = { title: c.title, outcome: c.outcome, category: c.category, tags: c.tags, durationSeconds: Math.round(c.durationInFrames / c.fps), fields: c.fields.map((f) => ({ ...f, default: c.defaults[f.key] ?? "" })) };
   const note = job.mode === "edit" ? EDIT_NOTE : REPAIR_NOTE;
   const ask = job.mode === "edit" ? `The user's change:\n<change>\n${job.instruction}\n</change>` : `The problem, reported by the live preview:\n<problem>\n${job.instruction}\n</problem>`;
-  return `${note}\n\n${canvas(c.width, c.height, meta.durationSeconds)}\n\nCurrent template metadata:\n${JSON.stringify(meta, null, 2)}\n\nCurrent code:\n\`\`\`tsx\n${c.code}\n\`\`\`\n\n${ask}`;
+  return `${note}\n\n${canvas(c.width, c.height, meta.durationSeconds)}\n\nCurrent template metadata:\n${JSON.stringify(meta, null, 2)}\n\nCurrent code:\n\`\`\`tsx\n${c.code}\n\`\`\`\n\n${ask}${describeMedia(job.media)}`;
 }
 
 // Validates Claude's answer and turns it into a saved-template snapshot.
@@ -53,6 +68,7 @@ export function toSnapshot(input: ToolInput, width: number, height: number): { s
     if (seen.has(f.key)) problems.push(`field key "${f.key}" is declared twice.`);
     seen.add(f.key);
     if (!new RegExp(`\\bc\\.${f.key}\\b|\\bc\\[["']${f.key}["']\\]`).test(code)) problems.push(`field "${f.key}" is declared but the code never reads c.${f.key}.`);
+    if (f.type === "media" && f.default && !parseMediaRef(f.default)) problems.push(`media field "${f.key}" must default to an attached media ref like "media:<id>", or "".`);
   }
   const secs = Math.round(Number(input.durationSeconds));
   if (!(secs >= 3 && secs <= 20)) problems.push(`durationSeconds is ${input.durationSeconds}; use 4 to 15.`);
@@ -77,7 +93,7 @@ export function toSnapshot(input: ToolInput, width: number, height: number): { s
       height,
       fps: 30,
       durationInFrames: secs * 30,
-      fields: fields.map((f) => ({ key: f.key, label: clip(f.label, 60) || f.key, type: f.type === "textarea" ? "textarea" : "text", ...(f.hint?.trim() ? { hint: clip(f.hint, 120) } : {}) })),
+      fields: fields.map((f) => ({ key: f.key, label: clip(f.label, 60) || f.key, type: f.type === "textarea" ? "textarea" : f.type === "media" ? "media" : "text", ...(f.hint?.trim() ? { hint: clip(f.hint, 120) } : {}) })),
       defaults: Object.fromEntries(fields.map((f) => [f.key, clip(f.default, 500)])),
       code,
       compiled,

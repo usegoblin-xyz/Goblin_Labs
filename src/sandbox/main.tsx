@@ -14,7 +14,8 @@ import * as kit from "../library/kit";
 import * as motion from "../library/motion";
 import type { Brand } from "../library/brand";
 import { setSfxResolver, isSfx } from "../library/sfx";
-import type { ToSandbox, FromSandbox } from "./protocol";
+import { setMediaResolver, type MediaInfo } from "../library/media";
+import type { ToSandbox, FromSandbox, MediaFile } from "./protocol";
 
 const Player = RemotionPlayer as unknown as ComponentType<Record<string, unknown> & { ref?: Ref<PlayerRef> }>;
 
@@ -66,6 +67,19 @@ function useSounds(files: Record<string, ArrayBuffer>) {
   setSfxResolver((name) => sfxUrls[name] ?? null);
 }
 
+// Photos and clips arrive as files too; templates find them by media id.
+const mediaUrls = new Map<string, MediaInfo>();
+function addMedia(files: Record<string, MediaFile> | undefined) {
+  let added = false;
+  for (const [id, f] of Object.entries(files ?? {})) {
+    if (mediaUrls.has(id) || !f?.data) continue;
+    mediaUrls.set(id, { url: URL.createObjectURL(new Blob([f.data], { type: f.mime })), kind: f.kind, width: f.width, height: f.height, durationSeconds: f.durationSeconds });
+    added = true;
+  }
+  return added;
+}
+setMediaResolver((id) => mediaUrls.get(id) ?? null);
+
 // The renderer only embeds fonts loaded this way (CSS @font-face isn't
 // carried into SVG text), so the brand fonts load through @remotion/google-fonts.
 async function loadExportFonts() {
@@ -103,6 +117,7 @@ function App() {
         failed.current = false;
         try {
           useSounds(m.sfx);
+          addMedia(m.media);
           const C = evaluate(m.compiled);
           setComp(() => C);
           setJob(m);
@@ -114,6 +129,9 @@ function App() {
         }
       } else if (m.type === "props") {
         setProps({ brand: m.brand, content: m.content, audio: false });
+      } else if (m.type === "media") {
+        // Remount the player so frames pick up the new files.
+        if (addMedia(m.media)) setNonce((n) => n + 1);
       }
     };
     window.addEventListener("message", onMessage);
@@ -148,7 +166,7 @@ function App() {
     (async () => {
       try {
         const { renderMediaOnWeb, canRenderMediaOnWeb } = await import("@remotion/web-renderer");
-        const sound = Object.keys(sfxUrls).length > 0;
+        const sound = Object.keys(sfxUrls).length > 0 || [...mediaUrls.values()].some((m) => m.kind === "video");
         const settings = { container: "mp4" as const, videoCodec: "h264" as const, audioCodec: sound ? ("aac" as const) : null, muted: !sound };
         const can = await canRenderMediaOnWeb({ ...settings, width: job.width, height: job.height } as never);
         if (!(can as { canRender?: boolean }).canRender) {
@@ -160,6 +178,7 @@ function App() {
           composition: { component: Safe as never, id: "goblin", durationInFrames: job.durationInFrames, fps: job.fps, width: job.width, height: job.height },
           inputProps: props as never,
           ...settings,
+          ...(job.frameRange ? { frameRange: job.frameRange } : {}),
           videoBitrate: "high",
           licenseKey: "free-license",
           signal: ctrl.signal,

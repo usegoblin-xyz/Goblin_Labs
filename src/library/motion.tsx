@@ -1,11 +1,12 @@
 // Shared motion kit for library templates. Every value is a pure function of
 // time, so previews, scrubbing and MP4 renders always agree.
 import type { CSSProperties, ReactNode } from "react";
-import { Audio, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { Audio as MediaAudio } from "@remotion/media";
+import { Audio, Img, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { Audio as MediaAudio, Video as MediaVideo } from "@remotion/media";
 import { alpha, FONTS, onColor, type Brand } from "./brand";
 import { charX, textWidth } from "./metrics";
 import { SFX, isSfx, sfxSrc, type SfxName } from "./sfx";
+import { mediaInfo } from "./media";
 
 export { charX, textWidth };
 
@@ -227,6 +228,37 @@ export function Sfx({ name, at, volume = 1 }: { name: SfxName; at: number; volum
     <Sequence from={from} durationInFrames={Math.min(durationInFrames - from, Math.ceil(SFX[name].seconds * fps) + 2)} layout="none" name={`sfx ${name}`}>
       <MediaAudio src={src} volume={Math.min(1, Math.max(0, volume))} />
     </Sequence>
+  );
+}
+
+// ---- the user's photos and clips -------------------------------------------------------
+// A field of type "media" holds the user's uploaded photo or clip. hasMedia()
+// says whether one is set (the field can be empty, so always have a fallback
+// design); <Media> draws it, filling its box like CSS object-fit. Clips play
+// their trimmed part, loop if the video is longer, and are silent unless
+// you pass volume. Wrap it in a div to position, scale, round or fade it.
+export const hasMedia = (src: string | undefined) => mediaInfo(src) !== null;
+export const mediaKind = (src: string | undefined) => mediaInfo(src)?.kind ?? null;
+export function Media({ src, fit = "cover", volume = 0, style }: { src: string | undefined; fit?: "cover" | "contain"; volume?: number; style?: CSSProperties }) {
+  const { fps } = useVideoConfig();
+  const m = mediaInfo(src);
+  if (!m) return null;
+  const box: CSSProperties = { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit, ...style };
+  if (m.kind === "image") return <Img src={m.url} style={box} />;
+  const start = Math.max(0, m.start ?? 0);
+  const end = m.end ?? m.durationSeconds ?? null;
+  const v = Math.min(1, Math.max(0, volume));
+  return (
+    <MediaVideo
+      src={m.url}
+      objectFit={fit}
+      style={box}
+      loop
+      muted={v === 0}
+      volume={v}
+      trimBefore={start > 0 ? Math.round(start * fps) : undefined}
+      trimAfter={end ? Math.round(end * fps) : undefined}
+    />
   );
 }
 

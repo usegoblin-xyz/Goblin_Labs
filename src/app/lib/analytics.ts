@@ -78,6 +78,8 @@ type Events = {
   studio_copied: { what: string };
   // One per message sent to Goblin, after it answers: what Goblin did with it.
   account_usage_opened: Record<string, never>;
+  studio_media_attached: { kind: "image" | "video"; conversation_id: string };
+  studio_clips_made: { what: "template" | "explainer"; clips: number };
   studio_chat: { conversation_id: string; turn: number; explainer_mode: boolean; action: "chat" | "build" | "change" | "explainer" | "error" };
   studio_downloaded: Record<string, never>;
   studio_export_failed: Record<string, never>;

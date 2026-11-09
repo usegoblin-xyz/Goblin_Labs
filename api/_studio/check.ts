@@ -132,7 +132,11 @@ export function checkTemplate(code: string): Problem[] {
       const name = node.name.getText(sf);
       if (name === "dangerouslySetInnerHTML") add(node, "uses dangerouslySetInnerHTML.");
       if (/^on[A-Z]/.test(name)) add(node, `sets the event handler ${name}; templates aren't interactive.`);
-      if (name === "src" || name === "href" || name === "xlinkHref") add(node, `sets ${name}; templates can't load images or links.`);
+      // The one allowed src: <Media src={c.field}>, the user's own photo or clip.
+      const tag = node.parent?.parent && (ts.isJsxSelfClosingElement(node.parent.parent) || ts.isJsxOpeningElement(node.parent.parent)) ? node.parent.parent.tagName.getText(sf) : "";
+      const mediaSrc = tag === "Media" && name === "src" && !!node.initializer && ts.isJsxExpression(node.initializer) && !!node.initializer.expression && !ts.isStringLiteralLike(node.initializer.expression);
+      if ((name === "src" || name === "href" || name === "xlinkHref") && !mediaSrc)
+        add(node, tag === "Media" ? "<Media src> must read a media field, like src={c.photo}." : `sets ${name}; templates can't load images or links. The user's own photo or clip goes through <Media src={c.field}>.`);
       if (FONT_PROPS.has(name) && node.initializer && ts.isStringLiteral(node.initializer)) add(node, `hard-codes a font (${name}="${node.initializer.text}"); use fontOf(b), MONO or SERIF.`);
     } else if (ts.isPropertyAssignment(node) && FONT_PROPS.has(propName(node.name)) && isStringy(node.initializer)) {
       add(node, `hard-codes a font in ${propName(node.name)}; use fontOf(b), MONO or SERIF.`);

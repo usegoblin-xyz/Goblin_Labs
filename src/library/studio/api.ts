@@ -1,7 +1,7 @@
 // Browser client for template generation and saved templates (api/studio.ts).
 import type { Template } from "../kit";
 
-export type StudioField = { key: string; label: string; type: "text" | "textarea"; hint?: string };
+export type StudioField = { key: string; label: string; type: "text" | "textarea" | "media"; hint?: string };
 export type StudioTemplate = {
   id: string;
   title: string;
@@ -30,8 +30,8 @@ export type GenEvent =
   | { type: "error"; message: string; problems?: string[] };
 
 export type GenRequest =
-  | { mode: "create"; prompt: string; aspect: Aspect }
-  | { mode: "edit"; id: string; instruction: string }
+  | { mode: "create"; prompt: string; aspect: Aspect; media?: string[] }
+  | { mode: "edit"; id: string; instruction: string; media?: string[] }
   | { mode: "repair"; id: string; error: string };
 
 // The current chat's id, sent with each chat and build request so PostHog can

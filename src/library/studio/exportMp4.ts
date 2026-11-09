@@ -5,6 +5,7 @@ import type { Brand } from "../brand";
 import type { FromSandbox, ToSandbox } from "../../sandbox/protocol";
 import type { StudioTemplate } from "./api";
 import { sfxFiles } from "./sounds";
+import { mediaFiles } from "./media";
 
 export async function exportMp4(opts: {
   template: StudioTemplate;
@@ -13,9 +14,11 @@ export async function exportMp4(opts: {
   host: HTMLElement; // where the (tiny, visible) render frame lives; keeps the browser from throttling it
   onProgress: (p: number) => void;
   signal: AbortSignal;
+  // Render only these frames (inclusive), to split a video into clips.
+  frameRange?: [number, number];
 }): Promise<Blob> {
-  const { template: t, brand, content, host, onProgress, signal } = opts;
-  const sfx = await sfxFiles(t.compiled);
+  const { template: t, brand, content, host, onProgress, signal, frameRange } = opts;
+  const [sfx, media] = await Promise.all([sfxFiles(t.compiled), mediaFiles(content)]);
   const frame = document.createElement("iframe");
   frame.src = "/sandbox.html";
   frame.setAttribute("sandbox", "allow-scripts");
@@ -36,7 +39,7 @@ export async function exportMp4(opts: {
       if (e.source !== frame.contentWindow || !e.data || typeof e.data !== "object") return;
       const m = e.data;
       if (m.type === "ready") {
-        const load: ToSandbox = { type: "load", compiled: t.compiled, width: t.width, height: t.height, fps: t.fps, durationInFrames: t.durationInFrames, brand, content, controls: false, autoplay: false, sfx, export: true };
+        const load: ToSandbox = { type: "load", compiled: t.compiled, width: t.width, height: t.height, fps: t.fps, durationInFrames: t.durationInFrames, brand, content, controls: false, autoplay: false, sfx, media, export: true, ...(frameRange ? { frameRange } : {}) };
         frame.contentWindow?.postMessage(load, "*");
       } else if (m.type === "export-progress") onProgress(m.progress);
       else if (m.type === "exported") {
