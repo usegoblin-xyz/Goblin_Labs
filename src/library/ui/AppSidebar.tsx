@@ -1,11 +1,89 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
-import { BarChart3, Bookmark, BookOpen, Clapperboard, LayoutGrid, Lightbulb, Monitor, Rocket, Search, Smartphone, Sparkles, SquarePen, Square } from "lucide-react";
+import { BarChart3, Bookmark, BookOpen, Clapperboard, LayoutGrid, Lightbulb, Monitor, Rocket, Search, Smartphone, Sparkles, SquarePen, Square, Trash2 } from "lucide-react";
 import goblinLogo from "@/assets/goblin-logo.png";
 import { useAuth } from "@/app/lib/auth";
 import { AccountMenu } from "@/app/lib/AccountMenu";
 import { openCookieSettings } from "@/app/lib/CookieBanner";
 import type { Category } from "../kit";
+import { CHATS_CHANGED, deleteChat, listChats, type ChatSummary } from "../studio/api";
+
+// The signed-in user's past chats, newest first. Opening one goes to /?c=<id>;
+// the bin asks once inline before it deletes.
+function Recents({ onNavigate }: { onNavigate?: () => void }) {
+  const { pathname } = useLocation();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const [chats, setChats] = useState<ChatSummary[] | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const open = pathname === "/" ? params.get("c") : null;
+
+  useEffect(() => {
+    let live = true;
+    const load = () => listChats().then((c) => live && setChats(c)).catch(() => {});
+    load();
+    window.addEventListener(CHATS_CHANGED, load);
+    return () => {
+      live = false;
+      window.removeEventListener(CHATS_CHANGED, load);
+    };
+  }, []);
+
+  if (!chats?.length) return null;
+  const remove = async (id: string) => {
+    setConfirming(null);
+    setChats((c) => c?.filter((x) => x.id !== id) ?? null);
+    try {
+      await deleteChat(id);
+    } catch {
+      listChats().then(setChats).catch(() => {});
+      return;
+    }
+    if (open === id) {
+      window.dispatchEvent(new Event("goblin:new-chat"));
+      navigate("/", { replace: true });
+    }
+  };
+  return (
+    <>
+      <Heading>Recents</Heading>
+      <ul className="space-y-0.5">
+        {chats.slice(0, 50).map((c) => (
+          <li key={c.id} className="group relative">
+            {confirming === c.id ? (
+              <div className="flex items-center gap-2 rounded-lg bg-white/[0.06] px-3 py-[7px] text-[13px]">
+                <span className="flex-1 truncate text-white/80">Delete this chat?</span>
+                <button onClick={() => remove(c.id)} className="rounded px-1.5 font-medium text-[#ff7a7a] hover:bg-white/[0.06]">Delete</button>
+                <button onClick={() => setConfirming(null)} className="rounded px-1.5 text-white/60 hover:bg-white/[0.06] hover:text-white">Cancel</button>
+              </div>
+            ) : (
+              <>
+                <Link
+                  to={`/?c=${c.id}`}
+                  onClick={onNavigate}
+                  title={c.title}
+                  aria-current={open === c.id ? "page" : undefined}
+                  className={`block truncate rounded-lg py-[7px] pr-9 pl-3 text-[13.5px] transition-colors ${
+                    open === c.id ? "bg-white/[0.08] font-medium text-white" : "text-white/65 hover:bg-white/[0.04] hover:text-white"
+                  }`}
+                >
+                  {c.title}
+                </Link>
+                <button
+                  onClick={() => setConfirming(c.id)}
+                  aria-label={`Delete ${c.title}`}
+                  className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-md p-1 text-white/45 opacity-0 transition-opacity hover:bg-white/[0.08] hover:text-white focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
 
 export type Format = "any" | "16:9" | "9:16" | "1:1";
 
@@ -126,6 +204,8 @@ export function AppSidebar(p: Props) {
           <Item to="/library/saved" icon={<Bookmark className={ic} />} label="Saved" count={p.savedCount} active={pathname === "/library/saved"} onClick={done} />
           {isSignedIn && <Item to="/library/creations" icon={<Sparkles className={ic} />} label="Your creations" active={pathname === "/library/creations"} onClick={done} />}
         </div>
+
+        {isSignedIn && <Recents onNavigate={done} />}
 
         <Heading>Explore</Heading>
         <div className="space-y-0.5">

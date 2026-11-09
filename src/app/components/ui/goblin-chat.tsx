@@ -28,7 +28,7 @@ import { cutMp4 } from "@/library/studio/cut";
 import { AttachmentChips, MAX_TRIM_SECONDS, MOOD_LIST, MusicControls, SplitDialog, TrimDialog, type ClipRange, type MixState, type Pending, type Use } from "./media-ui";
 import { compose, type Mood } from "@/library/studio/compose";
 import {
-  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
+  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveChat, getChat, setConversationId, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
   type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
@@ -132,6 +132,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   const [params, setParams] = useSearchParams();
   const openId = params.get("t");
   const openVideoId = params.get("v");
+  const openChatId = params.get("c");
   const nextId = useRef(1);
   const autoFixes = useRef(0);
   const scroller = useRef<HTMLDivElement>(null);
@@ -171,6 +172,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     const onNew = () => {
       if (busy) return;
       newConversation();
+      loadedChat.current = null;
+      savedKey.current = "";
       setTurns([]);
       setOpenTurn(null);
       setExplainerMode(false);
@@ -184,9 +187,93 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
 
   const contentFor = (t: StudioTemplate) => edits[t.id] ?? t.defaults;
 
+  // ---- saved chats --------------------------------------------------------------
+  // Every chat is saved to the user's account a moment after it changes, and
+  // /?c=<id> (from Recents in the sidebar) brings it back. Templates, videos and
+  // uploads are stored by id and loaded fresh, so they open at their latest.
+  const loadedChat = useRef<string | null>(null);
+  const savedKey = useRef("");
+  const justOpened = useRef(false); // a reopened chat isn't re-saved (or bumped to the top) until it changes
+  useEffect(() => {
+    if (!isSignedIn || !turns.some((t) => t.role === "user")) return;
+    const stored = turns.flatMap((t): Record<string, unknown>[] => {
+      if (t.role === "user") return [{ role: "user", text: t.text, explainer: t.explainer, media: t.media?.map((m) => ({ ...m, preview: "" })), links: t.links?.map((l) => ({ ...l, text: l.text.slice(0, 1500) })) }];
+      if (t.thinking && !t.text) return [];
+      return [{ role: "assistant", text: t.text, steps: t.steps.map((s) => (s.state === "active" ? { ...s, state: "done" } : s)), error: t.error, templateId: t.template?.id, videoId: t.video?.id }];
+    });
+    const firstMade = turns.find((t): t is Reply => t.role === "assistant" && !!(t.template || t.video));
+    const firstSaid = turns.find((t) => t.role === "user")?.text ?? "";
+    const title = (firstMade?.template?.title || firstMade?.video?.title || firstSaid.split("\n")[0] || "New chat").slice(0, 80);
+    const key = JSON.stringify([title, stored]);
+    if (justOpened.current) {
+      justOpened.current = false;
+      savedKey.current = key;
+      return;
+    }
+    if (key === savedKey.current) return;
+    const id = conversationId();
+    const timer = window.setTimeout(() => {
+      saveChat(id, title, stored)
+        .then(() => {
+          savedKey.current = key;
+          loadedChat.current = id;
+          if (params.get("c") !== id) setParams({ c: id }, { replace: true });
+        })
+        .catch(() => {});
+    }, 1200);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turns, isSignedIn]);
+
+  useEffect(() => {
+    if (!isSignedIn || !openChatId || loadedChat.current === openChatId || busy) return;
+    let live = true;
+    (async () => {
+      const chat = await getChat(openChatId);
+      type Stored = { role: "user" | "assistant"; text?: string; explainer?: boolean; media?: Sent[]; links?: LinkNote[]; steps?: Step[]; error?: string; templateId?: string; videoId?: string };
+      const list = chat.turns as Stored[];
+      const tIds = [...new Set(list.map((t) => t.templateId).filter((x): x is string => !!x))];
+      const vIds = [...new Set(list.map((t) => t.videoId).filter((x): x is string => !!x))];
+      const mIds = [...new Set(list.flatMap((t) => (t.media ?? []).map((m) => parseMediaRef(m.ref)?.id).filter((x): x is string => !!x)))];
+      const [templates, videos, media] = await Promise.all([
+        Promise.all(tIds.map((id) => getTemplate(id).then((r) => [id, r.template] as const).catch(() => [id, null] as const))),
+        Promise.all(vIds.map((id) => getVideo(id).then((v) => [id, v] as const).catch(() => [id, null] as const))),
+        mediaInfos(mIds).catch(() => ({}) as Record<string, UploadedMedia>),
+      ]);
+      if (!live) return;
+      const tMap = new Map(templates);
+      const vMap = new Map(videos);
+      const rebuilt: Turn[] = list.map((t) => {
+        const id = nextId.current++;
+        if (t.role === "user")
+          return { id, role: "user", text: t.text ?? "", explainer: t.explainer, links: t.links, media: t.media?.map((m) => ({ ...m, preview: media[parseMediaRef(m.ref)?.id ?? ""]?.url ?? "" })) };
+        const template = t.templateId ? tMap.get(t.templateId) ?? undefined : undefined;
+        const video = t.videoId ? vMap.get(t.videoId) ?? undefined : undefined;
+        const gone = (t.templateId && !template) || (t.videoId && !video);
+        return { id, role: "assistant", text: t.text, steps: t.steps ?? [], chars: 0, template, video, health: template ? "testing" : undefined, error: t.error ?? (gone ? "This was deleted." : undefined) };
+      });
+      autoFixes.current = MAX_AUTO_FIXES; // don't spend a generation on a reopened chat unasked
+      setConversationId(chat.id);
+      loadedChat.current = chat.id;
+      justOpened.current = true;
+      setTurns(rebuilt);
+      setOpenTurn(null);
+      const lastVideo = [...rebuilt].reverse().find((t): t is Reply => t.role === "assistant" && !!(t.video || t.template));
+      setExplainerMode(!!lastVideo?.video && lastVideo.video.kind !== "edit");
+    })().catch(() => {
+      if (!live) return;
+      toast.error("Couldn't open that chat");
+      setParams({}, { replace: true });
+    });
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, openChatId]);
+
   // /?t=<id> reopens a saved template (from "Your creations") so the chat can keep changing it.
   useEffect(() => {
-    if (!isSignedIn || !openId || current?.id === openId || busy) return;
+    if (!isSignedIn || !openId || openChatId || current?.id === openId || busy) return;
     getTemplate(openId)
       .then(({ template }) => {
         autoFixes.current = MAX_AUTO_FIXES; // don't spend a generation on a saved template unasked
@@ -206,7 +293,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
 
   // /?v=<id> reopens an explainer or an edit.
   useEffect(() => {
-    if (!isSignedIn || !openVideoId || currentVideo?.id === openVideoId || busy) return;
+    if (!isSignedIn || !openVideoId || openChatId || currentVideo?.id === openVideoId || busy) return;
     getVideo(openVideoId)
       .then((video) => {
         const rid = nextId.current++;
@@ -273,7 +360,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     try {
       const t = await generate(req, onEvent);
       if (req.mode !== "repair") autoFixes.current = 0;
-      setParams({ t: t.id }, { replace: true });
       patch(aid, (x) => ({
         template: t,
         building: false,
@@ -479,7 +565,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     try {
       const v = await start();
       patch(aid, () => ({ video: v }));
-      setParams({ v: v.id }, { replace: true });
     } catch (err) {
       if ((err as { status?: number }).status === 401) return toLogin();
       patch(aid, () => ({ error: err instanceof Error ? err.message : "Couldn't start the explainer." }));
