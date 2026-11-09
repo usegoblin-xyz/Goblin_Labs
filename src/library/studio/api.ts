@@ -41,6 +41,10 @@ function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 export const conversationId = () => conversation;
+// Reopening a saved chat carries on under its id.
+export function setConversationId(id: string) {
+  conversation = id;
+}
 export function newConversation() {
   conversation = newId();
 }
@@ -211,4 +215,28 @@ export function asTemplate(s: StudioTemplate): Template {
     defaults: s.defaults,
     fields: s.fields,
   };
+}
+
+// ---- saved chats ----------------------------------------------------------------
+export type ChatSummary = { id: string; title: string; updatedAt: string };
+const chatsCall = async (init?: RequestInit, query = "") => {
+  const r = await fetch(`/api/studio?op=chats${query}`, { credentials: "same-origin", ...init, headers: init?.body ? { "content-type": "application/json" } : undefined });
+  if (!r.ok) throw await errorOf(r);
+  return r.json();
+};
+export const CHATS_CHANGED = "goblin:chats-changed";
+const changed = () => window.dispatchEvent(new Event(CHATS_CHANGED));
+export const listChats = async () => (await chatsCall()).chats as ChatSummary[];
+export const getChat = async (id: string) => (await chatsCall(undefined, `&id=${encodeURIComponent(id)}`)).chat as { id: string; title: string; turns: unknown[]; updatedAt: string };
+export async function saveChat(id: string, title: string, turns: unknown[]) {
+  await chatsCall({ method: "PUT", body: JSON.stringify({ id, title, turns }) });
+  changed();
+}
+export async function renameChat(id: string, title: string) {
+  await chatsCall({ method: "PATCH", body: JSON.stringify({ id, title }) });
+  changed();
+}
+export async function deleteChat(id: string) {
+  await chatsCall({ method: "DELETE" }, `&id=${encodeURIComponent(id)}`);
+  changed();
 }

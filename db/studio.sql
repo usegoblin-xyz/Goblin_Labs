@@ -123,3 +123,18 @@ alter table studio.videos add column if not exists kind text not null default 'e
 alter table studio.videos drop constraint if exists videos_kind_check;
 alter table studio.videos add constraint videos_kind_check check (kind in ('explainer', 'edit'));
 alter table studio.videos add column if not exists media jsonb not null default '[]'::jsonb;
+
+-- Saved chats (Nov 2026): every conversation in the chat, so users can go back
+-- to it from Recents. The id is the conversation id the page already makes.
+-- turns holds the messages; templates, videos and uploads are kept by id and
+-- loaded fresh when the chat is reopened.
+create table if not exists studio.conversations (
+  id uuid primary key,
+  user_id text not null references better_auth."user"(id) on delete cascade,
+  title text not null default 'New chat',
+  turns jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists conversations_user on studio.conversations (user_id, updated_at desc);
+grant select, insert, update, delete on studio.conversations to goblin_auth;

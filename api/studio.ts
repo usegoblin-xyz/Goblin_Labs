@@ -7,6 +7,7 @@
 //   ?op=usage      GET, today's usage against the limits, see api/_studio/usage.ts
 //   ?op=media      GET / POST / DELETE, uploaded photos and clips, see api/_studio/media.ts
 //   ?op=media-upload POST, the browser's upload handshake for one file
+//   ?op=chats      GET / PUT / PATCH / DELETE, saved conversations, see api/_studio/chats.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserId } from "./_auth.js";
 import { callClaude, MODEL } from "./_studio/claude.js";
@@ -17,6 +18,7 @@ import { agentApi } from "./_studio/agent.js";
 import { makeHandler as makeVideos } from "./_studio/videos.js";
 import { makeHandler as makeUsage } from "./_studio/usage.js";
 import { makeHandler as makeMedia } from "./_studio/media.js";
+import { makeHandler as makeChats } from "./_studio/chats.js";
 import { traceFor, tracedChat, tracedTemplate } from "./_studio/llm.js";
 
 const templates = makeTemplates(getUserId);
@@ -32,6 +34,7 @@ function traced(req: VercelRequest) {
 const videos = makeVideos({ agent: agentApi, userId: getUserId });
 const usage = makeUsage(getUserId);
 const media = makeMedia(getUserId);
+const chats = makeChats(getUserId);
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.query.op === "generate") {
@@ -47,5 +50,6 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.query.op === "usage") return usage(req, res);
   if (req.query.op === "media") return media.media(req, res);
   if (req.query.op === "media-upload") return media.upload(req, res);
+  if (req.query.op === "chats") return chats(req, res);
   return res.status(404).json({ error: "Not found" });
 }
