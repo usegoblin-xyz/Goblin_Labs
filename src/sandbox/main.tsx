@@ -73,7 +73,7 @@ function addMedia(files: Record<string, MediaFile> | undefined) {
   let added = false;
   for (const [id, f] of Object.entries(files ?? {})) {
     if (mediaUrls.has(id) || !f?.data) continue;
-    mediaUrls.set(id, { url: URL.createObjectURL(new Blob([f.data], { type: f.mime })), kind: f.kind, width: f.width, height: f.height, durationSeconds: f.durationSeconds });
+    mediaUrls.set(id, { url: URL.createObjectURL(new Blob([f.data], { type: f.mime })), kind: f.kind, width: f.width, height: f.height, durationSeconds: f.durationSeconds, meta: f.meta });
     added = true;
   }
   return added;
@@ -166,7 +166,7 @@ function App() {
     (async () => {
       try {
         const { renderMediaOnWeb, canRenderMediaOnWeb } = await import("@remotion/web-renderer");
-        const sound = Object.keys(sfxUrls).length > 0 || [...mediaUrls.values()].some((m) => m.kind === "video");
+        const sound = Object.keys(sfxUrls).length > 0 || [...mediaUrls.values()].some((m) => m.kind === "video" || m.kind === "audio");
         const settings = { container: "mp4" as const, videoCodec: "h264" as const, audioCodec: sound ? ("aac" as const) : null, muted: !sound };
         const can = await canRenderMediaOnWeb({ ...settings, width: job.width, height: job.height } as never);
         if (!(can as { canRender?: boolean }).canRender) {

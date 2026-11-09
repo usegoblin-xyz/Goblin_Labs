@@ -9,20 +9,22 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { logGeneration, usedToday, chatsToday } from "./db.js";
 import type { Usage } from "./claude.js";
+import { blocks, describe, linksIn, loadAttachments, readLinkPage, type AttachmentIn, type LinkRead } from "./refs.js";
 
-export const CHAT_MODEL = process.env.STUDIO_CHAT_MODEL || process.env.STUDIO_MODEL || "claude-sonnet-5-5";
+export const CHAT_MODEL = process.env.STUDIO_CHAT_MODEL || process.env.STUDIO_MODEL || "claude-opus-5-5";
 export const CHAT_LIMIT = Number(process.env.STUDIO_CHAT_LIMIT || 200);
 const ASPECTS = ["16:9", "9:16", "1:1"] as const;
 
 export type ChatAction = "chat" | "build" | "change" | "explainer";
-export type ChatOut = { reply: string; action: ChatAction; brief: string; title: string; aspect: (typeof ASPECTS)[number] | "none" };
+export const MOODS = ["calm", "upbeat", "cinematic", "lofi", "epic", "playful", "corporate"] as const;
+export type ChatOut = { reply: string; action: ChatAction; brief: string; title: string; aspect: (typeof ASPECTS)[number] | "none"; music: "none" | (typeof MOODS)[number] };
 const explainersOn = () => !!(process.env.GOBLIN_EXPLAINER_AGENT_ID && process.env.GOBLIN_AGENT_ENVIRONMENT_ID);
 export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => Promise<{ out: ChatOut | null; usage: Usage }>;
 
 export const CHAT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "action", "brief", "title", "aspect"],
+  required: ["reply", "action", "brief", "title", "aspect", "music"],
   properties: {
     reply: { type: "string", description: "What Goblin says to the user. Plain text, usually one to three sentences." },
     action: {
@@ -36,6 +38,11 @@ export const CHAT_SCHEMA = {
     },
     title: { type: "string", description: "For build or explainer: a 2 to 5 word title in title case. Empty string otherwise." },
     aspect: { type: "string", enum: [...ASPECTS, "none"], description: "The format the user asked for, or none if they didn't say." },
+    music: {
+      type: "string",
+      enum: ["none", ...MOODS],
+      description: "For build or change: the mood of Goblin-made music to add, only when the user wants music and hasn't attached their own track (their track is used as is). Otherwise none.",
+    },
   },
 };
 
@@ -48,7 +55,7 @@ export function chatSystem(ctx: {
   // The user turned on Explainer (the button). Only then can Goblin make explainers.
   explainerMode?: boolean;
 }) {
-  return `You are Goblin, the assistant on usegoblin.xyz. Goblin builds short motion-graphics videos as templates: code-based animations, 4 to 15 seconds long, in 16:9, 9:16 or 1:1, styled automatically from the user's brand kit (colours, font, motion feel), with editable text fields, and optionally the user's own photo or clip as the background. They can carry sound effects from Goblin's library (whooshes, pops, clicks, ticks, typing, dings, chimes, sparkles, impacts, booms, bass drops, risers, glitches, drumrolls and more) timed to the motion, but no music. Users preview them on the site and download them as MP4 files, with sound.
+  return `You are Goblin, the assistant on usegoblin.xyz. Goblin builds short motion-graphics videos as templates: code-based animations, 4 to 15 seconds long, in 16:9, 9:16 or 1:1, styled automatically from the user's brand kit (colours, font, motion feel), with editable text fields, and optionally the user's own photo or clip as the background. They can carry sound effects from Goblin's library (whooshes, pops, clicks, ticks, typing, dings, chimes, sparkles, impacts, booms, bass drops, risers, glitches, drumrolls and more) timed to the motion, and music: the user's own track or original Goblin-made music. Users preview them on the site and download them as MP4 files, with sound.
 
 How to talk:
 - Talk like a friendly, sharp motion designer. Be natural and brief: usually one to three sentences. No headings, no bullet lists, no markdown, no code.
@@ -64,10 +71,16 @@ When to build (action "build" or "change"):
 - A build brief must stand alone: the template writer sees only the brief, not this conversation. Include the scenes in order, the exact on-screen copy, the length and the feel. Leave colours and fonts to the brand kit.
 - Sound: if the user wants sound or sound effects, say so in the brief and describe which sounds go where (for example "a whoosh as each card slides in, a ding on the final stat, a riser into the logo"). If they haven't mentioned sound, you can ask whether they want sound effects before building; if they don't want any, or never said, leave sound out of the brief.
 
-Their own photos and clips:
-- The user can attach a photo or a short clip from their device with the + button by the message box, and trim a clip to the part they want. Attached files show in their message as a note like [Attached photo "beach.jpg", 1080x1350]. Goblin doesn't see what's in a photo, only that note, so ask what's in it if that matters (for example where the faces are).
-- When they want a quote or caption on their photo or clip, build it with the media as the background. In the brief, say how to use each attachment by its file name (for example "the attached photo beach.jpg full-bleed as the background, with a slow push-in"); the template writer gets the files themselves. Keep the clip silent unless they ask to keep its sound.
-- Any finished video can be cut into shorter clips with the Clips button in the video panel (for Reels, TikTok or Shorts). If they ask how to cut or split a video, tell them that.
+Attachments, references and links:
+- The user can attach photos, clips, music, PDFs and text documents with the + button, and paste links. You see photos directly, clips as a contact sheet of frames, and documents in full; links in the newest message are read for you. Music is described by its length, tempo and beats.
+- Each attachment is marked for the video (put it in), as a reference (look at it, don't put it in), or left for you to judge from what they said. A screenshot of an ad, a brand board or a competitor's video is usually a reference; "put my quote on this" means it goes in.
+- Use what you see. Describe a reference's style concretely in the brief for the template writer (layout, pacing, type treatment, colour mood, motion), pull exact facts, names, numbers and copy from documents and links, and ask about things you can't tell.
+- In a build brief, name each attachment by its file name and say how it's used: "the attached photo beach.jpg full-bleed behind the quote, slow push-in", "match the layout and pacing of the reference ad.png", "use the attached track song.mp3 as the soundtrack and cut on its beats". The template writer gets the same files.
+- A clip stays silent unless the user wants its sound. Any finished video can be cut into shorter clips with the Clips button in the video panel.
+
+Music:
+- Goblin can use the user's own track, or make original music in code in a mood (calm, upbeat, cinematic, lofi, epic, playful or corporate). If the user wants music and hasn't attached a track, set "music" to the mood that fits. Music is mixed under the sound effects (it dips when they play).
+- With music, say in the brief to time the cuts and key words to the beats. After it's built the user can change the start point, volume, fades and looping in the panel, and the motion stays on the beat.
 
 ${ctx.explainers && ctx.explainerMode ? `Explainer mode is ON (the user clicked the Explainer button):
 - In this mode you make explainer videos, not templates, with a separate explainer agent: 30 to 60 seconds, 4 scenes by default (up to 8), each with an on-screen caption, quiet background music made with code, in the brand's colours, delivered as an MP4. They take a few minutes to make, and the user can keep chatting meanwhile. The agent has no internet access: it uses what the user gives it and what it already knows.
@@ -131,6 +144,61 @@ export function toMessages(raw: unknown): Anthropic.MessageParam[] {
   return out;
 }
 
+// The conversation with attachments: the most recent photos, clips and
+// documents are shown to Claude where they were sent; older ones (and all
+// music) are described in a line. Links in the newest message are read here.
+type Entry = { role: "user" | "assistant"; text: string; media: AttachmentIn[] };
+export function toEntries(raw: unknown): Entry[] {
+  const list = Array.isArray(raw) ? raw.slice(-40) : [];
+  const out: Entry[] = [];
+  for (const m of list) {
+    const role = m?.role === "assistant" ? "assistant" : m?.role === "user" ? "user" : null;
+    const text = str(m?.text, 6000);
+    const media: AttachmentIn[] = role === "user" && Array.isArray(m?.media) ? m.media.slice(0, 6) : [];
+    if (!role || (!text && !media.length)) continue;
+    const last = out[out.length - 1];
+    if (last && last.role === role) {
+      last.text += "\n\n" + text;
+      last.media.push(...media);
+    } else out.push({ role, text, media });
+  }
+  while (out.length && out[0].role !== "user") out.shift();
+  return out;
+}
+
+export async function withMedia(userId: string, entries: Entry[], links: LinkRead[]): Promise<Anthropic.MessageParam[]> {
+  const all = entries.flatMap((e) => e.media);
+  const loaded = await loadAttachments(userId, all, 16);
+  const byRef = new Map(loaded.map((a) => [a.ref, a]));
+  // Show (rather than describe) the last four photos or clips and the last
+  // two documents; that keeps each request well under Claude's size limit.
+  const shown = new Set([...loaded.filter((a) => a.kind === "image" || a.kind === "video").slice(-4), ...loaded.filter((a) => a.kind === "doc").slice(-2)].map((a) => a.ref));
+  const out: Anthropic.MessageParam[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    if (e.role === "assistant") {
+      out.push({ role: "assistant", content: e.text || "…" });
+      continue;
+    }
+    const content: Anthropic.ContentBlockParam[] = [];
+    for (const m of e.media) {
+      const a = byRef.get(m.ref);
+      if (!a) continue;
+      if (shown.has(a.ref)) content.push(...(await blocks([a])));
+      else content.push({ type: "text", text: `[Earlier attachment] ${describe(a)}` });
+    }
+    if (i === entries.length - 1)
+      for (const l of links)
+        content.push({ type: "text", text: l.ok ? `[Contents of the link ${l.url}${l.title ? ` (“${l.title}”)` : ""}]\n${l.text}` : `[The link ${l.url} couldn't be read (it may need a login or JavaScript). Ask the user to paste the key text if it matters.]` });
+    content.push({ type: "text", text: e.text || "(The user sent the attachments above without a message.)" });
+    out.push({ role: "user", content });
+  }
+  // Cache the conversation so far for the next turn.
+  const last = out[out.length - 1];
+  if (last && Array.isArray(last.content) && last.content.length) (last.content[last.content.length - 1] as { cache_control?: object }).cache_control = { type: "ephemeral" };
+  return out;
+}
+
 export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest) => Promise<string | null>; configured?: () => boolean }) {
   const configured = deps.configured ?? (() => !!process.env.ANTHROPIC_API_KEY);
   return async function handler(req: VercelRequest, res: VercelResponse) {
@@ -142,8 +210,10 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       if (!userId) return res.status(401).json({ error: "Sign in to chat with Goblin." });
 
       const body = (typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body) ?? {};
-      const messages = toMessages(body.messages);
-      if (!messages.length || messages[messages.length - 1].role !== "user") return res.status(400).json({ error: "Say something first." });
+      const entries = toEntries(body.messages);
+      if (!entries.length || entries[entries.length - 1].role !== "user") return res.status(400).json({ error: "Say something first." });
+      const links = await Promise.all(linksIn(entries[entries.length - 1].text).map(readLinkPage));
+      const messages = await withMedia(userId, entries, links);
       const aspect = ASPECTS.includes(body.aspect) ? body.aspect : "16:9";
       const t = body.template && typeof body.template === "object" ? body.template : null;
       const template = t
@@ -201,7 +271,17 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
           return res.status(200).json({ reply: `I'd love to, but you've used all ${limit} builds for today. We can keep planning it, and I'll build it tomorrow.`, action: "chat", brief: "", aspect });
         }
       }
-      return res.status(200).json({ reply, action, brief, title: action === "build" || action === "explainer" ? str(out.title, 80) : "", aspect: out.aspect === "none" || !ASPECTS.includes(out.aspect as never) ? aspect : out.aspect });
+      const music = (action === "build" || action === "change") && MOODS.includes(out.music as never) ? out.music : "none";
+      return res.status(200).json({
+        reply,
+        action,
+        brief,
+        title: action === "build" || action === "explainer" ? str(out.title, 80) : "",
+        aspect: out.aspect === "none" || !ASPECTS.includes(out.aspect as never) ? aspect : out.aspect,
+        music,
+        // What the links said, for the page to keep with the message.
+        links: links.map((l) => ({ url: l.url, title: l.title, ok: l.ok, text: l.text.slice(0, 3000) })),
+      });
     } catch (e) {
       console.error("studio chat failed", (e as Error).message);
       if (!res.headersSent) res.status(500).json({ error: "Something went wrong. Try again in a moment." });

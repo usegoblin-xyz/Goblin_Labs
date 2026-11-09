@@ -2,10 +2,12 @@
 //   GET                      → { templates: [...] } (newest first)
 //   GET ?id=                 → { template, versions }
 //   POST { id, restore: n }  → { template } (restores version n as a new version)
+//   PATCH { id, defaults }   → { template } (saves edits made in the panel:
+//                              text, photos, clips and music settings)
 //   DELETE ?id=              → { ok: true }
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserId } from "../_auth.js";
-import { deleteTemplate, getSnapshot, getTemplate, listTemplates, listVersions, saveVersion } from "./db.js";
+import { db, deleteTemplate, getSnapshot, getTemplate, listTemplates, listVersions, saveVersion } from "./db.js";
 
 export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | null>) {
   return async function handler(req: VercelRequest, res: VercelResponse) {
@@ -30,6 +32,16 @@ export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | n
         if (!snap) return res.status(404).json({ error: "Version not found." });
         const template = await saveVersion(userId, current.id, `Restored version ${n}`, snap);
         return res.status(200).json({ template, versions: await listVersions(current.id) });
+      }
+      if (req.method === "PATCH") {
+        const body = (typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body) ?? {};
+        const current = await getTemplate(userId, String(body.id ?? ""));
+        if (!current) return res.status(404).json({ error: "Template not found." });
+        const given = body.defaults && typeof body.defaults === "object" ? (body.defaults as Record<string, unknown>) : {};
+        // Only the template's own fields, as strings.
+        const defaults = Object.fromEntries(current.fields.map((f) => [f.key, typeof given[f.key] === "string" ? (given[f.key] as string).slice(0, 2000) : current.defaults[f.key] ?? ""]));
+        await db().query(`update studio.templates set defaults = $3, updated_at = now() where user_id = $1 and id = $2`, [userId, current.id, JSON.stringify(defaults)]);
+        return res.status(200).json({ template: { ...current, defaults } });
       }
       if (req.method === "DELETE") {
         const ok = await deleteTemplate(userId, id);

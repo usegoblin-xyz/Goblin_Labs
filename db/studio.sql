@@ -107,3 +107,12 @@ create table if not exists studio.media (
 );
 create index if not exists media_user on studio.media (user_id, created_at desc);
 grant select, insert, update, delete on studio.media to goblin_auth;
+
+-- References and music (Nov 2026): uploads can also be audio (music) or docs
+-- (PDF or text). preview_pathname is a small JPEG Claude looks at (a photo
+-- downscaled, or a contact sheet of frames from a clip); meta holds what the
+-- browser worked out on upload (a track's tempo and beat times, a doc's pages).
+alter table studio.media drop constraint if exists media_kind_check;
+alter table studio.media add constraint media_kind_check check (kind in ('image', 'video', 'audio', 'doc'));
+alter table studio.media add column if not exists preview_pathname text;
+alter table studio.media add column if not exists meta jsonb not null default '{}'::jsonb;

@@ -10,7 +10,7 @@ export type TemplateProps<C> = { brand: Brand; content: C; audio?: boolean };
 export type Field = {
   key: string;
   label: string;
-  type: "text" | "textarea" | "number" | "media";
+  type: "text" | "textarea" | "number" | "media" | "audio";
   hint?: string;
 };
 
