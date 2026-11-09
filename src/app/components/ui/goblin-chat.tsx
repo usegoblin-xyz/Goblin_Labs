@@ -361,22 +361,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     const label = MOOD_LIST.find((m) => m.id === mood)?.label ?? mood;
     return { file: new File([c.blob], `goblin-${mood}-${c.bpm}bpm.wav`, { type: "audio/wav" }), meta: { bpm: c.bpm, beats: c.beats, downbeats: c.downbeats, energy: c.energy, generated: true, mood: label.toLowerCase() }, duration: c.duration };
   };
-  const attachMusic = async (mood: Mood) => {
-    if (!isSignedIn) return toLogin();
-    setPlusOpen(false);
-    const key = `${Date.now()}-m`;
-    const label = `Goblin-made · ${MOOD_LIST.find((m) => m.id === mood)?.label ?? mood}`;
-    setPending((xs) => [...xs, { key, file: new File([], `${mood}.wav`), preview: "", kind: "audio", use: "video", label, duration: null, trim: null, progress: 0, status: "uploading" }]);
-    try {
-      const m = await makeMusic(mood);
-      setPending((xs) => xs.map((x) => (x.key === key ? { ...x, file: m.file, duration: m.duration } : x)));
-      track("studio_media_attached", { kind: "audio", conversation_id: conversationId() });
-      startUpload(key, m.file, m.meta);
-    } catch (e) {
-      setPending((xs) => xs.map((x) => (x.key === key ? { ...x, status: "error", error: e instanceof Error ? e.message : "Couldn't make the music" } : x)));
-    }
-  };
-
   // Attachments to hand the template writer: everything attached in this chat
   // for a new build, or what was attached since the last build for a change.
   const mediaForBuild = (ts: Turn[], mode: "create" | "edit"): { ref: string; use: Use }[] => {
@@ -452,12 +436,11 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
 
   // A music field in the panel.
   const setMusic = (tpl: StudioTemplate, key: string, ref: string) => setEdits((x) => ({ ...x, [tpl.id]: { ...contentFor(tpl), [key]: ref } }));
-  const replaceMusic = async (tpl: StudioTemplate, key: string, src: { file: File } | { mood: Mood }) => {
+  const replaceMusic = async (tpl: StudioTemplate, key: string, src: { file: File }) => {
     if (!user) return toLogin();
     setMusicBusy(true);
     try {
-      const m = "mood" in src ? await makeMusic(src.mood) : null;
-      const up = await uploadMedia(m ? m.file : (src as { file: File }).file, user.id, undefined, undefined, m ? { meta: m.meta } : undefined);
+      const up = await uploadMedia(src.file, user.id);
       const old = parseMediaRef(contentFor(tpl)[key]);
       setMusic(tpl, key, old ? withMix(up.ref, { start: null, end: null, volume: old.volume, fadeIn: old.fadeIn, fadeOut: old.fadeOut, loop: old.loop, duck: old.duck }) : up.ref);
     } catch (e) {
@@ -467,16 +450,14 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     }
   };
   // No music field yet: ask Goblin to add the track.
-  const addMusicToVideo = async (src: { file: File } | { mood: Mood }) => {
+  const addMusicToVideo = async (src: { file: File }) => {
     if (!user) return toLogin();
     setMusicBusy(true);
     try {
-      const m = "mood" in src ? await makeMusic(src.mood) : null;
-      const file = m ? m.file : (src as { file: File }).file;
-      const up = await uploadMedia(file, user.id, undefined, undefined, m ? { meta: m.meta } : undefined);
-      const name = m ? `Goblin-made ${(src as { mood: Mood }).mood} music` : file.name;
-      await send(`Add ${m ? "this Goblin-made music" : `my track ${file.name}`} as the soundtrack, and time the cuts and key words to its beats.`, [
-        { ref: up.ref, kind: "audio", use: "video", name, preview: "", width: null, height: null, duration: up.durationSeconds, trim: null },
+      const file = src.file;
+      const up = await uploadMedia(file, user.id);
+      await send(`Add my track ${file.name} as the soundtrack, and time the cuts and key words to its beats.`, [
+        { ref: up.ref, kind: "audio", use: "video", name: file.name, preview: "", width: null, height: null, duration: up.durationSeconds, trim: null },
       ]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't add that music");
@@ -737,15 +718,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                     <span className="block text-[11.5px] text-white/45">Photos, clips, music, PDFs, Word or text files</span>
                   </span>
                 </button>
-                <div className="px-2.5 pt-2 pb-1 text-[11px] text-white/40">Goblin-made music</div>
-                <div className="flex flex-wrap gap-1.5 px-2.5 pb-2">
-                  {MOOD_LIST.map((m) => (
-                    <button key={m.id} role="menuitem" onClick={() => attachMusic(m.id)} className="h-7 rounded-full border border-white/12 px-2.5 text-[12px] text-white/70 hover:border-[#22A03A]/60 hover:text-white">
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="border-t border-white/8 px-2.5 pt-2 pb-1 text-[11px] leading-snug text-white/40">Paste a link in your message and Goblin reads it.</div>
+                <div className="border-t border-white/8 px-2.5 pt-2 pb-1 text-[11px] leading-snug text-white/40">Want music? Just ask in your message, like “upbeat music, cut on the beat”. Paste a link and Goblin reads it.</div>
               </div>
             )}
           </div>
@@ -1179,7 +1152,6 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                       busy={musicBusy}
                       onChange={(ref) => setMusic(tpl, f.key, ref)}
                       onReplace={(file) => replaceMusic(tpl, f.key, { file })}
-                      onMood={(mood) => replaceMusic(tpl, f.key, { mood: mood as Mood })}
                     />
                   );
                 if (f.type === "media") return <MediaField key={f.key} label={f.label} value={contentFor(tpl)[f.key] ?? ""} onPick={(file) => replaceFieldMedia(tpl, f.key, file)} onTrim={() => trimFieldMedia(tpl, f.key)} onClear={() => set("")} />;
@@ -1204,7 +1176,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                   </label>
                 );
               })}
-              {!panel.template.fields.some((f) => f.type === "audio") && <AddMusic busy={musicBusy || busy} onFile={(file) => addMusicToVideo({ file })} onMood={(mood) => addMusicToVideo({ mood: mood as Mood })} />}
+              {!panel.template.fields.some((f) => f.type === "audio") && <AddMusic busy={musicBusy || busy} onFile={(file) => addMusicToVideo({ file })} />}
               <p className="text-[11.5px] text-white/35">Edits here are saved and change the preview and the MP4. To change the design, ask Goblin.</p>
             </div>
           </div>
@@ -1328,7 +1300,7 @@ function MediaField({ label, value, onPick, onTrim, onClear }: { label: string; 
 }
 
 // The music field in the panel: the track's settings, live.
-function MusicField({ label, value, busy, onChange, onReplace, onMood }: { label: string; value: string; busy?: boolean; onChange: (ref: string) => void; onReplace: (file: File) => void; onMood: (mood: string) => void }) {
+function MusicField({ label, value, busy, onChange, onReplace }: { label: string; value: string; busy?: boolean; onChange: (ref: string) => void; onReplace: (file: File) => void }) {
   const ref = parseMediaRef(value);
   const [info, setInfo] = useState<UploadedMedia | null>(() => (ref ? cachedInfo(ref.id) : null));
   useEffect(() => {
@@ -1344,7 +1316,7 @@ function MusicField({ label, value, busy, onChange, onReplace, onMood }: { label
     return (
       <div>
         <span className="mb-1 block text-[12px] text-white/55">{label}</span>
-        <AddMusic busy={busy} inline onFile={onReplace} onMood={onMood} />
+        <AddMusic busy={busy} inline onFile={onReplace} />
       </div>
     );
   const mix: MixState = { start: ref.start ?? 0, volume: ref.volume ?? 0.8, fadeIn: ref.fadeIn ?? 0.4, fadeOut: ref.fadeOut ?? 0.8, loop: ref.loop ?? true, duck: ref.duck ?? 0.5 };
@@ -1360,29 +1332,23 @@ function MusicField({ label, value, busy, onChange, onReplace, onMood }: { label
         busy={busy}
         onChange={(m) => onChange(withMix(value, { ...("start" in m ? { start: m.start, end: null } : {}), ...(m.volume !== undefined ? { volume: m.volume } : {}), ...(m.fadeIn !== undefined ? { fadeIn: m.fadeIn } : {}), ...(m.fadeOut !== undefined ? { fadeOut: m.fadeOut } : {}), ...(m.loop !== undefined ? { loop: m.loop } : {}), ...(m.duck !== undefined ? { duck: m.duck } : {}) }))}
         onReplace={onReplace}
-        onMood={onMood}
         onRemove={() => onChange("")}
       />
     </div>
   );
 }
 
-// Adding music: upload a track or pick a mood.
-function AddMusic({ busy, inline, onFile, onMood }: { busy?: boolean; inline?: boolean; onFile: (file: File) => void; onMood: (mood: string) => void }) {
+// Adding music: upload a track here, or ask Goblin for music in the chat.
+function AddMusic({ busy, inline, onFile }: { busy?: boolean; inline?: boolean; onFile: (file: File) => void }) {
   const input = useRef<HTMLInputElement>(null);
   return (
     <div className={cn("rounded-lg border border-dashed border-white/15 p-3", !inline && "mt-1")}>
       <div className="flex items-center gap-2">
-        <Music2 className="h-4 w-4 text-[#5fd67a]" />
-        <span className="flex-1 text-[12.5px] text-white/70">{inline ? "No music in this field." : "Add music. Goblin times the motion to its beats."}</span>
+        <Music2 className="h-4 w-4 shrink-0 text-[#5fd67a]" />
+        <span className="flex-1 text-[12.5px] leading-snug text-white/70">{inline ? "No music in this field." : "No music yet."} Upload a track, or tell Goblin the music you want in the chat.</span>
         {busy && <Loader2 className="h-4 w-4 animate-spin text-white/50" />}
-      </div>
-      <input ref={input} type="file" accept="audio/*,.mp3,.wav,.m4a" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <button disabled={busy} onClick={() => input.current?.click()} className="h-7 rounded-full border border-white/15 px-2.5 text-[12px] text-white/80 hover:bg-white/8 hover:text-white disabled:opacity-40">Upload a track</button>
-        {MOOD_LIST.map((m) => (
-          <button key={m.id} disabled={busy} onClick={() => onMood(m.id)} className="h-7 rounded-full border border-white/12 px-2.5 text-[12px] text-white/65 hover:border-[#22A03A]/60 hover:text-white disabled:opacity-40">{m.label}</button>
-        ))}
+        <input ref={input} type="file" accept="audio/*,.mp3,.wav,.m4a" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+        <button disabled={busy} onClick={() => input.current?.click()} className="h-7 shrink-0 rounded-full border border-white/15 px-2.5 text-[12px] text-white/80 hover:bg-white/8 hover:text-white disabled:opacity-40">Upload a track</button>
       </div>
     </div>
   );

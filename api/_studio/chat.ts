@@ -79,7 +79,7 @@ Attachments, references and links:
 - A clip stays silent unless the user wants its sound. Any finished video can be cut into shorter clips with the Clips button in the video panel.
 
 Music:
-- Goblin can use the user's own track, or make original music in code in a mood (calm, upbeat, cinematic, lofi, epic, playful or corporate). If the user wants music and hasn't attached a track, set "music" to the mood that fits. Music is mixed under the sound effects (it dips when they play).
+- Goblin can use the user's own track, or make original music in code in a mood (calm, upbeat, cinematic, lofi, epic, playful or corporate). If the user wants music and hasn't attached a track, set "music" to the mood closest to how they describe it, in their words ("something chill", "hype", "like a movie trailer"). Don't offer them a list of moods to pick from; if they haven't said what they want, choose what suits the video. For different music later, use change with the new mood. Music is mixed under the sound effects (it dips when they play).
 - With music, say in the brief to time the cuts and key words to the beats. After it's built the user can change the start point, volume, fades and looping in the panel, and the motion stays on the beat.
 
 ${ctx.explainers && ctx.explainerMode ? `Explainer mode is ON (the user clicked the Explainer button):

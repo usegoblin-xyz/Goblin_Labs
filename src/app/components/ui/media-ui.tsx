@@ -394,19 +394,17 @@ export const MOOD_LIST = [
 // The music controls in the panel: where the track starts, how loud, fades,
 // looping and how far it dips under sound effects. Changes apply live.
 export type MixState = { start: number; volume: number; fadeIn: number; fadeOut: number; loop: boolean; duck: number };
-export function MusicControls({ name, bpm, duration, value, onChange, onReplace, onMood, onRemove, busy }: {
+export function MusicControls({ name, bpm, duration, value, onChange, onReplace, onRemove, busy }: {
   name: string;
   bpm: number | null;
   duration: number | null;
   value: MixState;
   onChange: (m: Partial<MixState>) => void;
   onReplace: (file: File) => void;
-  onMood: (mood: string) => void;
   onRemove: () => void;
   busy?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
-  const [moods, setMoods] = useState(false);
   const row = (label: string, el: React.ReactNode, shown: string) => (
     <label className="grid grid-cols-[92px_1fr_44px] items-center gap-2 text-[12px] text-white/55">
       <span>{label}</span>
@@ -428,16 +426,8 @@ export function MusicControls({ name, bpm, duration, value, onChange, onReplace,
         {busy && <Loader2 className="h-4 w-4 animate-spin text-white/50" />}
         <input ref={input} type="file" accept="audio/*,.mp3,.wav,.m4a" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onReplace(f); e.target.value = ""; }} />
         <button onClick={() => input.current?.click()} className="h-8 rounded-full border border-white/15 px-3 text-[12px] text-white/80 hover:bg-white/8 hover:text-white">Replace</button>
-        <button onClick={() => setMoods((m) => !m)} className={cn("h-8 rounded-full border px-3 text-[12px] hover:bg-white/8 hover:text-white", moods ? "border-[#22A03A]/60 text-[#7fe08f]" : "border-white/15 text-white/80")}>Goblin-made</button>
         <button onClick={onRemove} title="Remove music" aria-label="Remove music" className="rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white"><X className="h-3.5 w-3.5" /></button>
       </div>
-      {moods && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {MOOD_LIST.map((m) => (
-            <button key={m.id} onClick={() => { setMoods(false); onMood(m.id); }} className="h-7 rounded-full border border-white/12 px-2.5 text-[12px] text-white/70 hover:border-[#22A03A]/60 hover:text-white">{m.label}</button>
-          ))}
-        </div>
-      )}
       <div className="mt-3 grid gap-2">
         {duration && duration > 1 && row("Start at", slider(value.start, 0, Math.max(0, duration - 1), 0.1, (x) => onChange({ start: x })), fmt(value.start))}
         {row("Volume", slider(value.volume, 0, 1, 0.01, (x) => onChange({ volume: x })), `${Math.round(value.volume * 100)}%`)}
