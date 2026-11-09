@@ -1,7 +1,7 @@
 // Browser client for template generation and saved templates (api/studio.ts).
 import type { Template } from "../kit";
 
-export type StudioField = { key: string; label: string; type: "text" | "textarea" | "media"; hint?: string };
+export type StudioField = { key: string; label: string; type: "text" | "textarea" | "media" | "audio"; hint?: string };
 export type StudioTemplate = {
   id: string;
   title: string;
@@ -30,8 +30,8 @@ export type GenEvent =
   | { type: "error"; message: string; problems?: string[] };
 
 export type GenRequest =
-  | { mode: "create"; prompt: string; aspect: Aspect; media?: string[] }
-  | { mode: "edit"; id: string; instruction: string; media?: string[] }
+  | { mode: "create"; prompt: string; aspect: Aspect; media?: (string | { ref: string; use: string })[] }
+  | { mode: "edit"; id: string; instruction: string; media?: (string | { ref: string; use: string })[] }
   | { mode: "repair"; id: string; error: string };
 
 // The current chat's id, sent with each chat and build request so PostHog can
@@ -90,8 +90,8 @@ export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, 
   return result;
 }
 
-export type ChatMessage = { role: "user" | "assistant"; text: string };
-export type ChatReply = { reply: string; action: "chat" | "build" | "change" | "explainer"; brief: string; title: string; aspect: Aspect };
+export type ChatMessage = { role: "user" | "assistant"; text: string; media?: { ref: string; use: "auto" | "video" | "reference" }[] };
+export type ChatReply = { reply: string; action: "chat" | "build" | "change" | "explainer"; brief: string; title: string; aspect: Aspect; music?: string; links?: { url: string; title: string; ok: boolean; text: string }[] };
 export type ChatContext = {
   aspect: Aspect;
   brand?: string;
@@ -161,6 +161,12 @@ export async function listTemplates(): Promise<StudioTemplate[]> {
   const r = await fetch("/api/studio?op=templates", { credentials: "same-origin" });
   if (!r.ok) throw await errorOf(r);
   return (await r.json()).templates;
+}
+
+// Saves edits made in the panel (text, photos, clips, music settings).
+export async function saveDefaults(id: string, defaults: Record<string, string>) {
+  const r = await fetch("/api/studio?op=templates", { method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, defaults }) });
+  if (!r.ok) throw await errorOf(r);
 }
 
 export async function getTemplate(id: string): Promise<{ template: StudioTemplate; versions: Version[] }> {

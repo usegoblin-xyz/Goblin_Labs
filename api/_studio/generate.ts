@@ -11,8 +11,7 @@ import { getUserId } from "../_auth.js";
 import { callClaude, MODEL, type CallClaude } from "./claude.js";
 import { createTemplate, getTemplate, logGeneration, recentRepairs, saveVersion, usedToday, type StudioTemplate } from "./db.js";
 import { ASPECTS, runJob, type Aspect, type Attachment, type Job } from "./pipeline.js";
-import { db } from "./db.js";
-import { parseMediaRef } from "../../src/library/media.js";
+import { blocks as refBlocks, loadAttachments } from "./refs.js";
 
 export const DAILY_LIMIT = Number(process.env.STUDIO_DAILY_LIMIT || 20);
 const MAX_PROMPT = 1200;
@@ -47,24 +46,19 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
     let templateId: string | null = null;
     let label: string;
 
-    // Photos or clips attached to this request: only the caller's own.
-    const refs: string[] = (Array.isArray(body.media) ? body.media : []).map((r: unknown) => String(r)).filter((r: string) => parseMediaRef(r)).slice(0, 4);
-    let media: Attachment[] = [];
-    if (refs.length) {
-      const ids = refs.map((r) => parseMediaRef(r)!.id);
-      const { rows } = await db().query(`select id, kind, name, width, height, duration_seconds from studio.media where user_id = $1 and id = any($2::uuid[])`, [userId, ids]);
-      const byId = new Map(rows.map((r) => [r.id as string, r]));
-      media = refs.flatMap((ref) => {
-        const r = byId.get(parseMediaRef(ref)!.id);
-        return r ? [{ ref, kind: r.kind, name: r.name, width: r.width, height: r.height, durationSeconds: r.duration_seconds }] : [];
-      });
-    }
+    // Photos, clips, music and documents attached to this request: only the
+    // caller's own. Pictures and documents are shown to Claude.
+    const media: Attachment[] = mode === "repair" ? [] : await loadAttachments(userId, body.media, 8);
+    // Same budget as the chat: at most two documents in full.
+    const docs = media.filter((m) => m.kind === "doc");
+    if (docs.length > 2) media.splice(0, media.length, ...media.filter((m) => m.kind !== "doc" || docs.slice(-2).includes(m)));
+    const blocksFor = media.length ? await refBlocks(media) : undefined;
 
     if (mode === "create") {
       const prompt = str(body.prompt, MAX_PROMPT);
       const aspect = (Object.keys(ASPECTS).includes(body.aspect) ? body.aspect : "16:9") as Aspect;
       if (prompt.length < 8) return res.status(400).json({ error: "Describe the video in a sentence or two." });
-      job = { mode, prompt, aspect, media };
+      job = { mode, prompt, aspect, media, blocks: blocksFor };
       label = prompt;
     } else if (mode === "edit" || mode === "repair") {
       const current = await getTemplate(userId, str(body.id, 40));
@@ -75,7 +69,7 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
       if (mode === "repair" && (await recentRepairs(userId, current.id)) >= 3) {
         return res.status(429).json({ error: "This template keeps failing in the preview. Try describing it differently." });
       }
-      job = { mode, current, instruction, ...(mode === "edit" ? { media } : {}) };
+      job = { mode, current, instruction, ...(mode === "edit" ? { media, blocks: blocksFor } : {}) };
       label = mode === "edit" ? instruction : `Automatic fix: ${instruction.slice(0, 200)}`;
     } else {
       return res.status(400).json({ error: "Unknown mode." });

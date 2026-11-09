@@ -134,9 +134,9 @@ export function checkTemplate(code: string): Problem[] {
       if (/^on[A-Z]/.test(name)) add(node, `sets the event handler ${name}; templates aren't interactive.`);
       // The one allowed src: <Media src={c.field}>, the user's own photo or clip.
       const tag = node.parent?.parent && (ts.isJsxSelfClosingElement(node.parent.parent) || ts.isJsxOpeningElement(node.parent.parent)) ? node.parent.parent.tagName.getText(sf) : "";
-      const mediaSrc = tag === "Media" && name === "src" && !!node.initializer && ts.isJsxExpression(node.initializer) && !!node.initializer.expression && !ts.isStringLiteralLike(node.initializer.expression);
+      const mediaSrc = (tag === "Media" || tag === "Music") && name === "src" && !!node.initializer && ts.isJsxExpression(node.initializer) && !!node.initializer.expression && !ts.isStringLiteralLike(node.initializer.expression);
       if ((name === "src" || name === "href" || name === "xlinkHref") && !mediaSrc)
-        add(node, tag === "Media" ? "<Media src> must read a media field, like src={c.photo}." : `sets ${name}; templates can't load images or links. The user's own photo or clip goes through <Media src={c.field}>.`);
+        add(node, tag === "Media" || tag === "Music" ? `<${tag} src> must read a field, like src={c.${tag === "Music" ? "music" : "photo"}}.` : `sets ${name}; templates can't load images or links. The user's own photo or clip goes through <Media src={c.field}>.`);
       if (FONT_PROPS.has(name) && node.initializer && ts.isStringLiteral(node.initializer)) add(node, `hard-codes a font (${name}="${node.initializer.text}"); use fontOf(b), MONO or SERIF.`);
     } else if (ts.isPropertyAssignment(node) && FONT_PROPS.has(propName(node.name)) && isStringy(node.initializer)) {
       add(node, `hard-codes a font in ${propName(node.name)}; use fontOf(b), MONO or SERIF.`);

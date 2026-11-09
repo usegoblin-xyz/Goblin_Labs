@@ -3,7 +3,7 @@
 // that cuts a finished video into shorter clips.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Download, Film, ImageIcon, Loader2, Scissors, TriangleAlert, X } from "lucide-react";
+import { Check, Download, FileText, Film, ImageIcon, Loader2, Music2, Scissors, TriangleAlert, X } from "lucide-react";
 import { cn } from "./utils";
 
 const fmt = (s: number) => {
@@ -138,11 +138,16 @@ export function TrimDialog({ src, duration, initial, onCancel, onDone }: { src: 
 }
 
 // ---- what's attached to the next message ---------------------------------------------------
+// What an attachment is for: Goblin decides, it goes in the video, or it's
+// only something for Goblin to look at.
+export type Use = "auto" | "video" | "reference";
 export type Pending = {
   key: string;
   file: File;
   preview: string; // a local URL for the thumbnail
-  kind: "image" | "video";
+  kind: "image" | "video" | "audio" | "doc";
+  use: Use;
+  label?: string; // e.g. "Goblin-made · upbeat"
   duration: number | null;
   trim: { start: number; end: number } | null;
   progress: number; // 0..1
@@ -153,29 +158,52 @@ export type Pending = {
   height?: number | null;
 };
 
-export function AttachmentChips({ items, onRemove, onTrim }: { items: Pending[]; onRemove: (key: string) => void; onTrim: (key: string) => void }) {
+const USE_LABEL: Record<Use, string> = { auto: "Goblin decides", video: "In the video", reference: "Reference only" };
+export function AttachmentChips({ items, onRemove, onTrim, onUse }: { items: Pending[]; onRemove: (key: string) => void; onTrim: (key: string) => void; onUse: (key: string, use: Use) => void }) {
   if (!items.length) return null;
   return (
     <div className="flex flex-wrap gap-2 px-3 pt-3">
       {items.map((a) => (
         <div key={a.key} className={cn("relative flex items-center gap-2 rounded-xl border bg-white/[0.04] p-1.5 pr-2", a.status === "error" ? "border-amber-300/50" : "border-white/10")}>
           <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-black">
-            {a.kind === "image" ? <img src={a.preview} alt="" className="h-full w-full object-cover" /> : <video src={a.preview} muted playsInline preload="metadata" className="h-full w-full object-cover" />}
+            {a.kind === "image" ? (
+              <img src={a.preview} alt="" className="h-full w-full object-cover" />
+            ) : a.kind === "video" ? (
+              <video src={a.preview} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-white/[0.06] text-[#5fd67a]">{a.kind === "audio" ? <Music2 className="h-5 w-5" /> : <FileText className="h-5 w-5" />}</span>
+            )}
             {a.status === "uploading" && (
               <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[10.5px] font-semibold tabular-nums">{Math.round(a.progress * 100)}%</span>
             )}
           </span>
           <span className="min-w-0 max-w-[150px]">
-            <span className="block truncate text-[12.5px] text-white/85">{a.file.name}</span>
+            <span className="block truncate text-[12.5px] text-white/85">{a.label ?? a.file.name}</span>
             <span className={cn("flex items-center gap-1 text-[11px]", a.status === "error" ? "text-amber-300" : "text-white/45")}>
               {a.status === "error" ? (
                 <><TriangleAlert className="h-3 w-3" /> {a.error ?? "Upload failed"}</>
               ) : a.kind === "video" ? (
                 <><Film className="h-3 w-3" /> {a.trim ? `${fmt(a.trim.end - a.trim.start)} kept` : a.duration ? fmt(a.duration) : "Clip"}</>
+              ) : a.kind === "audio" ? (
+                <><Music2 className="h-3 w-3" /> {a.status === "uploading" && a.progress === 0 ? "Finding the beat…" : `Music${a.duration ? ` · ${fmt(a.duration)}` : ""}`}</>
+              ) : a.kind === "doc" ? (
+                <><FileText className="h-3 w-3" /> Reference</>
               ) : (
                 <><ImageIcon className="h-3 w-3" /> Photo</>
               )}
             </span>
+            {(a.kind === "image" || a.kind === "video") && a.status !== "error" && (
+              <select
+                value={a.use}
+                onChange={(e) => onUse(a.key, e.target.value as Use)}
+                aria-label={`How Goblin should use ${a.file.name}`}
+                className="mt-0.5 block max-w-full cursor-pointer rounded border-0 bg-transparent p-0 text-[11px] text-[#7fe08f] outline-none hover:text-white"
+              >
+                {(Object.keys(USE_LABEL) as Use[]).map((u) => (
+                  <option key={u} value={u} className="bg-[#111] text-white">{USE_LABEL[u]}</option>
+                ))}
+              </select>
+            )}
           </span>
           {a.kind === "video" && a.status !== "error" && (
             <button onClick={() => onTrim(a.key)} aria-label={`Trim ${a.file.name}`} title="Trim" className="rounded-full p-1 text-white/50 hover:bg-white/10 hover:text-white">
@@ -349,5 +377,77 @@ export function SplitDialog({
         </>
       )}
     </Modal>
+  );
+}
+
+// ---- music --------------------------------------------------------------------------
+export const MOOD_LIST = [
+  { id: "calm", label: "Calm" },
+  { id: "upbeat", label: "Upbeat" },
+  { id: "cinematic", label: "Cinematic" },
+  { id: "lofi", label: "Lo-fi" },
+  { id: "epic", label: "Epic" },
+  { id: "playful", label: "Playful" },
+  { id: "corporate", label: "Corporate" },
+] as const;
+
+// The music controls in the panel: where the track starts, how loud, fades,
+// looping and how far it dips under sound effects. Changes apply live.
+export type MixState = { start: number; volume: number; fadeIn: number; fadeOut: number; loop: boolean; duck: number };
+export function MusicControls({ name, bpm, duration, value, onChange, onReplace, onMood, onRemove, busy }: {
+  name: string;
+  bpm: number | null;
+  duration: number | null;
+  value: MixState;
+  onChange: (m: Partial<MixState>) => void;
+  onReplace: (file: File) => void;
+  onMood: (mood: string) => void;
+  onRemove: () => void;
+  busy?: boolean;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [moods, setMoods] = useState(false);
+  const row = (label: string, el: React.ReactNode, shown: string) => (
+    <label className="grid grid-cols-[92px_1fr_44px] items-center gap-2 text-[12px] text-white/55">
+      <span>{label}</span>
+      {el}
+      <span className="text-right tabular-nums text-white/70">{shown}</span>
+    </label>
+  );
+  const slider = (v: number, min: number, max: number, step: number, set: (x: number) => void) => (
+    <input type="range" min={min} max={max} step={step} value={v} onChange={(e) => set(Number(e.target.value))} className="w-full accent-[#22A03A]" />
+  );
+  return (
+    <div className="rounded-lg border border-white/12 bg-white/[0.03] p-3">
+      <div className="flex items-center gap-2">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[#22A03A]/15 text-[#5fd67a]"><Music2 className="h-4 w-4" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] text-white/85">{name}</span>
+          <span className="block text-[11.5px] text-white/45">{[bpm ? `${Math.round(bpm)} BPM` : null, duration ? fmt(duration) : null, "motion follows the beat"].filter(Boolean).join(" · ")}</span>
+        </span>
+        {busy && <Loader2 className="h-4 w-4 animate-spin text-white/50" />}
+        <input ref={input} type="file" accept="audio/*,.mp3,.wav,.m4a" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onReplace(f); e.target.value = ""; }} />
+        <button onClick={() => input.current?.click()} className="h-8 rounded-full border border-white/15 px-3 text-[12px] text-white/80 hover:bg-white/8 hover:text-white">Replace</button>
+        <button onClick={() => setMoods((m) => !m)} className={cn("h-8 rounded-full border px-3 text-[12px] hover:bg-white/8 hover:text-white", moods ? "border-[#22A03A]/60 text-[#7fe08f]" : "border-white/15 text-white/80")}>Goblin-made</button>
+        <button onClick={onRemove} title="Remove music" aria-label="Remove music" className="rounded-full p-1.5 text-white/55 hover:bg-white/10 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+      </div>
+      {moods && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {MOOD_LIST.map((m) => (
+            <button key={m.id} onClick={() => { setMoods(false); onMood(m.id); }} className="h-7 rounded-full border border-white/12 px-2.5 text-[12px] text-white/70 hover:border-[#22A03A]/60 hover:text-white">{m.label}</button>
+          ))}
+        </div>
+      )}
+      <div className="mt-3 grid gap-2">
+        {duration && duration > 1 && row("Start at", slider(value.start, 0, Math.max(0, duration - 1), 0.1, (x) => onChange({ start: x })), fmt(value.start))}
+        {row("Volume", slider(value.volume, 0, 1, 0.01, (x) => onChange({ volume: x })), `${Math.round(value.volume * 100)}%`)}
+        {row("Fade in", slider(value.fadeIn, 0, 4, 0.1, (x) => onChange({ fadeIn: x })), fmt(value.fadeIn))}
+        {row("Fade out", slider(value.fadeOut, 0, 4, 0.1, (x) => onChange({ fadeOut: x })), fmt(value.fadeOut))}
+        {row("Dip under SFX", slider(value.duck, 0, 1, 0.05, (x) => onChange({ duck: x })), `${Math.round(value.duck * 100)}%`)}
+        <label className="flex items-center gap-2 text-[12px] text-white/55">
+          <input type="checkbox" checked={value.loop} onChange={(e) => onChange({ loop: e.target.checked })} className="accent-[#22A03A]" /> Loop the track if the video is longer
+        </label>
+      </div>
+    </div>
   );
 }

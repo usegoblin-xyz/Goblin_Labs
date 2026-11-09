@@ -262,6 +262,92 @@ export function Media({ src, fit = "cover", volume = 0, style }: { src: string |
   );
 }
 
+// ---- music -------------------------------------------------------------------------
+// A field of type "audio" holds the music track: the user's own or one Goblin
+// made. <Music> plays it from the top level of the video (like <Sfx>); the
+// user's panel settings (start point, volume, fades, looping, ducking) win
+// over the props given here. duck lists the seconds where sound effects land,
+// so the music dips under them. The beat helpers read the track's beat grid,
+// shifted to where it starts playing, so motion stays on the beat when the
+// user moves the start point. They return nothing for an empty field: always
+// keep fallback timing.
+const trackOf = (src: string | undefined) => {
+  const m = mediaInfo(src);
+  return m && m.kind === "audio" ? m : null;
+};
+function beatList(src: string | undefined, key: "beats" | "downbeats"): number[] {
+  const m = trackOf(src);
+  const all = m?.meta?.[key];
+  if (!m || !Array.isArray(all) || !all.length) return [];
+  const start = m.start ?? 0;
+  const end = m.end ?? m.durationSeconds ?? Infinity;
+  const seg = all.filter((b) => b >= start && b < end).map((b) => b - start);
+  const len = end - start;
+  // A looping track repeats its beats.
+  if ((m.loop ?? true) && Number.isFinite(len) && len > 0.5 && seg.length) {
+    const out: number[] = [];
+    for (let k = 0; k * len < 120; k++) for (const b of seg) out.push(b + k * len);
+    return out;
+  }
+  return seg;
+}
+export const beats = (src: string | undefined) => beatList(src, "beats");
+export const downbeats = (src: string | undefined) => beatList(src, "downbeats");
+export const bpmOf = (src: string | undefined) => trackOf(src)?.meta?.bpm ?? null;
+export const hasMusic = (src: string | undefined) => trackOf(src) !== null;
+// 1 on each beat, decaying towards 0 (decay: seconds to fall to about a third).
+export function beatPulse(t: number, src: string | undefined, decay = 0.18) {
+  const bs = beats(src);
+  let last = -Infinity;
+  for (const b of bs) {
+    if (b > t) break;
+    last = b;
+  }
+  return Number.isFinite(last) ? Math.exp(-(t - last) / Math.max(0.02, decay)) : 0;
+}
+// How many beats have landed by time t.
+export const beatIndex = (t: number, src: string | undefined) => beats(src).filter((b) => b <= t).length;
+// The track's loudness (0 to 1) at time t of the video.
+export function energyAt(t: number, src: string | undefined) {
+  const m = trackOf(src);
+  const e = m?.meta?.energy;
+  if (!m || !Array.isArray(e) || !e.length) return 0;
+  const i = Math.floor(((m.start ?? 0) + t) * 10);
+  return e[Math.min(e.length - 1, Math.max(0, i))] ?? 0;
+}
+export function Music({ src, volume = 0.8, fadeIn = 0.4, fadeOut = 0.8, duck = [] }: { src: string | undefined; volume?: number; fadeIn?: number; fadeOut?: number; duck?: number[] }) {
+  const { fps, durationInFrames } = useVideoConfig();
+  const m = trackOf(src);
+  if (!m) return null;
+  const start = Math.max(0, m.start ?? 0);
+  const end = m.end ?? m.durationSeconds ?? null;
+  const v = Math.min(1, Math.max(0, m.volume ?? volume));
+  const fi = m.fadeIn ?? fadeIn;
+  const fo = m.fadeOut ?? fadeOut;
+  const depth = m.duck ?? 0.5;
+  const dur = durationInFrames / fps;
+  const hits = (Array.isArray(duck) ? duck : []).filter((x) => Number.isFinite(x));
+  const level = (frame: number) => {
+    const t = frame / fps;
+    const env = Math.min(fi > 0 ? c01(t / fi) : 1, fo > 0 ? c01((dur - t) / fo) : 1);
+    let dip = 0;
+    for (const h of hits) {
+      const d = t - h;
+      if (d > -0.08 && d < 0.7) dip = Math.max(dip, d < 0 ? c01((d + 0.08) / 0.08) : 1 - c01((d - 0.15) / 0.55));
+    }
+    return v * env * (1 - depth * dip);
+  };
+  return (
+    <MediaAudio
+      src={m.url}
+      loop={m.loop ?? true}
+      volume={level}
+      trimBefore={start > 0 ? Math.round(start * fps) : undefined}
+      trimAfter={end ? Math.round(end * fps) : undefined}
+    />
+  );
+}
+
 // ---- devices & UI ------------------------------------------------------------------
 export function Phone({ x, y, h, pal, children, tilt = 0, s = 1, screen }: { x: number; y: number; h: number; pal: Pal; children?: ReactNode; tilt?: number; s?: number; screen?: string }) {
   const w = h * 0.49;

@@ -28,7 +28,7 @@ One .tsx file with a single default-exported function component:
 2. Every frame is a pure function of time. Derive everything from \`useT()\` (t in seconds). No Math.random (use \`hash(...)\` from motion), no Date, no timers, no state, no effects, no refs, no fetch, no window or document.
 3. Colours come only from the brand: \`const pal = palette(b)\` and its fields (pal.bg, pal.fg, pal.p, pal.a, pal.v, pal.onV, pal.onP, pal.onA, pal.muted, pal.faint, pal.line, pal.card, pal.card2, pal.dark), plus \`alpha(colour, k)\` and \`mix(a, b, k)\` on those. Never write a hex code, rgb(), hsl() or a colour name. "transparent" is allowed, and so are neutral shadows written as rgba(0,0,0,a).
 4. Fonts come only from the brand: \`const ff = fontOf(b)\`, or MONO / SERIF from motion for a deliberate accent. Never write a font name.
-5. No external URLs, <img>, <video> or Img. Build visuals from divs, SVG, text and the motion primitives. The one exception is the user's own photo or clip: when they attach one, it reaches you as a media ref, and you show it only through <Media src={c.<key>} /> reading a field of type "media" (see "The user's photos and clips" below). The only audio is <Sfx> (below), plus a clip's own sound if the user asks for it (<Media volume>).
+5. No external URLs, <img>, <video> or Img. Build visuals from divs, SVG, text and the motion primitives. The exceptions are the user's own photos, clips and music: they reach you as media refs, and you use them only through <Media src={c.<key>} /> (a field of type "media") and <Music src={c.<key>} /> (a field of type "audio"); see "The user's photos and clips" and "Music" below. Attachments marked as references are for you to look at, never to draw or play. The only other audio is <Sfx> (below), plus a clip's own sound if the user asks for it (<Media volume>).
 6. The video ends on the brand name: \`nameOf(b)\` must appear in the final second, usually as the last beat.
 7. No dangerouslySetInnerHTML, no eval, no dynamic import.
 
@@ -48,6 +48,13 @@ When the user attaches a photo or clip, you're told its ref ("media:<id>", maybe
 - Put text over media with care: a linear-gradient scrim of rgba(0,0,0,a) behind the copy, white-on-dark using pal values that read well, and keep faces clear (text in the lower or upper third).
 - Animate around it the way an editor would: a slow push-in (scale 1 to 1.08 over the video), a soft fade in, or a crop that opens. Don't distort it.
 - When the brief asks for a quote or caption "on" their photo or clip, the media is the background and the words are the focus.
+
+# Music
+
+When there's a music track (a field of type "audio", default: the track's ref), play it with \`<Music src={c.music} />\` placed directly in the top-level tree, like <Sfx>. You're given the track's tempo and its first beats in seconds from where it starts playing.
+- Sync to the beat with the helpers, which follow the user's start point and looping: \`beats(c.music)\` (beat times in seconds), \`downbeats(c.music)\` (bar starts), \`bpmOf(c.music)\`, \`beatPulse(t, c.music, decay?)\` (1 on each beat falling to 0, for a pulse or bounce), \`beatIndex(t, c.music)\` and \`energyAt(t, c.music)\` (loudness 0 to 1). Put scene cuts and key words on beats or bars: \`const B = downbeats(c.music); const cut2 = B[2] ?? 3.2;\`. Always give a fallback time, because the field can be emptied.
+- Pass \`duck={[...]}\` with the seconds where your sound effects land (the same constants as their \`at\`), so the music dips under them. Leave volume and fades to their defaults unless the brief asks; the user adjusts them in the panel.
+- Don't add sound effects on every beat when there's music: a few accents at the big moments.
 
 # Rendering to MP4
 

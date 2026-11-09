@@ -7,8 +7,8 @@ import type { Snapshot } from "./db.js";
 import { EDIT_NOTE, REPAIR_NOTE } from "./guide.js";
 import { parseMediaRef } from "../../src/library/media.js";
 
-// A photo or clip the user attached, as Claude is told about it.
-export type Attachment = { ref: string; kind: "image" | "video"; name: string; width: number | null; height: number | null; durationSeconds: number | null };
+import type { Attachment } from "./refs.js";
+export type { Attachment };
 
 export const ASPECTS = { "16:9": [1920, 1080], "9:16": [1080, 1920], "1:1": [1080, 1080] } as const;
 export type Aspect = keyof typeof ASPECTS;
@@ -19,27 +19,33 @@ export type Event =
   | { type: "stage"; stage: "writing" | "checking" | "fixing"; attempt: number; problems?: string[] }
   | { type: "progress"; chars: number };
 
-export type Job =
-  | { mode: "create"; prompt: string; aspect: Aspect; media?: Attachment[] }
-  | { mode: "edit" | "repair"; current: Snapshot; instruction: string; media?: Attachment[] };
-
-function describeMedia(media: Attachment[] | undefined): string {
-  if (!media?.length) return "";
-  const lines = media.map((m) => {
-    const r = parseMediaRef(m.ref);
-    const size = m.width && m.height ? `${m.width}x${m.height}` : "size unknown";
-    const len = m.kind === "video" ? (r?.start != null && r?.end != null ? `, trimmed to ${(r.end - r.start).toFixed(1)} s` : m.durationSeconds ? `, ${m.durationSeconds.toFixed(1)} s long` : "") : "";
-    return `- ${m.kind === "image" ? "Photo" : "Clip"} "${m.name || "upload"}" (${size}${len}): ref "${m.ref}"`;
-  });
-  return `\n\nThe user attached their own media:\n${lines.join("\n")}\nUse it: declare a field of type "media" for each one, with exactly that ref as its default, and draw it with <Media src={c.<key>} /> from ../../motion, as the user's brief describes (usually full-bleed behind the copy). Keep text readable on top of it, for example with a linear-gradient scrim of rgba(0,0,0,a). Always keep a fallback design for when the field is empty (check hasMedia(c.<key>)).`;
-}
-
 export type Outcome = {
   snapshot: Snapshot | null;
   problems: string[];
   calls: { usage: Usage; ms: number; ok: boolean; error?: string }[];
   refused?: boolean;
 };
+
+export type Job =
+  | { mode: "create"; prompt: string; aspect: Aspect; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[] }
+  | { mode: "edit" | "repair"; current: Snapshot; instruction: string; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[] };
+
+// How to use the attachments, after the brief. The pictures and documents
+// themselves come first in the message (see refs.blocks).
+function describeMedia(media: Attachment[] | undefined): string {
+  if (!media?.length) return "";
+  const inVideo = media.filter((m) => m.use !== "reference" && m.kind !== "doc");
+  const lines: string[] = [];
+  lines.push("\n\nAttachments (shown above):");
+  for (const m of media) lines.push(`- ${m.kind === "audio" ? "Music" : m.kind === "doc" ? "Document" : m.kind === "image" ? "Photo" : "Clip"} "${m.name}": ${m.use === "video" ? "put it in the video" : m.use === "reference" ? "reference only" : m.kind === "doc" ? "reference" : m.kind === "audio" ? "the soundtrack" : "use it as the brief says (in the video, or as a reference)"}. Ref "${m.ref}".`);
+  if (inVideo.some((m) => m.kind === "image" || m.kind === "video"))
+    lines.push(`For each photo or clip that goes in the video, declare a field of type "media" with exactly its ref as the default, and draw it with <Media src={c.<key>} /> from ../../motion. Keep text readable over it (a linear-gradient scrim of rgba(0,0,0,a)), keep faces clear, and keep a fallback design for when the field is empty (check hasMedia(c.<key>)).`);
+  if (inVideo.some((m) => m.kind === "audio"))
+    lines.push(`For the music, declare a field of type "audio" with exactly its ref as the default, put <Music src={c.<key>} duck={[...]} /> in the top-level tree (duck lists the seconds where your sound effects land), and time cuts and key words to its beats with beats(c.<key>), always with a fallback for when the field is empty or has no beats.`);
+  if (media.some((m) => m.use === "reference" || m.kind === "doc"))
+    lines.push("Use the references for what the brief takes from them (style, layout, pacing, type, colour mood, facts and copy), but never draw them in the video and never declare fields for them. Colours still come only from the brand kit.");
+  return lines.join("\n");
+}
 
 const canvas = (w: number, h: number, s?: number) =>
   `Canvas: ${w}x${h} (${w === h ? "1:1" : w > h ? "16:9" : "9:16"}), 30 fps${s ? `, about ${s} seconds` : ""}.`;
@@ -68,7 +74,7 @@ export function toSnapshot(input: ToolInput, width: number, height: number): { s
     if (seen.has(f.key)) problems.push(`field key "${f.key}" is declared twice.`);
     seen.add(f.key);
     if (!new RegExp(`\\bc\\.${f.key}\\b|\\bc\\[["']${f.key}["']\\]`).test(code)) problems.push(`field "${f.key}" is declared but the code never reads c.${f.key}.`);
-    if (f.type === "media" && f.default && !parseMediaRef(f.default)) problems.push(`media field "${f.key}" must default to an attached media ref like "media:<id>", or "".`);
+    if ((f.type === "media" || f.type === "audio") && f.default && !parseMediaRef(f.default)) problems.push(`${f.type} field "${f.key}" must default to an attached media ref like "media:<id>", or "".`);
   }
   const secs = Math.round(Number(input.durationSeconds));
   if (!(secs >= 3 && secs <= 20)) problems.push(`durationSeconds is ${input.durationSeconds}; use 4 to 15.`);
@@ -93,7 +99,7 @@ export function toSnapshot(input: ToolInput, width: number, height: number): { s
       height,
       fps: 30,
       durationInFrames: secs * 30,
-      fields: fields.map((f) => ({ key: f.key, label: clip(f.label, 60) || f.key, type: f.type === "textarea" ? "textarea" : f.type === "media" ? "media" : "text", ...(f.hint?.trim() ? { hint: clip(f.hint, 120) } : {}) })),
+      fields: fields.map((f) => ({ key: f.key, label: clip(f.label, 60) || f.key, type: f.type === "textarea" ? "textarea" : f.type === "media" ? "media" : f.type === "audio" ? "audio" : "text", ...(f.hint?.trim() ? { hint: clip(f.hint, 120) } : {}) })),
       defaults: Object.fromEntries(fields.map((f) => [f.key, clip(f.default, 500)])),
       code,
       compiled,
@@ -103,7 +109,7 @@ export function toSnapshot(input: ToolInput, width: number, height: number): { s
 
 export async function runJob(job: Job, call: CallClaude, emit: (e: Event) => void): Promise<Outcome> {
   const [width, height] = job.mode === "create" ? ASPECTS[job.aspect] : [job.current.width, job.current.height];
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: firstMessage(job) }];
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content: job.blocks?.length ? [...job.blocks, { type: "text", text: firstMessage(job) }] : firstMessage(job) }];
   const calls: Outcome["calls"] = [];
   let problems: string[] = [];
 

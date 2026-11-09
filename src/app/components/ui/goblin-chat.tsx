@@ -7,7 +7,7 @@
 // Ruixen "moon chat" layout, recoloured to Goblin green.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
-import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, Film, ImageIcon, Lightbulb, ListChecks, Loader2, Megaphone, Plus, Rocket, Scissors, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
+import { ArrowUpIcon, BarChart3, Check, Clapperboard, Copy, Download, FileText, Film, ImageIcon, Music2, Paperclip, Lightbulb, ListChecks, Loader2, Megaphone, Plus, Rocket, Scissors, Sparkles, TrendingUp, TriangleAlert, Users, Volume2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./button";
 import { Textarea } from "./textarea";
@@ -22,12 +22,13 @@ import { SandboxPlayer } from "@/library/studio/SandboxPlayer";
 import { GeckoLoader } from "./gecko-loader";
 import { exportMp4 } from "@/library/studio/exportMp4";
 import { sfxUsedIn } from "@/library/sfx";
-import { mediaRef, parseMediaRef } from "@/library/media";
+import { mediaRef, parseMediaRef, withMix } from "@/library/media";
 import { ACCEPT, cachedInfo, checkFile, mediaInfos, probe, uploadMedia, type UploadedMedia } from "@/library/studio/media";
 import { cutMp4 } from "@/library/studio/cut";
-import { AttachmentChips, MAX_TRIM_SECONDS, SplitDialog, TrimDialog, type ClipRange, type Pending } from "./media-ui";
+import { AttachmentChips, MAX_TRIM_SECONDS, MOOD_LIST, MusicControls, SplitDialog, TrimDialog, type ClipRange, type MixState, type Pending, type Use } from "./media-ui";
+import { compose, type Mood } from "@/library/studio/compose";
 import {
-  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveFile, slugOf, startVideo, videoFile,
+  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveDefaults, saveFile, slugOf, startVideo, videoFile,
   type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
@@ -68,15 +69,11 @@ type Reply = {
   health?: "testing" | "ok" | "error";
 };
 // A photo or clip sent with a message.
-type Sent = { ref: string; kind: "image" | "video"; name: string; preview: string; width: number | null; height: number | null; duration: number | null; trim: { start: number; end: number } | null };
-type Turn = { id: number; role: "user"; text: string; explainer?: boolean; media?: Sent[] } | Reply;
+type Sent = { ref: string; kind: "image" | "video" | "audio" | "doc"; use: Use; name: string; preview: string; width: number | null; height: number | null; duration: number | null; trim: { start: number; end: number } | null };
+type LinkNote = { url: string; title: string; ok: boolean; text: string };
+type Turn = { id: number; role: "user"; text: string; explainer?: boolean; media?: Sent[]; links?: LinkNote[] } | Reply;
 
 const fmtSecs = (s: number) => `${s >= 10 ? Math.round(s) : s.toFixed(1)}s`;
-const describeSent = (m: Sent) =>
-  m.kind === "image"
-    ? `[Attached photo "${m.name}"${m.width && m.height ? `, ${m.width}x${m.height}` : ""}]`
-    : `[Attached clip "${m.name}"${m.trim ? `, trimmed to ${fmtSecs(m.trim.end - m.trim.start)} (from ${fmtSecs(m.trim.start)} to ${fmtSecs(m.trim.end)})` : m.duration ? `, ${fmtSecs(m.duration)}` : ""}]`;
-
 const QUICK: { icon: ReactNode; label: string; prompt: string }[] = [
   { icon: <Rocket className="h-4 w-4" />, label: "Product launch", prompt: "I'm launching a product and want a short video for it" },
   { icon: <Sparkles className="h-4 w-4" />, label: "Feature drop", prompt: "We just shipped a new feature. Can you help me announce it?" },
@@ -119,6 +116,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   const [busy, setBusy] = useState(false);
   // Photos and clips attached to the next message.
   const [pending, setPending] = useState<Pending[]>([]);
+  const [plusOpen, setPlusOpen] = useState(false);
+  const [musicBusy, setMusicBusy] = useState(false);
   const [trimming, setTrimming] = useState<{ src: string; duration: number; initial: { start: number; end: number } | null; done: (t: { start: number; end: number } | null) => void; cancel: () => void } | null>(null);
   const [splitting, setSplitting] = useState<{ kind: "template"; t: StudioTemplate } | { kind: "video"; v: ExplainerVideo; duration: number } | null>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -258,7 +257,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   // Builds or changes a template inside reply `aid`, showing the steps there.
   const build = async (aid: number, req: GenRequest) => {
     const firstStep: Step[] = req.mode === "repair" ? [{ key: "preview-error", label: "The preview hit an error: fixing it", state: "active" }] : [];
-    patch(aid, () => ({ building: true, steps: firstStep, chars: 0 }));
+    patch(aid, (t) => ({ building: true, steps: [...t.steps, ...firstStep], chars: 0 }));
     setBusy(true);
     track("studio_generate", { mode: req.mode, conversation_id: conversationId(), ...(req.mode === "create" ? { aspect: req.aspect } : {}) });
 
@@ -298,9 +297,9 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       setTrimming({ src, duration, initial, done: (t) => (setTrimming(null), resolve(t)), cancel: () => (setTrimming(null), resolve(undefined)) }),
     );
 
-  const startUpload = (key: string, file: File) => {
+  const startUpload = (key: string, file: File, meta?: Record<string, unknown>) => {
     if (!user) return;
-    uploadMedia(file, user.id, (p) => setPending((xs) => xs.map((x) => (x.key === key ? { ...x, progress: p } : x))))
+    uploadMedia(file, user.id, (p) => setPending((xs) => xs.map((x) => (x.key === key ? { ...x, progress: p } : x))), undefined, meta ? { meta } : undefined)
       .then((m) => setPending((xs) => xs.map((x) => (x.key === key ? { ...x, status: "ready", progress: 1, mediaId: m.id, width: m.width, height: m.height } : x))))
       .catch((e) => setPending((xs) => xs.map((x) => (x.key === key ? { ...x, status: "error", error: e instanceof Error ? e.message : "Upload failed" } : x))));
   };
@@ -308,7 +307,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
   const pickFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     if (!isSignedIn) return toLogin();
-    for (const file of Array.from(files).slice(0, 4 - pending.length)) {
+    for (const file of Array.from(files).slice(0, 6 - pending.length)) {
       let info;
       try {
         info = await probe(file);
@@ -333,8 +332,9 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         }
         trim = t;
       }
-      setPending((xs) => [...xs, { key, file, preview, kind: info.kind, duration: info.durationSeconds, trim, progress: 0, status: "uploading", width: info.width, height: info.height }]);
+      setPending((xs) => [...xs, { key, file, preview, kind: info.kind, use: info.kind === "doc" ? "reference" : info.kind === "audio" ? "video" : "auto", duration: info.durationSeconds, trim, progress: 0, status: "uploading", width: info.width, height: info.height }]);
       track("studio_media_attached", { kind: info.kind, conversation_id: conversationId() });
+      setPlusOpen(false);
       startUpload(key, file);
     }
     requestAnimationFrame(() => textareaRef.current?.focus());
@@ -353,14 +353,40 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       return xs.filter((x) => x.key !== key);
     });
 
-  // Refs to hand the template writer: everything attached in this chat for a
-  // new build, or what was attached since the last build for a change.
-  const mediaForBuild = (ts: Turn[], mode: "create" | "edit"): string[] => {
+  const setUse = (key: string, use: Use) => setPending((xs) => xs.map((x) => (x.key === key ? { ...x, use } : x)));
+
+  // Goblin-made music: composed here, then uploaded like any track.
+  const makeMusic = async (mood: Mood): Promise<{ file: File; meta: Record<string, unknown>; duration: number }> => {
+    const c = await compose(mood, 24, Math.floor(Math.random() * 1000) + 1);
+    const label = MOOD_LIST.find((m) => m.id === mood)?.label ?? mood;
+    return { file: new File([c.blob], `goblin-${mood}-${c.bpm}bpm.wav`, { type: "audio/wav" }), meta: { bpm: c.bpm, beats: c.beats, downbeats: c.downbeats, energy: c.energy, generated: true, mood: label.toLowerCase() }, duration: c.duration };
+  };
+  const attachMusic = async (mood: Mood) => {
+    if (!isSignedIn) return toLogin();
+    setPlusOpen(false);
+    const key = `${Date.now()}-m`;
+    const label = `Goblin-made · ${MOOD_LIST.find((m) => m.id === mood)?.label ?? mood}`;
+    setPending((xs) => [...xs, { key, file: new File([], `${mood}.wav`), preview: "", kind: "audio", use: "video", label, duration: null, trim: null, progress: 0, status: "uploading" }]);
+    try {
+      const m = await makeMusic(mood);
+      setPending((xs) => xs.map((x) => (x.key === key ? { ...x, file: m.file, duration: m.duration } : x)));
+      track("studio_media_attached", { kind: "audio", conversation_id: conversationId() });
+      startUpload(key, m.file, m.meta);
+    } catch (e) {
+      setPending((xs) => xs.map((x) => (x.key === key ? { ...x, status: "error", error: e instanceof Error ? e.message : "Couldn't make the music" } : x)));
+    }
+  };
+
+  // Attachments to hand the template writer: everything attached in this chat
+  // for a new build, or what was attached since the last build for a change.
+  const mediaForBuild = (ts: Turn[], mode: "create" | "edit"): { ref: string; use: Use }[] => {
     let since = 0;
     if (mode === "edit") ts.forEach((t, i) => t.role === "assistant" && t.template && (since = i));
-    const refs = ts.slice(since).flatMap((t) => (t.role === "user" ? (t.media ?? []).map((m) => m.ref) : []));
-    return [...new Set(refs)].slice(-4);
+    const seen = new Map<string, Use>();
+    for (const t of ts.slice(since)) if (t.role === "user") for (const m of t.media ?? []) seen.set(m.ref, m.use);
+    return [...seen].map(([ref, use]) => ({ ref, use })).slice(-8);
   };
+
 
   // A media field in the panel: swap in another photo or clip, trim it, or clear it.
   const replaceFieldMedia = async (tpl: StudioTemplate, key: string, file: File) => {
@@ -402,6 +428,63 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     el.src = videoFile(v, "mp4");
   };
 
+  // Panel edits (text, photos, clips, music settings) are saved to the template.
+  const savedEdits = useRef<Record<string, string>>({});
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      for (const [id, values] of Object.entries(edits)) {
+        const key = JSON.stringify(values);
+        if (savedEdits.current[id] === key) continue;
+        savedEdits.current[id] = key;
+        saveDefaults(id, values).catch(() => delete savedEdits.current[id]);
+      }
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [edits]);
+
+  // The + menu closes on a click anywhere else.
+  useEffect(() => {
+    if (!plusOpen) return;
+    const close = (e: PointerEvent) => !(e.target as HTMLElement).closest?.('[role="menu"], [aria-label="Add files, music or references"]') && setPlusOpen(false);
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [plusOpen]);
+
+  // A music field in the panel.
+  const setMusic = (tpl: StudioTemplate, key: string, ref: string) => setEdits((x) => ({ ...x, [tpl.id]: { ...contentFor(tpl), [key]: ref } }));
+  const replaceMusic = async (tpl: StudioTemplate, key: string, src: { file: File } | { mood: Mood }) => {
+    if (!user) return toLogin();
+    setMusicBusy(true);
+    try {
+      const m = "mood" in src ? await makeMusic(src.mood) : null;
+      const up = await uploadMedia(m ? m.file : (src as { file: File }).file, user.id, undefined, undefined, m ? { meta: m.meta } : undefined);
+      const old = parseMediaRef(contentFor(tpl)[key]);
+      setMusic(tpl, key, old ? withMix(up.ref, { start: null, end: null, volume: old.volume, fadeIn: old.fadeIn, fadeOut: old.fadeOut, loop: old.loop, duck: old.duck }) : up.ref);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't add that music");
+    } finally {
+      setMusicBusy(false);
+    }
+  };
+  // No music field yet: ask Goblin to add the track.
+  const addMusicToVideo = async (src: { file: File } | { mood: Mood }) => {
+    if (!user) return toLogin();
+    setMusicBusy(true);
+    try {
+      const m = "mood" in src ? await makeMusic(src.mood) : null;
+      const file = m ? m.file : (src as { file: File }).file;
+      const up = await uploadMedia(file, user.id, undefined, undefined, m ? { meta: m.meta } : undefined);
+      const name = m ? `Goblin-made ${(src as { mood: Mood }).mood} music` : file.name;
+      await send(`Add ${m ? "this Goblin-made music" : `my track ${file.name}`} as the soundtrack, and time the cuts and key words to its beats.`, [
+        { ref: up.ref, kind: "audio", use: "video", name, preview: "", width: null, height: null, duration: up.durationSeconds, trim: null },
+      ]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't add that music");
+    } finally {
+      setMusicBusy(false);
+    }
+  };
+
   const toggleExplainer = (on = !explainerMode) => {
     setExplainerMode(on);
     track("studio_explainer_mode", { on });
@@ -436,8 +519,9 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         const on = !!t.explainer;
         const note = on !== mode ? `[The user turned Explainer ${on ? "on" : "off"} with the button.]\n` : "";
         mode = on;
-        const media = (t.media ?? []).map(describeSent).join("\n");
-        return [{ role: "user", text: note + [t.text, media].filter(Boolean).join("\n") }];
+        // Links read in earlier turns travel as text; attachments by reference.
+        const links = (t.links ?? []).map((l) => (l.ok ? `[Read the link ${l.url}${l.title ? ` (“${l.title}”)` : ""}]\n${l.text}` : `[The link ${l.url} couldn't be read]`)).join("\n");
+        return [{ role: "user", text: note + [t.text, links].filter(Boolean).join("\n"), media: (t.media ?? []).map((m) => ({ ref: m.ref, use: m.use })) }];
       }
       const parts = [t.text ?? ""];
       if (t.template) parts.push(`[Built template “${t.template.title}” v${t.template.version}, ${formatOf(t.template)}, ${seconds(t.template)}s]`);
@@ -448,17 +532,17 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     });
   };
 
-  const send = async (override?: string) => {
+  const send = async (override?: string, extra?: Sent[]) => {
     const text = (override ?? message).trim();
     const ready = override ? [] : pending.filter((p) => p.status === "ready" && p.mediaId);
-    if ((!text && !ready.length) || busy || (!override && uploading)) return;
+    if ((!text && !ready.length && !extra?.length) || busy || (!override && uploading)) return;
     if (!isSignedIn) return toLogin();
     if (!override) {
       setMessage("");
       adjustHeight(true);
     }
     const aid = nextId.current++;
-    const sent: Sent[] = ready.map((p) => ({ ref: mediaRef(p.mediaId!, p.trim), kind: p.kind, name: p.file.name, preview: p.preview, width: p.width ?? null, height: p.height ?? null, duration: p.duration, trim: p.trim }));
+    const sent: Sent[] = [...ready.map((p): Sent => ({ ref: mediaRef(p.mediaId!, p.trim), kind: p.kind, use: p.use, name: p.label ?? p.file.name, preview: p.preview, width: p.width ?? null, height: p.height ?? null, duration: p.duration, trim: p.trim })), ...(extra ?? [])];
     if (!override) setPending((xs) => xs.filter((x) => x.status !== "ready"));
     const userTurn: Turn = { id: nextId.current++, role: "user", text, explainer: explainerMode, ...(sent.length ? { media: sent } : {}) };
     const before = turns;
@@ -477,8 +561,25 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         mode: explainerMode ? "explainer" : undefined,
       });
       patch(aid, () => ({ thinking: false, text: r.reply }));
+      if (r.links?.length) setTurns((ts) => ts.map((t) => (t.id === userTurn.id && t.role === "user" ? { ...t, links: r.links } : t)));
       track("studio_chat", { ...said, action: r.action });
-      const all = [...before, userTurn];
+      let all: Turn[] = [...before, userTurn];
+      // Goblin wants music and the user hasn't given a track: make one first.
+      const hasTrack = all.some((t) => t.role === "user" && t.media?.some((m) => m.kind === "audio"));
+      if ((r.action === "build" || (r.action === "change" && current)) && r.music && r.music !== "none" && !hasTrack && user) {
+        patch(aid, () => ({ steps: [{ key: "music", label: `Making ${r.music} music`, state: "active" }] }));
+        try {
+          const m = await makeMusic(r.music as Mood);
+          const up = await uploadMedia(m.file, user.id, undefined, undefined, { meta: m.meta });
+          const track_: Sent = { ref: up.ref, kind: "audio", use: "video", name: `Goblin-made ${r.music} music`, preview: "", width: null, height: null, duration: m.duration, trim: null };
+          const withTrack = { ...userTurn, media: [...(userTurn.media ?? []), track_] };
+          all = [...before, withTrack];
+          setTurns((ts) => ts.map((t) => (t.id === userTurn.id ? withTrack : t)));
+          patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "music" ? { ...st, state: "done" as const } : st)) }));
+        } catch {
+          patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "music" ? { ...st, label: "Couldn't make the music, building without it", state: "failed" as const } : st)) }));
+        }
+      }
       if (r.action === "build") await build(aid, { mode: "create", prompt: r.brief, aspect: r.aspect, media: mediaForBuild(all, "create") });
       else if (r.action === "explainer" && explainerMode) await explainer(aid, () => startVideo({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor() }));
       else if (r.action === "change" && currentVideo && explainerMode) await explainer(aid, () => changeVideo(currentVideo.id, r.brief));
@@ -577,7 +678,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           pickFiles(e.dataTransfer.files);
         }}
       >
-        <AttachmentChips items={pending} onRemove={removePending} onTrim={trimPending} />
+        <AttachmentChips items={pending} onRemove={removePending} onTrim={trimPending} onUse={setUse} />
         <input
           ref={picker}
           type="file"
@@ -616,15 +717,38 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         />
         <div className="flex items-center justify-between gap-2 px-3 pb-3">
           <div className="flex min-w-0 items-center gap-2">
-          <button
-            onClick={() => (isSignedIn ? picker.current?.click() : toLogin())}
-            disabled={busy || pending.length >= 4}
-            aria-label="Add a photo or clip"
-            title="Add a photo or clip from your device"
-            className="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg border border-white/8 text-white/55 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => (isSignedIn ? setPlusOpen((o) => !o) : toLogin())}
+              disabled={busy || pending.length >= 6}
+              aria-label="Add files, music or references"
+              aria-expanded={plusOpen}
+              title="Add photos, clips, music, documents or references"
+              className={cn("inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg border text-white/55 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40", plusOpen ? "border-white/25 text-white" : "border-white/8")}
+            >
+              <Plus className={cn("h-4 w-4 transition-transform", plusOpen && "rotate-45")} />
+            </button>
+            {plusOpen && (
+              <div className="absolute bottom-full left-0 z-30 mb-2 w-[270px] rounded-xl border border-white/10 bg-[#161616] p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.55)]" role="menu">
+                <button role="menuitem" onClick={() => picker.current?.click()} className="flex w-full items-start gap-3 rounded-lg px-2.5 py-2 text-left hover:bg-white/[0.07]">
+                  <Paperclip className="mt-0.5 h-4 w-4 shrink-0 text-white/60" />
+                  <span>
+                    <span className="block text-[13.5px] text-white">Upload files</span>
+                    <span className="block text-[11.5px] text-white/45">Photos, clips, music, PDFs, Word or text files</span>
+                  </span>
+                </button>
+                <div className="px-2.5 pt-2 pb-1 text-[11px] text-white/40">Goblin-made music</div>
+                <div className="flex flex-wrap gap-1.5 px-2.5 pb-2">
+                  {MOOD_LIST.map((m) => (
+                    <button key={m.id} role="menuitem" onClick={() => attachMusic(m.id)} className="h-7 rounded-full border border-white/12 px-2.5 text-[12px] text-white/70 hover:border-[#22A03A]/60 hover:text-white">
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t border-white/8 px-2.5 pt-2 pb-1 text-[11px] leading-snug text-white/40">Paste a link in your message and Goblin reads it.</div>
+              </div>
+            )}
+          </div>
           {/* On the empty page the Explainer chip below does this; in a chat, the toggle lives here. */}
           {!empty && (
           <button
@@ -822,7 +946,17 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                           <div className="flex flex-wrap justify-end gap-1.5">
                             {t.media.map((m) => (
                               <span key={m.ref} className="relative h-24 w-24 overflow-hidden rounded-xl border border-white/10 bg-black" title={m.name}>
-                                {m.kind === "image" ? <img src={m.preview} alt={m.name} className="h-full w-full object-cover" /> : <video src={m.preview} muted playsInline preload="metadata" className="h-full w-full object-cover" />}
+                                {m.kind === "image" ? (
+                                  <img src={m.preview} alt={m.name} className="h-full w-full object-cover" />
+                                ) : m.kind === "video" ? (
+                                  <video src={m.preview} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+                                ) : (
+                                  <span className="flex h-full w-full flex-col items-center justify-center gap-1 bg-white/[0.05] p-2 text-center">
+                                    {m.kind === "audio" ? <Music2 className="h-5 w-5 text-[#5fd67a]" /> : <FileText className="h-5 w-5 text-[#5fd67a]" />}
+                                    <span className="line-clamp-2 text-[10.5px] leading-tight text-white/70">{m.name}</span>
+                                  </span>
+                                )}
+                                {m.use === "reference" && m.kind !== "doc" && <span className="absolute top-1 right-1 rounded bg-black/60 px-1 text-[9.5px] text-white/80">ref</span>}
                                 {m.kind === "video" && (
                                   <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/60 px-1 text-[10.5px] text-white/85">
                                     <Film className="h-3 w-3" />
@@ -1036,6 +1170,18 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
               {panel.template.fields.map((f) => {
                 const tpl = panel.template!;
                 const set = (v: string) => setEdits((x) => ({ ...x, [tpl.id]: { ...contentFor(tpl), [f.key]: v } }));
+                if (f.type === "audio")
+                  return (
+                    <MusicField
+                      key={f.key}
+                      label={f.label}
+                      value={contentFor(tpl)[f.key] ?? ""}
+                      busy={musicBusy}
+                      onChange={(ref) => setMusic(tpl, f.key, ref)}
+                      onReplace={(file) => replaceMusic(tpl, f.key, { file })}
+                      onMood={(mood) => replaceMusic(tpl, f.key, { mood: mood as Mood })}
+                    />
+                  );
                 if (f.type === "media") return <MediaField key={f.key} label={f.label} value={contentFor(tpl)[f.key] ?? ""} onPick={(file) => replaceFieldMedia(tpl, f.key, file)} onTrim={() => trimFieldMedia(tpl, f.key)} onClear={() => set("")} />;
                 return (
                   <label key={f.key} className="block">
@@ -1058,7 +1204,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                   </label>
                 );
               })}
-              <p className="text-[11.5px] text-white/35">Edits here change the preview and the MP4. To change the design or the sound, ask Goblin.</p>
+              {!panel.template.fields.some((f) => f.type === "audio") && <AddMusic busy={musicBusy || busy} onFile={(file) => addMusicToVideo({ file })} onMood={(mood) => addMusicToVideo({ mood: mood as Mood })} />}
+              <p className="text-[11.5px] text-white/35">Edits here are saved and change the preview and the MP4. To change the design, ask Goblin.</p>
             </div>
           </div>
         </aside>
@@ -1175,6 +1322,67 @@ function MediaField({ label, value, onPick, onTrim, onClear }: { label: string; 
             <X className="h-3.5 w-3.5" />
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// The music field in the panel: the track's settings, live.
+function MusicField({ label, value, busy, onChange, onReplace, onMood }: { label: string; value: string; busy?: boolean; onChange: (ref: string) => void; onReplace: (file: File) => void; onMood: (mood: string) => void }) {
+  const ref = parseMediaRef(value);
+  const [info, setInfo] = useState<UploadedMedia | null>(() => (ref ? cachedInfo(ref.id) : null));
+  useEffect(() => {
+    if (!ref) return setInfo(null);
+    let live = true;
+    mediaInfos([ref.id]).then((m) => live && setInfo(m[ref.id] ?? null));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref?.id]);
+  if (!ref)
+    return (
+      <div>
+        <span className="mb-1 block text-[12px] text-white/55">{label}</span>
+        <AddMusic busy={busy} inline onFile={onReplace} onMood={onMood} />
+      </div>
+    );
+  const mix: MixState = { start: ref.start ?? 0, volume: ref.volume ?? 0.8, fadeIn: ref.fadeIn ?? 0.4, fadeOut: ref.fadeOut ?? 0.8, loop: ref.loop ?? true, duck: ref.duck ?? 0.5 };
+  const name = info?.meta?.generated ? `Goblin-made ${info.meta.mood ?? ""} music` : info?.name || "Your track";
+  return (
+    <div>
+      <span className="mb-1 block text-[12px] text-white/55">{label}</span>
+      <MusicControls
+        name={name}
+        bpm={info?.meta?.bpm ?? null}
+        duration={info?.durationSeconds ?? null}
+        value={mix}
+        busy={busy}
+        onChange={(m) => onChange(withMix(value, { ...("start" in m ? { start: m.start, end: null } : {}), ...(m.volume !== undefined ? { volume: m.volume } : {}), ...(m.fadeIn !== undefined ? { fadeIn: m.fadeIn } : {}), ...(m.fadeOut !== undefined ? { fadeOut: m.fadeOut } : {}), ...(m.loop !== undefined ? { loop: m.loop } : {}), ...(m.duck !== undefined ? { duck: m.duck } : {}) }))}
+        onReplace={onReplace}
+        onMood={onMood}
+        onRemove={() => onChange("")}
+      />
+    </div>
+  );
+}
+
+// Adding music: upload a track or pick a mood.
+function AddMusic({ busy, inline, onFile, onMood }: { busy?: boolean; inline?: boolean; onFile: (file: File) => void; onMood: (mood: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div className={cn("rounded-lg border border-dashed border-white/15 p-3", !inline && "mt-1")}>
+      <div className="flex items-center gap-2">
+        <Music2 className="h-4 w-4 text-[#5fd67a]" />
+        <span className="flex-1 text-[12.5px] text-white/70">{inline ? "No music in this field." : "Add music. Goblin times the motion to its beats."}</span>
+        {busy && <Loader2 className="h-4 w-4 animate-spin text-white/50" />}
+      </div>
+      <input ref={input} type="file" accept="audio/*,.mp3,.wav,.m4a" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <button disabled={busy} onClick={() => input.current?.click()} className="h-7 rounded-full border border-white/15 px-2.5 text-[12px] text-white/80 hover:bg-white/8 hover:text-white disabled:opacity-40">Upload a track</button>
+        {MOOD_LIST.map((m) => (
+          <button key={m.id} disabled={busy} onClick={() => onMood(m.id)} className="h-7 rounded-full border border-white/12 px-2.5 text-[12px] text-white/65 hover:border-[#22A03A]/60 hover:text-white disabled:opacity-40">{m.label}</button>
+        ))}
       </div>
     </div>
   );
