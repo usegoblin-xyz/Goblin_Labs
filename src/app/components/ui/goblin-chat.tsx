@@ -28,7 +28,7 @@ import { cutMp4 } from "@/library/studio/cut";
 import { AttachmentChips, MAX_TRIM_SECONDS, MOOD_LIST, MusicControls, SplitDialog, TrimDialog, type ClipRange, type MixState, type Pending, type Use } from "./media-ui";
 import { compose, type Mood } from "@/library/studio/compose";
 import {
-  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveChat, getChat, setConversationId, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
+  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveChat, stockPhotos, getChat, setConversationId, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
   type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
@@ -647,12 +647,30 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "music" ? { ...st, label: "Couldn't make the music, building without it", state: "failed" as const } : st)) }));
         }
       }
-      if (r.action === "build") await build(aid, { mode: "create", prompt: r.brief, aspect: r.aspect, media: mediaForBuild(all, "create") });
+      // Goblin wants stock photos the user didn't attach: fetch them from Pexels
+      // and attach them to the message, like the user's own photos.
+      let brief = r.brief;
+      if ((r.action === "build" || r.action === "change" || r.action === "edit") && r.photos?.length) {
+        patch(aid, (x) => ({ steps: [...x.steps, { key: "photos", label: r.photos!.length > 1 ? `Finding ${r.photos!.length} photos` : "Finding a photo", state: "active" }] }));
+        try {
+          const found = await stockPhotos(r.photos, r.aspect);
+          const extra = found.map((p): Sent => ({ ref: p.ref, kind: "image", use: "video", name: p.name, preview: p.url, width: p.width, height: p.height, duration: null, trim: null }));
+          const cur = all[all.length - 1] as Extract<Turn, { role: "user" }>;
+          const withPhotos = { ...cur, media: [...(cur.media ?? []), ...extra] };
+          all = [...all.slice(0, -1), withPhotos];
+          setTurns((ts) => ts.map((t) => (t.id === userTurn.id ? withPhotos : t)));
+          brief += `\n\nStock photos attached for this (use them in the video): ${found.map((p) => `${p.name}${p.alt ? ` (${p.alt})` : ` (${p.query})`}`).join("; ")}.`;
+          patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "photos" ? { ...st, label: `Found ${found.length} photo${found.length === 1 ? "" : "s"} on Pexels`, state: "done" as const } : st)) }));
+        } catch {
+          patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "photos" ? { ...st, label: "Couldn't find photos, going without them", state: "failed" as const } : st)) }));
+        }
+      }
+      if (r.action === "build") await build(aid, { mode: "create", prompt: brief, aspect: r.aspect, media: mediaForBuild(all, "create") });
       else if (r.action === "explainer" && explainerMode) await explainer(aid, () => startVideo({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor() }));
-      else if (r.action === "edit") await explainer(aid, () => startEdit({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor(), media: mediaForBuild(all, "create") }));
-      else if (r.action === "change" && currentVideo?.kind === "edit") await explainer(aid, () => changeVideo(currentVideo.id, r.brief, mediaSince(all)));
+      else if (r.action === "edit") await explainer(aid, () => startEdit({ brief, title: r.title, aspect: r.aspect, brand: brandFor(), media: mediaForBuild(all, "create") }));
+      else if (r.action === "change" && currentVideo?.kind === "edit") await explainer(aid, () => changeVideo(currentVideo.id, brief, mediaSince(all)));
       else if (r.action === "change" && currentVideo && explainerMode) await explainer(aid, () => changeVideo(currentVideo.id, r.brief));
-      else if (r.action === "change" && current) await build(aid, { mode: "edit", id: current.id, instruction: r.brief, media: mediaForBuild(all, "edit") });
+      else if (r.action === "change" && current) await build(aid, { mode: "edit", id: current.id, instruction: brief, media: mediaForBuild(all, "edit") });
       else setBusy(false);
     } catch (err) {
       if ((err as { status?: number }).status === 401) return toLogin();
