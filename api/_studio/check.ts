@@ -43,6 +43,8 @@ const RENDER_LIMITS: [RegExp, string][] = [
   [/\bbackdropFilter\b/, "uses backdropFilter, which the MP4 export can't draw."],
   [/perspective\(|rotate[XY]\(|rotate3d\(|transformStyle/, "uses a 3D transform (perspective, rotateX/rotateY), which the MP4 export can't draw; use 2D transforms."],
   [/radial-gradient|conic-gradient|repeating-linear-gradient/, "uses a radial, conic or repeating gradient, which the MP4 export can't draw; use linear-gradient, or an SVG <radialGradient> fill inside <svg>."],
+  [/\bbackground(?:Size|Repeat)\b|background-(?:size|repeat)\s*:/, "tiles a CSS background (backgroundSize or backgroundRepeat), which the MP4 export can't repeat; draw the pattern as an SVG <pattern> fill inside <svg>, or repeat elements."],
+  [/linear-gradient\([^`"']*\)\s*,\s*linear-gradient\(/, "layers several gradients in one CSS background, which the MP4 export can't draw; use one gradient per element and stack elements."],
   [/\b(?:filter|clipPath|mask|maskImage|WebkitMaskImage)\s*:\s*[`"'][^`"']*url\(#/, "points a CSS filter, clip-path or mask at an SVG element with url(#…), which the MP4 export can't draw; use CSS clip-path shapes or filter functions. (SVG gradient fills inside an <svg> are fine.)"],
 ];
 
@@ -79,6 +81,12 @@ export function checkTemplate(code: string): Problem[] {
   const called = new Set<string>();
 
   const visit = (node: ts.Node) => {
+    // The MP4 export draws one fill per element: a gradient replaces the colour.
+    if (ts.isObjectLiteralExpression(node)) {
+      const keys = new Set(node.properties.map((p) => (p.name && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)) ? p.name.text : "")));
+      if (keys.has("backgroundImage") && (keys.has("backgroundColor") || keys.has("background")))
+        add(node, "sets both a background colour and backgroundImage on one element; the MP4 export draws only the image. Put the colour on its own element behind it.");
+    }
     if (ts.isImportDeclaration(node)) {
       const from = (node.moduleSpecifier as ts.StringLiteral).text;
       const allowed = MODULES[from];
@@ -145,7 +153,8 @@ export function checkTemplate(code: string): Problem[] {
       const inImport = ts.isImportDeclaration(node.parent);
       if (!inImport && COLOUR_RE.test(text.replace(SHADOW_RE, ""))) add(node, `hard-codes a colour ("${text.slice(0, 40)}"); use palette(b) colours with alpha() or mix().`);
       if (!inImport && COLOUR_NAMES.has(text.trim().toLowerCase()) && looksLikeColourSlot(node)) add(node, `uses the colour name "${text}"; use palette(b) colours.`);
-      if (/url\s*\(|https?:\/\//i.test(text) && !inImport) add(node, "references a URL; templates can't load external assets.");
+      // url(#id) points at an element in the same SVG (a gradient or pattern), which is fine.
+      if (/url\s*\((?!\s*["']?#)|https?:\/\//i.test(text) && !inImport) add(node, "references a URL; templates can't load external assets.");
     }
     ts.forEachChild(node, visit);
   };

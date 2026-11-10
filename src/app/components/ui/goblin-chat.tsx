@@ -91,7 +91,8 @@ const QUICK: { icon: ReactNode; label: string; prompt: string }[] = [
   { icon: <Megaphone className="h-4 w-4" />, label: "Event promo", prompt: "Help me promote an upcoming live demo" },
 ];
 
-const stageLabel = (req: GenRequest) => (req.mode === "repair" ? "Rewriting the broken part" : req.mode === "edit" ? "Applying your change" : "Writing the template");
+const stageLabel = (req: GenRequest) =>
+  req.mode === "repair" ? "Rewriting the broken part" : req.mode === "edit" ? (req.instruction === COMPARE_NOTE ? "Fixing the differences" : "Applying your change") : req.replicate ? "Rebuilding it scene by scene" : "Writing the template";
 const seconds = (t: StudioTemplate) => Math.round(t.durationInFrames / t.fps);
 const hasSound = (t: StudioTemplate) => sfxUsedIn(t.compiled).length > 0;
 const Dot = () => (
