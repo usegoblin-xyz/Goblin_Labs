@@ -218,9 +218,9 @@ export function asTemplate(s: StudioTemplate): Template {
 }
 
 // ---- saved chats ----------------------------------------------------------------
-// Free stock photos from Unsplash, saved to the user's media (api/_studio/stock.ts).
+// Free stock photos from Pixabay or Unsplash, saved to the user's media (api/_studio/stock.ts).
 export type StockPhoto = { id: string; ref: string; name: string; query: string; alt: string; width: number; height: number; url: string; credit: StockCredit };
-export type StockCredit = { photographer: string; photographerUrl: string; photoUrl: string; thumb: string };
+export type StockCredit = { source: "pixabay" | "unsplash"; photographer: string; photographerUrl: string; photoUrl: string; thumb: string };
 export async function stockPhotos(queries: string[], aspect: Aspect): Promise<StockPhoto[]> {
   const r = await fetch("/api/studio?op=stock", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ queries, aspect }), credentials: "same-origin" });
   if (!r.ok) throw await errorOf(r);

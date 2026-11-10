@@ -1,7 +1,7 @@
 // Checks for stock photos that don't need Unsplash, Blob or a database.
 //   npx tsx scripts/studio-stock.test.ts
 import assert from "node:assert/strict";
-import { cleanQueries, creditOf, reportDownload, search, sized, withUtm, MAX_PHOTOS, type UnsplashPhoto } from "../api/_studio/stock.ts";
+import { cleanQueries, creditOf, pickFor, searchPixabay, type Cache, type PixabayHit, reportDownload, search, sized, withUtm, MAX_PHOTOS, type UnsplashPhoto } from "../api/_studio/stock.ts";
 
 const photo = (id: string, w = 6000, h = 4000, o: Partial<UnsplashPhoto> = {}): UnsplashPhoto => ({
   id,
@@ -67,4 +67,42 @@ assert.equal(calls[0].url, "https://api.unsplash.com/photos/y/download?ixid=abc1
 assert.equal(calls[0].auth, "Client-ID test-key");
 await reportDownload(fake, photo("q", 1, 1, { links: { html: "", download_location: "https://evil.example/steal" } }));
 assert.equal(calls.length, 1);
+// ---- Pixabay ----
+const hit = (id: number, w = 4000, h = 3000, o: Partial<PixabayHit> = {}): PixabayHit => ({ id, pageURL: `https://pixabay.com/photos/leaf-${id}/`, tags: "leaf, green", webformatURL: `https://pixabay.com/get/${id}_640.jpg`, largeImageURL: `https://pixabay.com/get/${id}_1280.jpg`, imageWidth: w, imageHeight: h, user: "kofi", user_id: 42, ...o });
+const store = new Map<string, PixabayHit[]>();
+const memo: Cache = { get: async (k) => store.get(k) ?? null, set: async (k, v) => void store.set(k, v) };
+process.env.PIXABAY_API_KEY = "pix-key";
+const pcalls: string[] = [];
+const pfake = async (url: string) => {
+  pcalls.push(url);
+  if (url.startsWith("https://pixabay.com/api/")) return new Response(JSON.stringify({ hits: [hit(1), hit(2, 3000, 3000), hit(3, 10, 10, { largeImageURL: "https://evil.example/x.jpg" })] }));
+  return new Response(JSON.stringify({ results: [photo("u1")] }));
+};
+let pk = await searchPixabay(pfake, memo, "Green Leaf", "16:9", new Set());
+assert.equal(pk?.id, "1");
+const pu = new URL(pcalls[0]);
+assert.equal(pu.searchParams.get("key"), "pix-key");
+assert.equal(pu.searchParams.get("orientation"), "horizontal");
+assert.equal(pu.searchParams.get("image_type"), "photo");
+assert.equal(pu.searchParams.get("safesearch"), "true");
+assert.deepEqual([pk!.full.width, pk!.full.height], [1280, 960]);
+assert.equal(pk!.credit.source, "pixabay");
+assert.equal(pk!.credit.thumb, ""); // never hotlinked
+assert.equal(pk!.credit.photographerUrl, "https://pixabay.com/users/kofi-42/");
+// cached: the same search again doesn't call Pixabay
+await searchPixabay(pfake, memo, "green leaf", "16:9", new Set(["pixabay:1"]));
+assert.equal(pcalls.length, 1);
+// square video: the most square photo; picked ones and off-site ones skipped
+pk = await searchPixabay(pfake, memo, "leaf", "1:1", new Set());
+assert.equal(pk?.id, "2");
+assert.equal(new URL(pcalls[1]).searchParams.get("orientation"), "all");
+assert.equal(await searchPixabay(pfake, memo, "leaf", "1:1", new Set(["pixabay:1", "pixabay:2"])), null);
+// Pixabay first, Unsplash when Pixabay has nothing
+assert.equal((await pickFor(pfake, memo, "green leaf", "16:9", new Set()))?.source, "pixabay");
+const empty = async (url: string, init?: RequestInit) => (url.startsWith("https://pixabay.com/api/") ? new Response(JSON.stringify({ hits: [] })) : pfake(url, init));
+const fb = await pickFor(empty, memo, "nothing here", "16:9", new Set());
+assert.equal(fb?.source, "unsplash");
+assert.equal(fb?.id, "u1");
+delete process.env.UNSPLASH_ACCESS_KEY;
+assert.equal(await pickFor(empty, memo, "nothing again", "16:9", new Set()), null);
 console.log("stock ok");

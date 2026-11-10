@@ -138,3 +138,7 @@ create table if not exists studio.conversations (
 );
 create index if not exists conversations_user on studio.conversations (user_id, updated_at desc);
 grant select, insert, update, delete on studio.conversations to goblin_auth;
+
+-- Stock photo searches, kept for 24 hours (Pixabay asks for this).
+create table if not exists studio.stock_cache (key text primary key, hits jsonb not null, fetched_at timestamptz not null default now());
+grant select, insert, update, delete on studio.stock_cache to goblin_auth;

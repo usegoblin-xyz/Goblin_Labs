@@ -647,21 +647,21 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "music" ? { ...st, label: "Couldn't make the music, building without it", state: "failed" as const } : st)) }));
         }
       }
-      // Goblin wants stock photos the user didn't attach: fetch them from Unsplash
+      // Goblin wants stock photos the user didn't attach: fetch them from Pixabay or Unsplash
       // and attach them to the message, like the user's own photos.
       let brief = r.brief;
       if ((r.action === "build" || r.action === "change" || r.action === "edit") && r.photos?.length) {
         patch(aid, (x) => ({ steps: [...x.steps, { key: "photos", label: r.photos!.length > 1 ? `Finding ${r.photos!.length} photos` : "Finding a photo", state: "active" }] }));
         try {
           const found = await stockPhotos(r.photos, r.aspect);
-          // Unsplash asks that the photos are shown from their own links, credited.
+          // Unsplash asks that its photos are shown from its own links (thumb); Pixabay's are shown from our copy.
           const extra = found.map((p): Sent => ({ ref: p.ref, kind: "image", use: "video", name: p.name, preview: p.credit.thumb || p.url, width: p.width, height: p.height, duration: null, trim: null, credit: p.credit }));
           const cur = all[all.length - 1] as Extract<Turn, { role: "user" }>;
           const withPhotos = { ...cur, media: [...(cur.media ?? []), ...extra] };
           all = [...all.slice(0, -1), withPhotos];
           setTurns((ts) => ts.map((t) => (t.id === userTurn.id ? withPhotos : t)));
           brief += `\n\nStock photos attached for this (use them in the video): ${found.map((p) => `${p.name}${p.alt ? ` (${p.alt})` : ` (${p.query})`}`).join("; ")}.`;
-          patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "photos" ? { ...st, label: `Found ${found.length} photo${found.length === 1 ? "" : "s"} on Unsplash`, state: "done" as const } : st)) }));
+          patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "photos" ? { ...st, label: `Found ${found.length} photo${found.length === 1 ? "" : "s"} on ${[...new Set(found.map((p) => (p.credit.source === "pixabay" ? "Pixabay" : "Unsplash")))].join(" and ")}`, state: "done" as const } : st)) }));
         } catch {
           patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "photos" ? { ...st, label: "Couldn't find photos, going without them", state: "failed" as const } : st)) }));
         }
@@ -1456,27 +1456,35 @@ function AddMusic({ busy, inline, onFile }: { busy?: boolean; inline?: boolean; 
   );
 }
 
-// "Photos by A and B on Unsplash", each name linked to the photographer.
+// "Photos by A and B on Unsplash", each name linked to the photographer; one line per source.
 function StockCredits({ credits }: { credits: StockCredit[] }) {
-  const seen = new Map<string, StockCredit>();
-  for (const c of credits) if (!seen.has(c.photographerUrl)) seen.set(c.photographerUrl, c);
-  const list = [...seen.values()];
   const a = "underline decoration-white/25 underline-offset-2 hover:text-white";
+  const sources = [...new Set(credits.map((c) => c.source ?? "unsplash"))];
   return (
-    <p className="max-w-[360px] text-right text-[11.5px] leading-snug text-white/45">
-      {list.length > 1 ? "Photos by " : "Photo by "}
-      {list.map((c, i) => (
-        <span key={c.photographerUrl}>
-          {i > 0 && (i === list.length - 1 ? " and " : ", ")}
-          <a href={c.photographerUrl} target="_blank" rel="noreferrer" className={a}>
-            {c.photographer}
-          </a>
-        </span>
-      ))}{" "}
-      on{" "}
-      <a href="https://unsplash.com/?utm_source=goblin&utm_medium=referral" target="_blank" rel="noreferrer" className={a}>
-        Unsplash
-      </a>
-    </p>
+    <>
+      {sources.map((src) => {
+        const seen = new Map<string, StockCredit>();
+        for (const c of credits) if ((c.source ?? "unsplash") === src && !seen.has(c.photographerUrl)) seen.set(c.photographerUrl, c);
+        const list = [...seen.values()];
+        const home = src === "pixabay" ? "https://pixabay.com/" : "https://unsplash.com/?utm_source=goblin&utm_medium=referral";
+        return (
+          <p key={src} className="max-w-[360px] text-right text-[11.5px] leading-snug text-white/45">
+            {list.length > 1 ? "Photos by " : "Photo by "}
+            {list.map((c, i) => (
+              <span key={c.photographerUrl}>
+                {i > 0 && (i === list.length - 1 ? " and " : ", ")}
+                <a href={c.photographerUrl} target="_blank" rel="noreferrer" className={a}>
+                  {c.photographer}
+                </a>
+              </span>
+            ))}{" "}
+            on{" "}
+            <a href={home} target="_blank" rel="noreferrer" className={a}>
+              {src === "pixabay" ? "Pixabay" : "Unsplash"}
+            </a>
+          </p>
+        );
+      })}
+    </>
   );
 }

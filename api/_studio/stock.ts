@@ -1,8 +1,12 @@
 // POST /api/studio?op=stock { queries: string[], aspect }: free stock photos
-// from Unsplash for things the user asked to see but didn't attach ("add some
-// nature photos"). Each query becomes one photo, saved to the user's media like
-// an upload (with a small preview Goblin can look at), so builds and edits use
-// it exactly as they would the user's own photo.
+// for things the user asked to see but didn't attach ("add some nature
+// photos"). Each query becomes one photo, saved to the user's media like an
+// upload (with a small preview Goblin can look at), so builds and edits use it
+// exactly as they would the user's own photo.
+// Sources, in order: Pixabay (PIXABAY_API_KEY), then Unsplash
+// (UNSPLASH_ACCESS_KEY) for a search Pixabay has nothing for.
+// Pixabay's rules: searches are cached for 24 hours, photos are copied to our
+// storage (never hotlinked), and the chat says they came from Pixabay.
 // Unsplash's rules: the chat shows each photo from Unsplash's own image link
 // (credit.thumb), every photo we use is reported to its download endpoint, and
 // the photographer and Unsplash are credited with links.
@@ -29,7 +33,9 @@ export type UnsplashPhoto = {
 };
 export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
-export const stockOn = () => !!process.env.UNSPLASH_ACCESS_KEY;
+const pixabayOn = () => !!process.env.PIXABAY_API_KEY;
+const unsplashOn = () => !!process.env.UNSPLASH_ACCESS_KEY;
+export const stockOn = () => pixabayOn() || unsplashOn();
 const auth = () => ({ authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY ?? ""}`, "accept-version": "v1" });
 const orientation = (a: Aspect) => (a === "9:16" ? "portrait" : a === "1:1" ? "squarish" : "landscape");
 export const cleanQueries = (raw: unknown): string[] =>
@@ -76,15 +82,90 @@ export async function reportDownload(fetcher: Fetcher, p: UnsplashPhoto) {
   await fetcher(p.links.download_location, { headers: auth() }).catch(() => {});
 }
 
-export function creditOf(p: UnsplashPhoto) {
+export type Credit = { source: "unsplash" | "pixabay"; photographer: string; photographerUrl: string; photoUrl: string; thumb: string; alt: string };
+// One photo picked for a query, from whichever source.
+export type Pick = { source: Credit["source"]; id: string; full: { url: string; width: number; height: number }; preview: string; credit: Credit; used?: () => Promise<void> };
+
+export function creditOf(p: UnsplashPhoto): Credit {
   return {
-    source: "unsplash" as const,
+    source: "unsplash",
     photographer: (p.user?.name ?? "").slice(0, 80) || "Unknown",
     photographerUrl: withUtm(p.user?.links?.html ?? ""),
     photoUrl: withUtm(p.links?.html ?? ""),
     thumb: hostIs(p.urls.small, "images.unsplash.com") ? p.urls.small : "",
     alt: (p.alt_description || p.description || "").slice(0, 200),
   };
+}
+
+const unsplashPick = (fetcher: Fetcher, p: UnsplashPhoto): Pick => ({ source: "unsplash", id: p.id, full: sized(p, LONG_SIDE), preview: sized(p, PREVIEW_SIDE).url, credit: creditOf(p), used: () => reportDownload(fetcher, p) });
+
+// ---- Pixabay ----------------------------------------------------------------------
+export type PixabayHit = { id: number; pageURL: string; tags?: string; webformatURL: string; largeImageURL: string; imageWidth: number; imageHeight: number; user?: string; user_id?: number };
+const PIXABAY_SIDE = 1280; // largeImageURL's long side on a standard key
+
+// Searches are kept for 24 hours, as Pixabay asks (and to stay well under its limit).
+export type Cache = { get: (key: string) => Promise<PixabayHit[] | null>; set: (key: string, hits: PixabayHit[]) => Promise<void> };
+export const dbCache: Cache = {
+  get: async (key) => {
+    const { rows } = await db().query(`select hits from studio.stock_cache where key = $1 and fetched_at > now() - interval '24 hours'`, [key]);
+    return rows[0]?.hits ?? null;
+  },
+  set: async (key, hits) => {
+    await db().query(`insert into studio.stock_cache (key, hits) values ($1, $2::jsonb) on conflict (key) do update set hits = excluded.hits, fetched_at = now()`, [key, JSON.stringify(hits)]);
+  },
+};
+
+export async function searchPixabay(fetcher: Fetcher, cache: Cache, query: string, aspect: Aspect, skip: Set<string>): Promise<Pick | null> {
+  const orient = aspect === "9:16" ? "vertical" : aspect === "16:9" ? "horizontal" : "all";
+  const key = `pixabay:${orient}:${query.toLowerCase()}`;
+  let hits = await cache.get(key).catch(() => null);
+  if (!hits) {
+    const u = new URL("https://pixabay.com/api/");
+    u.searchParams.set("key", process.env.PIXABAY_API_KEY ?? "");
+    u.searchParams.set("q", query.slice(0, 100));
+    u.searchParams.set("image_type", "photo");
+    u.searchParams.set("orientation", orient);
+    u.searchParams.set("safesearch", "true");
+    u.searchParams.set("per_page", "10");
+    const r = await fetcher(u.toString());
+    if (!r.ok) throw new Error(`Pixabay ${r.status}`);
+    hits = ((await r.json()) as { hits?: PixabayHit[] }).hits ?? [];
+    await cache.set(key, hits).catch(() => {});
+  }
+  // For a square video, the most square photo of the top few.
+  const ok = hits.filter((h) => !skip.has(`pixabay:${h.id}`) && hostIs(h.largeImageURL, "pixabay.com") && hostIs(h.webformatURL, "pixabay.com") && h.imageWidth > 0 && h.imageHeight > 0);
+  const squareness = (h: PixabayHit) => Math.abs(Math.log(h.imageWidth / h.imageHeight));
+  const h = aspect === "1:1" ? [...ok.slice(0, 5)].sort((a, b) => squareness(a) - squareness(b))[0] : ok[0];
+  if (!h) return null;
+  const scale = Math.min(1, PIXABAY_SIDE / Math.max(h.imageWidth, h.imageHeight));
+  const user = (h.user ?? "").slice(0, 80);
+  return {
+    source: "pixabay",
+    id: String(h.id),
+    full: { url: h.largeImageURL, width: Math.round(h.imageWidth * scale), height: Math.round(h.imageHeight * scale) },
+    preview: h.webformatURL,
+    credit: {
+      source: "pixabay",
+      photographer: user || "Pixabay",
+      photographerUrl: user && h.user_id ? `https://pixabay.com/users/${encodeURIComponent(user)}-${h.user_id}/` : "https://pixabay.com/",
+      photoUrl: hostIs(h.pageURL, "pixabay.com") ? h.pageURL : "https://pixabay.com/",
+      thumb: "", // Pixabay doesn't allow hotlinking: the chat shows our copy
+      alt: (h.tags ?? "").slice(0, 200),
+    },
+  };
+}
+
+// The photo for one query: Pixabay first, then Unsplash.
+export async function pickFor(fetcher: Fetcher, cache: Cache, query: string, aspect: Aspect, skip: Set<string>): Promise<Pick | null> {
+  if (pixabayOn()) {
+    const p = await searchPixabay(fetcher, cache, query, aspect, skip).catch((e) => (console.error("pixabay search failed", (e as Error).message), null));
+    if (p) return p;
+  }
+  if (unsplashOn()) {
+    const u = await search(fetcher, query, aspect, new Set([...skip].filter((k) => k.startsWith("unsplash:")).map((k) => k.slice(9)))).catch(() => null);
+    if (u) return unsplashPick(fetcher, u);
+  }
+  return null;
 }
 
 async function download(fetcher: Fetcher, url: string, max: number) {
@@ -97,7 +178,7 @@ async function download(fetcher: Fetcher, url: string, max: number) {
   return b;
 }
 
-export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | null>, fetcher: Fetcher = fetch) {
+export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | null>, fetcher: Fetcher = fetch, cache: Cache = dbCache) {
   return async (req: VercelRequest, res: VercelResponse) => {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed." });
     if (!stockOn() || !process.env.BLOB_READ_WRITE_TOKEN) return res.status(503).json({ error: "Stock photos aren't set up yet." });
@@ -109,11 +190,11 @@ export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | n
     if (!queries.length) return res.status(400).json({ error: "What should the photos show?" });
 
     const picked = new Set<string>();
-    const found: { q: string; p: UnsplashPhoto }[] = [];
+    const found: { q: string; p: Pick }[] = [];
     for (const q of queries) {
-      const p = await search(fetcher, q, aspect, picked).catch(() => null);
+      const p = await pickFor(fetcher, cache, q, aspect, picked);
       if (p) {
-        picked.add(p.id);
+        picked.add(`${p.source}:${p.id}`);
         found.push({ q, p });
       }
     }
@@ -121,17 +202,16 @@ export function makeHandler(userIdOf: (req: VercelRequest) => Promise<string | n
       await Promise.all(
         found.map(async ({ q, p }) => {
           try {
-            const full = sized(p, LONG_SIDE);
-            const small = sized(p, PREVIEW_SIDE);
-            const [img, prev] = await Promise.all([download(fetcher, full.url, 15 * 1024 * 1024), download(fetcher, small.url, 4 * 1024 * 1024)]);
-            const name = `unsplash-${slug(q)}-${slug(p.id)}.jpg`;
+            const full = p.full;
+            const [img, prev] = await Promise.all([download(fetcher, full.url, 15 * 1024 * 1024), download(fetcher, p.preview, 4 * 1024 * 1024)]);
+            const name = `${p.source}-${slug(q)}-${slug(p.id)}.jpg`;
             const base = `media/${userId}/${name}`;
             const [a, b] = await Promise.all([
               put(base, img, { access: "private", contentType: "image/jpeg", addRandomSuffix: true }),
               put(base.replace(/\.jpg$/, "-preview.jpg"), prev, { access: "private", contentType: "image/jpeg", addRandomSuffix: true }),
             ]);
-            const credit = creditOf(p);
-            await reportDownload(fetcher, p);
+            const credit = p.credit;
+            await p.used?.();
             const { rows } = await db().query<MediaRow>(
               `insert into studio.media (user_id, pathname, kind, mime, bytes, name, width, height, duration_seconds, preview_pathname, meta)
                values ($1, $2, 'image', 'image/jpeg', $3, $4, $5, $6, null, $7, $8) returning *`,
