@@ -30,8 +30,8 @@ export type GenEvent =
   | { type: "error"; message: string; problems?: string[] };
 
 export type GenRequest =
-  | { mode: "create"; prompt: string; aspect: Aspect; media?: (string | { ref: string; use: string })[] }
-  | { mode: "edit"; id: string; instruction: string; media?: (string | { ref: string; use: string })[] }
+  | { mode: "create"; prompt: string; aspect: Aspect; media?: (string | { ref: string; use: string })[]; replicate?: string }
+  | { mode: "edit"; id: string; instruction: string; media?: (string | { ref: string; use: string })[]; replicate?: string }
   | { mode: "repair"; id: string; error: string };
 
 // The current chat's id, sent with each chat and build request so PostHog can
@@ -95,7 +95,7 @@ export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, 
 }
 
 export type ChatMessage = { role: "user" | "assistant"; text: string; media?: { ref: string; use: "auto" | "video" | "reference" }[] };
-export type ChatReply = { reply: string; action: "chat" | "build" | "change" | "explainer" | "edit"; brief: string; title: string; aspect: Aspect; music?: string; photos?: string[]; links?: { url: string; title: string; ok: boolean; text: string }[] };
+export type ChatReply = { reply: string; action: "chat" | "build" | "change" | "explainer" | "edit" | "replicate"; brief: string; title: string; aspect: Aspect; music?: string; photos?: string[]; links?: { url: string; title: string; ok: boolean; text: string }[] };
 export type ChatContext = {
   aspect: Aspect;
   brand?: string;
@@ -123,13 +123,13 @@ export type VideoStep = { key: string; label: string; state: "active" | "done" |
 // (from Goblin Editor). Both are made in a cloud session and polled.
 export type ExplainerVideo = {
   id: string;
-  kind: "explainer" | "edit";
+  kind: "explainer" | "edit" | "breakdown";
   title: string;
   aspect: Aspect;
   status: "running" | "done" | "failed";
   message: string | null;
   steps: VideoStep[];
-  files: { mp4: boolean; gif: boolean; png: boolean; srt?: boolean };
+  files: { mp4: boolean; gif: boolean; png: boolean; srt?: boolean; breakdown?: boolean };
   turns: number;
   createdAt: string;
   updatedAt: string;
@@ -145,6 +145,11 @@ export const startVideo = async (req: { brief: string; title: string; aspect: As
 export const changeVideo = async (id: string, message: string, media?: { ref: string; use: string }[]) => (await videoCall({ method: "POST", body: JSON.stringify({ id, message, media }) })).video as ExplainerVideo;
 export const startEdit = async (req: { brief: string; title: string; aspect: Aspect; brand: Record<string, string>; media: { ref: string; use: string }[] }) =>
   (await videoCall({ method: "POST", body: JSON.stringify({ mode: "edit", ...req }) })).video as ExplainerVideo;
+// Remaking a reference video: Goblin Breakdown studies the clip first (api/_studio/videos.ts).
+export const startBreakdown = async (req: { title: string; media: { ref: string; use: string }[] }) =>
+  (await videoCall({ method: "POST", body: JSON.stringify({ mode: "breakdown", ...req }) })).video as ExplainerVideo;
+export const breakdownOf = async (id: string) => (await videoCall(undefined, `&id=${encodeURIComponent(id)}&file=json`)) as { aspect?: Aspect; duration?: number; compare?: number[]; cards?: unknown[]; shots?: unknown[] };
+export const breakdownFrame = (id: string, i: number) => `/api/studio?op=video&id=${encodeURIComponent(id)}&file=ref-${String(i).padStart(2, "0")}`;
 export const getVideo = async (id: string) => (await videoCall(undefined, `&id=${encodeURIComponent(id)}`)).video as ExplainerVideo;
 export const listVideos = async () => (await videoCall()).videos as ExplainerVideo[];
 // `v` busts the browser cache when a change makes new files.

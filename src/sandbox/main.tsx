@@ -166,6 +166,27 @@ function App() {
     (async () => {
       try {
         const { renderMediaOnWeb, canRenderMediaOnWeb } = await import("@remotion/web-renderer");
+        if (job.stills?.length) {
+          // Stills: a handful of frames as JPEGs, no sound.
+          const { renderStillOnWeb } = await import("@remotion/web-renderer");
+          await loadExportFonts();
+          const images: ArrayBuffer[] = [];
+          for (const frame of job.stills.slice(0, 24)) {
+            if (ctrl.signal.aborted) return;
+            const still = await renderStillOnWeb({
+              composition: { component: Safe as never, id: "goblin", durationInFrames: job.durationInFrames, fps: job.fps, width: job.width, height: job.height },
+              inputProps: props as never,
+              frame: Math.max(0, Math.min(job.durationInFrames - 1, Math.round(frame))),
+              licenseKey: "free-license",
+              signal: ctrl.signal,
+            } as never);
+            images.push(await (await still.blob({ format: "jpeg", quality: 0.85 })).arrayBuffer());
+            post({ type: "export-progress", progress: images.length / job.stills.length });
+          }
+          if (failed.current) return;
+          window.parent.postMessage({ type: "stills", images } satisfies FromSandbox, "*", images);
+          return;
+        }
         const sound = Object.keys(sfxUrls).length > 0 || [...mediaUrls.values()].some((m) => m.kind === "video" || m.kind === "audio");
         const settings = { container: "mp4" as const, videoCodec: "h264" as const, audioCodec: sound ? ("aac" as const) : null, muted: !sound };
         const can = await canRenderMediaOnWeb({ ...settings, width: job.width, height: job.height } as never);

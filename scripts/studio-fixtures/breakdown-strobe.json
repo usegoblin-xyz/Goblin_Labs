@@ -1,0 +1,1123 @@
+{
+ "fps": 30,
+ "width": 576,
+ "height": 1024,
+ "duration": 19.0,
+ "aspect": "9:16",
+ "summary": "A 19-second vertical black-and-white VHS-strobe promo for STROBFY. For 15 seconds it cuts hard every 3 frames (10 cuts a second), alternating found-image cards (a vintage panther poster, an 'IT IS / IS IT' type box and its inverse, an ink horse sketch, a blurred galloping white horse, a greyscale portrait poster with serif words, a moon close-up, and a pixel '1983 YMO JAPAN TOUR' card) with pure black frames, so the edit reads as a stroboscopic flicker. Almost every other shot is black; many shots carry datamosh glitch slicing and camcorder OSD overlays (PLAY ▶, « HI-FI », 'AM 1:40 OCT. 31 1985'). The cut rate never changes. At 15.0s it lands on a static 4-second end card: the horse darkened with a centred Instagram glyph and @STROBFY, over a single bass impact, then silence.",
+ "globals": [
+  "Footer 'STROBFY.COM': tiny white bold grotesk caps (~1% of frame height), centred at x 50%, y 89%; black on light cards.",
+  "Instagram badge: small outline Instagram glyph (~2.5% of frame width) with '@STROBFY' in tiny caps below and a faint grey one-line photo credit under it; at x ~90%, y ~24% (top-right) from the start to about frame 267, sometimes tinted magenta, then at x ~9%, y ~61% (left side) from about frame 276 to the end card.",
+  "VHS texture over everything: sparse thin horizontal white/grey dropout streaks and line noise, a light tape jitter on the edges, film grain; all monochrome."
+ ],
+ "cards": [
+  {
+   "code": "A",
+   "name": "Panther poster",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Full-bleed crop of a vintage black-and-white circus/wrestling poster on off-white paper (#F2F2F0). Picture is scaled ~180% so everything bleeds off the edges: a black woodcut-style roaring panther head fills x 0-100%, y 15-75%, mouth open with mid-grey tongue. Top edge: a hand-brushed black display headline cropped to its last letters ('...HER'), cap height ~9% of frame height, y 2-12%, letters running off left and right. Bottom block y 78-95%: three lines of old-style serif (Century/Clarendon feel), black, sentence case, ~4.5% of frame height each, left-aligned and cropped off both sides. Static, no motion.",
+   "text": [
+    "...HER",
+    "...rice “Catman” Sar...",
+    "...erta “Wild Cat” Sar...",
+    "...ndonville, VT 05..."
+   ]
+  },
+  {
+   "code": "-",
+   "name": "Black beat",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Pure black frame (#000) carrying only the global elements (Instagram badge, footer, VHS streaks). Used between almost every image card as the 'off' half of the strobe. Often carries an OSD modifier (PLAY, HI-FI or the timestamp).",
+   "text": []
+  },
+  {
+   "code": "C",
+   "name": "IT IS box",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Black background. A centred light-grey (#E8E8E8) square with a fine halftone/dot texture, x 18-82%, y 30-68% (about 64% of frame width). Inside, a 2x2 grid of neo-grotesk (Helvetica/Neue Haas style) words, regular weight, uppercase, tight tracking, black, cap height ~10% of frame height: 'IT' top-left, 'IS' top-right, 'IS' bottom-left, 'IT' bottom-right, each word near its quadrant's outer corner with large gutters. Static.",
+   "text": [
+    "IT IS",
+    "IS IT"
+   ]
+  },
+  {
+   "code": "C2",
+   "name": "IT IS box inverted",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Exact inverse of C: off-white (#F2F2F0) background, black square with dot texture at x 18-82%, y 30-68%, words in light grey. Same 2x2 'IT IS / IS IT' grotesk layout. Static.",
+   "text": [
+    "IT IS",
+    "IS IT"
+   ]
+  },
+  {
+   "code": "E",
+   "name": "Ink sketch",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Off-white background filled by a loose black brush/ink line drawing of a rearing horse and rider seen close-up (expressive dry-brush strokes, some grey dry-brush texture), occupying x 0-100%, y 0-100%, cropped at the edges. Hard threshold, pure black on white. Static.",
+   "text": []
+  },
+  {
+   "code": "G",
+   "name": "Galloping horse",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Black background, a white horse silhouette in mid-gallop facing left, photo crushed to near-threshold (pure white body, black ground) with heavy horizontal motion blur/smear on legs and tail; horse fills x 0-75%, y 15-75%, white streak flecks at the right edge (x 70-100%, y 20-35%). Static frame (the motion is baked into the blur).",
+   "text": []
+  },
+  {
+   "code": "G2",
+   "name": "Galloping horse inverted",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Negative of G: off-white background with the horse silhouette in black, same crop and motion smear.",
+   "text": []
+  },
+  {
+   "code": "F",
+   "name": "Portrait poster",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Full-bleed greyscale photo of a young person from the chest up, facing camera with head slightly down, flat grey backdrop, low contrast, slight blur and grain, mid-grey overall (face at x 25-80%, y 10-60%). Overlaid black old-style serif words (condensed newspaper serif), sentence case, ~6% of frame height: 'Wet' at x 3%, y 22%; a circled numeral '4' at x 42%, y 25%; 'Don't' over 'January' at x 3%, y 42-50%; 'You' inside a hand-drawn black ellipse at x 55-75%, y 42%; '29,' at x 54%, y 50%; '2024' at x 78%, y 50%. Static.",
+   "text": [
+    "Wet",
+    "4",
+    "Don't",
+    "You",
+    "January",
+    "29,",
+    "2024"
+   ]
+  },
+  {
+   "code": "F2",
+   "name": "Portrait poster washed",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Variant of F with the photo lifted to a pale grey (low contrast, washed out) and the overlaid words turned white with a soft glow; same layout.",
+   "text": [
+    "Wet",
+    "4",
+    "Don't",
+    "You",
+    "January",
+    "29,",
+    "2024"
+   ]
+  },
+  {
+   "code": "H",
+   "name": "Moon",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Black background; greyscale photo of the moon's cratered surface seen from close, a huge disc whose lower curved limb sits at y ~80% and which fills x 0-100%, y 0-80%; terminator shading darker at top. Static.",
+   "text": []
+  },
+  {
+   "code": "H2",
+   "name": "Moon on white",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Same moon crop as H but the sky around the disc is white instead of black (background inverted while the moon stays positive).",
+   "text": []
+  },
+  {
+   "code": "I",
+   "name": "Pixel tour card",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Off-white background, mostly empty. Upper-right block x 40-100%, y 20-36%: four rows of chunky bitmap/pixel display type, black, uppercase, very wide tracking so each glyph sits in a column (4 columns), cap height ~3% of frame height, glyphs partly broken/eroded: '1 9 8 3' / 'Y M O' / 'J A P A N' / 'T O U R', running off the right edge. Static.",
+   "text": [
+    "1 9 8 3",
+    "Y M O",
+    "J A P A N",
+    "T O U R"
+   ]
+  },
+  {
+   "code": "K",
+   "name": "Scribble box",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Black background; centred white box x 25-75%, y 32-68% containing a pixelated (nearest-neighbour upscaled, 1-bit) black ink scribble of a face/horse head. Always shown glitched (sliced, offset rows).",
+   "text": []
+  },
+  {
+   "code": "W",
+   "name": "White flash",
+   "description": "Global VHS treatment on every frame: thin horizontal white/grey dropout streaks and line noise scattered over the frame, slight tape jitter, fine grain; everything is monochrome. Blank off-white (#F2F2F0) frame with only the footer and badge; a one-shot white flash.",
+   "text": []
+  },
+  {
+   "code": "Z",
+   "name": "End card",
+   "description": "Holds a still of G (galloping horse) darkened to ~25% brightness, with residual glitch block offsets frozen in place. Centred Instagram glyph (rounded square with circle and dot), white, ~10% of frame width, at x 50%, y 61%; below it '@STROBFY' in small white bold grotesk caps, ~1.4% of frame height, at y 66%. Footer 'STROBFY.COM' dimmed to dark grey. Fully static for 4 seconds; music impact plays at 15.37s and decays to silence by ~16.4s.",
+   "text": [
+    "@STROBFY",
+    "STROBFY.COM"
+   ]
+  }
+ ],
+ "modifiers": [
+  {
+   "code": "*",
+   "description": "Digital/VHS datamosh glitch: the image is cut into 3-8 horizontal bands that are offset sideways by 5-30% of frame width, with solid black (on light cards) or white rectangles 10-40% wide x 3-8% tall punched in, some rows smeared/stretched horizontally; text may be doubled or sliced mid-letter. Holds for the whole 3-frame shot (different random slicing per shot)."
+  },
+  {
+   "code": "o",
+   "description": "Camcorder timestamp OSD: two lines 'AM 1:40' / 'OCT. 31 1985' in white blocky VHS pixel font with slight bloom, cap height ~3.5% of frame height, left-aligned at x 32%, y 75% and y 81% (on some shots it sits at x 10%). Static."
+  },
+  {
+   "code": "p",
+   "description": "VCR 'PLAY ▶' OSD: white pixel VHS font, uppercase, cap height ~3% of frame height, at x 7%, y 11% (top-left), with a little bloom. Static."
+  },
+  {
+   "code": "h",
+   "description": "VCR '« HI-FI »' OSD: white pixel VHS font with double chevrons, cap height ~2.5% of frame height, centred around x 25-45%, y 7-12% (top). Static."
+  },
+  {
+   "code": "d",
+   "description": "1-bit dither/halftone: the image is posterised to pure black and white with coarse error-diffusion noise, grain blowing out highlights (used on a moon and a portrait shot)."
+  }
+ ],
+ "shots": [
+  {
+   "start": 0,
+   "end": 3,
+   "card": "A",
+   "mods": ""
+  },
+  {
+   "start": 3,
+   "end": 6,
+   "card": "-",
+   "mods": "o"
+  },
+  {
+   "start": 6,
+   "end": 9,
+   "card": "A",
+   "mods": ""
+  },
+  {
+   "start": 9,
+   "end": 12,
+   "card": "E",
+   "mods": "*"
+  },
+  {
+   "start": 12,
+   "end": 15,
+   "card": "-",
+   "mods": "p"
+  },
+  {
+   "start": 15,
+   "end": 18,
+   "card": "E",
+   "mods": "*"
+  },
+  {
+   "start": 18,
+   "end": 21,
+   "card": "C",
+   "mods": ""
+  },
+  {
+   "start": 21,
+   "end": 24,
+   "card": "-",
+   "mods": "h"
+  },
+  {
+   "start": 24,
+   "end": 27,
+   "card": "C",
+   "mods": "*p"
+  },
+  {
+   "start": 27,
+   "end": 30,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 30,
+   "end": 33,
+   "card": "G",
+   "mods": "*o"
+  },
+  {
+   "start": 33,
+   "end": 36,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 36,
+   "end": 39,
+   "card": "G",
+   "mods": "p"
+  },
+  {
+   "start": 39,
+   "end": 42,
+   "card": "C2",
+   "mods": ""
+  },
+  {
+   "start": 42,
+   "end": 45,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 45,
+   "end": 48,
+   "card": "C",
+   "mods": ""
+  },
+  {
+   "start": 48,
+   "end": 51,
+   "card": "C",
+   "mods": "*o"
+  },
+  {
+   "start": 51,
+   "end": 54,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 54,
+   "end": 57,
+   "card": "C2",
+   "mods": ""
+  },
+  {
+   "start": 57,
+   "end": 60,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 60,
+   "end": 63,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 63,
+   "end": 66,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 66,
+   "end": 69,
+   "card": "F",
+   "mods": "o"
+  },
+  {
+   "start": 69,
+   "end": 72,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 72,
+   "end": 75,
+   "card": "F",
+   "mods": "*"
+  },
+  {
+   "start": 75,
+   "end": 78,
+   "card": "G",
+   "mods": "*p"
+  },
+  {
+   "start": 78,
+   "end": 81,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 81,
+   "end": 84,
+   "card": "G",
+   "mods": ""
+  },
+  {
+   "start": 84,
+   "end": 87,
+   "card": "C",
+   "mods": "*"
+  },
+  {
+   "start": 87,
+   "end": 90,
+   "card": "-",
+   "mods": "h"
+  },
+  {
+   "start": 90,
+   "end": 93,
+   "card": "C",
+   "mods": "*"
+  },
+  {
+   "start": 93,
+   "end": 96,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 96,
+   "end": 99,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 99,
+   "end": 102,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 102,
+   "end": 105,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 105,
+   "end": 108,
+   "card": "C",
+   "mods": "*p"
+  },
+  {
+   "start": 108,
+   "end": 111,
+   "card": "-",
+   "mods": "o"
+  },
+  {
+   "start": 111,
+   "end": 114,
+   "card": "C2",
+   "mods": ""
+  },
+  {
+   "start": 114,
+   "end": 117,
+   "card": "F2",
+   "mods": ""
+  },
+  {
+   "start": 117,
+   "end": 120,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 120,
+   "end": 123,
+   "card": "-",
+   "mods": "h"
+  },
+  {
+   "start": 123,
+   "end": 126,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 126,
+   "end": 129,
+   "card": "G",
+   "mods": "o"
+  },
+  {
+   "start": 129,
+   "end": 132,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 132,
+   "end": 135,
+   "card": "G",
+   "mods": "*p"
+  },
+  {
+   "start": 135,
+   "end": 138,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 138,
+   "end": 141,
+   "card": "F",
+   "mods": ""
+  },
+  {
+   "start": 141,
+   "end": 144,
+   "card": "G2",
+   "mods": ""
+  },
+  {
+   "start": 144,
+   "end": 147,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 147,
+   "end": 150,
+   "card": "G",
+   "mods": "*"
+  },
+  {
+   "start": 150,
+   "end": 153,
+   "card": "G",
+   "mods": ""
+  },
+  {
+   "start": 153,
+   "end": 156,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 156,
+   "end": 159,
+   "card": "G",
+   "mods": "o"
+  },
+  {
+   "start": 159,
+   "end": 162,
+   "card": "H",
+   "mods": "*"
+  },
+  {
+   "start": 162,
+   "end": 165,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 165,
+   "end": 168,
+   "card": "H",
+   "mods": ""
+  },
+  {
+   "start": 168,
+   "end": 171,
+   "card": "H",
+   "mods": "*o"
+  },
+  {
+   "start": 171,
+   "end": 174,
+   "card": "E",
+   "mods": "*"
+  },
+  {
+   "start": 174,
+   "end": 177,
+   "card": "A",
+   "mods": ""
+  },
+  {
+   "start": 177,
+   "end": 180,
+   "card": "-",
+   "mods": "p"
+  },
+  {
+   "start": 180,
+   "end": 183,
+   "card": "A",
+   "mods": "*"
+  },
+  {
+   "start": 183,
+   "end": 186,
+   "card": "F",
+   "mods": "*o"
+  },
+  {
+   "start": 186,
+   "end": 189,
+   "card": "-",
+   "mods": "p"
+  },
+  {
+   "start": 189,
+   "end": 192,
+   "card": "F",
+   "mods": ""
+  },
+  {
+   "start": 192,
+   "end": 198,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 198,
+   "end": 201,
+   "card": "F",
+   "mods": ""
+  },
+  {
+   "start": 201,
+   "end": 204,
+   "card": "-",
+   "mods": "p"
+  },
+  {
+   "start": 204,
+   "end": 207,
+   "card": "F",
+   "mods": ""
+  },
+  {
+   "start": 207,
+   "end": 210,
+   "card": "F",
+   "mods": "*"
+  },
+  {
+   "start": 210,
+   "end": 213,
+   "card": "H",
+   "mods": "*"
+  },
+  {
+   "start": 213,
+   "end": 216,
+   "card": "A",
+   "mods": "*"
+  },
+  {
+   "start": 216,
+   "end": 219,
+   "card": "-",
+   "mods": "*"
+  },
+  {
+   "start": 219,
+   "end": 222,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 222,
+   "end": 225,
+   "card": "I",
+   "mods": "*"
+  },
+  {
+   "start": 225,
+   "end": 228,
+   "card": "I",
+   "mods": ""
+  },
+  {
+   "start": 228,
+   "end": 231,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 231,
+   "end": 234,
+   "card": "I",
+   "mods": ""
+  },
+  {
+   "start": 234,
+   "end": 237,
+   "card": "C2",
+   "mods": "*"
+  },
+  {
+   "start": 237,
+   "end": 240,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 240,
+   "end": 243,
+   "card": "C",
+   "mods": ""
+  },
+  {
+   "start": 243,
+   "end": 246,
+   "card": "C",
+   "mods": "*"
+  },
+  {
+   "start": 246,
+   "end": 249,
+   "card": "-",
+   "mods": "p"
+  },
+  {
+   "start": 249,
+   "end": 252,
+   "card": "C2",
+   "mods": ""
+  },
+  {
+   "start": 252,
+   "end": 255,
+   "card": "A",
+   "mods": "h"
+  },
+  {
+   "start": 255,
+   "end": 258,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 258,
+   "end": 261,
+   "card": "A",
+   "mods": ""
+  },
+  {
+   "start": 261,
+   "end": 264,
+   "card": "F",
+   "mods": "p"
+  },
+  {
+   "start": 264,
+   "end": 267,
+   "card": "A",
+   "mods": ""
+  },
+  {
+   "start": 267,
+   "end": 270,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 270,
+   "end": 273,
+   "card": "A",
+   "mods": "*"
+  },
+  {
+   "start": 273,
+   "end": 276,
+   "card": "H",
+   "mods": "*"
+  },
+  {
+   "start": 276,
+   "end": 279,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 279,
+   "end": 282,
+   "card": "H",
+   "mods": "*"
+  },
+  {
+   "start": 282,
+   "end": 285,
+   "card": "H",
+   "mods": "p"
+  },
+  {
+   "start": 285,
+   "end": 288,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 288,
+   "end": 291,
+   "card": "H",
+   "mods": "*"
+  },
+  {
+   "start": 291,
+   "end": 294,
+   "card": "G",
+   "mods": ""
+  },
+  {
+   "start": 294,
+   "end": 297,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 297,
+   "end": 300,
+   "card": "G",
+   "mods": ""
+  },
+  {
+   "start": 300,
+   "end": 303,
+   "card": "I",
+   "mods": ""
+  },
+  {
+   "start": 303,
+   "end": 306,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 306,
+   "end": 309,
+   "card": "I",
+   "mods": ""
+  },
+  {
+   "start": 309,
+   "end": 312,
+   "card": "G",
+   "mods": "p"
+  },
+  {
+   "start": 312,
+   "end": 315,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 315,
+   "end": 318,
+   "card": "G",
+   "mods": "*"
+  },
+  {
+   "start": 318,
+   "end": 321,
+   "card": "I",
+   "mods": "*"
+  },
+  {
+   "start": 321,
+   "end": 324,
+   "card": "F",
+   "mods": "*"
+  },
+  {
+   "start": 324,
+   "end": 327,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 327,
+   "end": 330,
+   "card": "F",
+   "mods": "h"
+  },
+  {
+   "start": 330,
+   "end": 333,
+   "card": "C",
+   "mods": "p"
+  },
+  {
+   "start": 333,
+   "end": 336,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 336,
+   "end": 339,
+   "card": "C",
+   "mods": "*"
+  },
+  {
+   "start": 339,
+   "end": 342,
+   "card": "H",
+   "mods": ""
+  },
+  {
+   "start": 342,
+   "end": 345,
+   "card": "-",
+   "mods": "o"
+  },
+  {
+   "start": 345,
+   "end": 348,
+   "card": "H",
+   "mods": "*"
+  },
+  {
+   "start": 348,
+   "end": 351,
+   "card": "G2",
+   "mods": "*"
+  },
+  {
+   "start": 351,
+   "end": 354,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 354,
+   "end": 357,
+   "card": "G",
+   "mods": ""
+  },
+  {
+   "start": 357,
+   "end": 360,
+   "card": "K",
+   "mods": "*"
+  },
+  {
+   "start": 360,
+   "end": 363,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 363,
+   "end": 366,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 366,
+   "end": 369,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 369,
+   "end": 372,
+   "card": "C",
+   "mods": ""
+  },
+  {
+   "start": 372,
+   "end": 375,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 375,
+   "end": 378,
+   "card": "C",
+   "mods": "*"
+  },
+  {
+   "start": 378,
+   "end": 381,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 381,
+   "end": 384,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 384,
+   "end": 387,
+   "card": "E",
+   "mods": ""
+  },
+  {
+   "start": 387,
+   "end": 390,
+   "card": "H",
+   "mods": "h"
+  },
+  {
+   "start": 390,
+   "end": 393,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 393,
+   "end": 396,
+   "card": "H",
+   "mods": "dh"
+  },
+  {
+   "start": 396,
+   "end": 399,
+   "card": "C",
+   "mods": "o"
+  },
+  {
+   "start": 399,
+   "end": 402,
+   "card": "F",
+   "mods": "*"
+  },
+  {
+   "start": 402,
+   "end": 405,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 405,
+   "end": 408,
+   "card": "F",
+   "mods": ""
+  },
+  {
+   "start": 408,
+   "end": 411,
+   "card": "W",
+   "mods": ""
+  },
+  {
+   "start": 411,
+   "end": 414,
+   "card": "K",
+   "mods": "*"
+  },
+  {
+   "start": 414,
+   "end": 417,
+   "card": "-",
+   "mods": "p"
+  },
+  {
+   "start": 417,
+   "end": 420,
+   "card": "K",
+   "mods": "*o"
+  },
+  {
+   "start": 420,
+   "end": 423,
+   "card": "F",
+   "mods": "do"
+  },
+  {
+   "start": 423,
+   "end": 426,
+   "card": "H",
+   "mods": ""
+  },
+  {
+   "start": 426,
+   "end": 429,
+   "card": "-",
+   "mods": ""
+  },
+  {
+   "start": 429,
+   "end": 432,
+   "card": "H2",
+   "mods": ""
+  },
+  {
+   "start": 432,
+   "end": 435,
+   "card": "I",
+   "mods": "*"
+  },
+  {
+   "start": 435,
+   "end": 438,
+   "card": "-",
+   "mods": "p"
+  },
+  {
+   "start": 438,
+   "end": 441,
+   "card": "I",
+   "mods": "*"
+  },
+  {
+   "start": 441,
+   "end": 444,
+   "card": "G",
+   "mods": "*h"
+  },
+  {
+   "start": 444,
+   "end": 447,
+   "card": "-",
+   "mods": "p"
+  },
+  {
+   "start": 447,
+   "end": 450,
+   "card": "G",
+   "mods": "*"
+  },
+  {
+   "start": 450,
+   "end": 570,
+   "card": "Z",
+   "mods": ""
+  }
+ ],
+ "end": "Holds a still of G (galloping horse) darkened to ~25% brightness, with residual glitch block offsets frozen in place. Centred Instagram glyph (rounded square with circle and dot), white, ~10% of frame width, at x 50%, y 61%; below it '@STROBFY' in small white bold grotesk caps, ~1.4% of frame height, at y 66%. Footer 'STROBFY.COM' dimmed to dark grey. Fully static for 4 seconds; music impact plays at 15.37s and decays to silence by ~16.4s.",
+ "audio": {
+  "bpm": 120,
+  "beats": [
+   0.33,
+   0.83,
+   1.33,
+   1.83,
+   2.33,
+   2.83,
+   3.33,
+   3.83,
+   4.33,
+   4.83,
+   5.33,
+   5.83,
+   6.33,
+   6.83,
+   7.33,
+   7.83,
+   8.33,
+   8.83,
+   9.33,
+   9.83,
+   10.33,
+   10.83,
+   11.33,
+   11.83,
+   12.33,
+   12.83,
+   13.33,
+   13.83,
+   14.33,
+   14.83
+  ],
+  "sfx": [
+   {
+    "t": 15.37,
+    "kind": "impact (sub-bass boom on the end card after a 0.5s silence, decays by ~16.4s)"
+   }
+  ],
+  "music": "Driving dark electronic/industrial-techno loop at 120 BPM, high energy: heavy distorted kick, snappy snare and tight hi-hats, 16th-note percussive and glitch hits; hard-stops at 14.89s, then one bass impact. Audio ends at 17.18s, the last 1.8s are silent.",
+  "speech": [],
+  "cutsOnBeat": false
+ },
+ "compare": [
+  0.033,
+  0.633,
+  1.933,
+  2.733,
+  4.633,
+  5.533,
+  7.533,
+  8.333,
+  11.933,
+  14.033,
+  14.333,
+  18.0
+ ]
+}

@@ -33,7 +33,15 @@ export default function FeatureTeaser({ brand: b, content: c, audio }: TemplateP
   return (
     <AbsoluteFill style={{ background: pal.bg, overflow: "hidden", fontFamily: ff }}>
       {/* grid */}
-      <div style={{ position: "absolute", inset: -200, backgroundImage: `linear-gradient(${pal.line} 1.5px, transparent 1.5px), linear-gradient(90deg, ${pal.line} 1.5px, transparent 1.5px)`, backgroundSize: "120px 120px", transform: `translateX(${-(travel % 120)}px)`, opacity: 0.6 }} />
+      {/* an SVG pattern, since the MP4 export can't tile CSS backgrounds */}
+      <svg viewBox="0 0 2320 1480" style={{ position: "absolute", left: -200, top: -200, width: 2320, height: 1480, transform: `translateX(${-(travel % 120)}px)`, opacity: 0.6 }}>
+        <defs>
+          <pattern id="ftGrid" width={120} height={120} patternUnits="userSpaceOnUse">
+            <path d="M0 0.75H120M0.75 0V120" stroke={pal.line} strokeWidth={1.5} fill="none" />
+          </pattern>
+        </defs>
+        <rect width={2320} height={1480} fill="url(#ftGrid)" />
+      </svg>
       <div style={{ position: "absolute", inset: 0, transform: `scale(${zoom}) translateX(${shake}px)`, opacity: 1 - outro }}>
         {/* the road */}
         <Svg>

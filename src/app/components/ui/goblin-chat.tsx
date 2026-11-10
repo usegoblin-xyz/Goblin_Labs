@@ -21,6 +21,7 @@ import { buildPrompt } from "@/library/ui/TemplateDialog";
 import { SandboxPlayer } from "@/library/studio/SandboxPlayer";
 import { GeckoLoader } from "./gecko-loader";
 import { exportMp4 } from "@/library/studio/exportMp4";
+import { compareSheet, renderStills } from "@/library/studio/stills";
 import { sfxUsedIn } from "@/library/sfx";
 import { mediaRef, parseMediaRef, withMix } from "@/library/media";
 import { ACCEPT, cachedInfo, checkFile, mediaInfos, probe, uploadMedia, type UploadedMedia } from "@/library/studio/media";
@@ -28,7 +29,7 @@ import { cutMp4 } from "@/library/studio/cut";
 import { AttachmentChips, MAX_TRIM_SECONDS, MOOD_LIST, MusicControls, SplitDialog, TrimDialog, type ClipRange, type MixState, type Pending, type Use } from "./media-ui";
 import { compose, type Mood } from "@/library/studio/compose";
 import {
-  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveChat, stockPhotos, type StockCredit, getChat, setConversationId, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
+  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveChat, stockPhotos, startBreakdown, breakdownOf, breakdownFrame, type StockCredit, getChat, setConversationId, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
   type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
@@ -67,7 +68,13 @@ type Reply = {
   video?: ExplainerVideo; // an explainer made by the explainer agent
   error?: string;
   health?: "testing" | "ok" | "error";
+  // A remake of a reference video: its breakdown, the moments to compare, and how far along it is.
+  remake?: { id: string; times: number[]; stage: "build" | "comparing" | "done" };
 };
+
+// Sent with the comparison sheet after a remake is built (see api/_studio/replicate.ts).
+const COMPARE_NOTE =
+  "The attached sheet compares the remake with the reference at the same moments: each pair is the reference on the left and the current template on the right, with the time above. Fix the biggest differences in design only: layout, scale, cropping, type treatment, image treatment (contrast, threshold, invert, halftone), timing and transitions, so each pair matches as closely as the user's own content allows. Never change the words: every piece of text, the handle, the site, the field labels and every field default stay exactly as they are now, even where the reference says something else. Don't copy the reference's artwork, logos or brand. Keep everything that already matches.";
 // A photo or clip sent with a message.
 type Sent = { ref: string; kind: "image" | "video" | "audio" | "doc"; use: Use; name: string; preview: string; width: number | null; height: number | null; duration: number | null; trim: { start: number; end: number } | null; credit?: StockCredit };
 type LinkNote = { url: string; title: string; ok: boolean; text: string };
@@ -84,7 +91,8 @@ const QUICK: { icon: ReactNode; label: string; prompt: string }[] = [
   { icon: <Megaphone className="h-4 w-4" />, label: "Event promo", prompt: "Help me promote an upcoming live demo" },
 ];
 
-const stageLabel = (req: GenRequest) => (req.mode === "repair" ? "Rewriting the broken part" : req.mode === "edit" ? "Applying your change" : "Writing the template");
+const stageLabel = (req: GenRequest) =>
+  req.mode === "repair" ? "Rewriting the broken part" : req.mode === "edit" ? (req.instruction === COMPARE_NOTE ? "Fixing the differences" : "Applying your change") : req.replicate ? "Rebuilding it scene by scene" : "Writing the template";
 const seconds = (t: StudioTemplate) => Math.round(t.durationInFrames / t.fps);
 const hasSound = (t: StudioTemplate) => sfxUsedIn(t.compiled).length > 0;
 const Dot = () => (
@@ -560,6 +568,68 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
 
   // Starts (or changes) an explainer in reply `aid`. The agent works for a few
   // minutes; the polling effect above follows it from here.
+  // ---- remaking a reference video ------------------------------------------------
+  // Goblin Breakdown studies the newest attached clip frame by frame (a few
+  // minutes, with its progress as steps), the template is built from its
+  // breakdown, and once it passes the preview it's compared with the reference
+  // and fixed once (the effect below).
+  const replicate = async (aid: number, title: string, aspect_: Aspect, brief: string, all: Turn[]) => {
+    const clip = [...all].reverse().flatMap((t) => (t.role === "user" ? [...(t.media ?? [])].reverse() : [])).find((m) => m.kind === "video");
+    if (!clip) return build(aid, { mode: "create", prompt: brief, aspect: aspect_, media: mediaForBuild(all, "create") });
+    setBusy(true);
+    track("studio_replicate", { conversation_id: conversationId() });
+    const showSteps = (v: ExplainerVideo) =>
+      patch(aid, (x) => ({ steps: [...x.steps.filter((st) => !st.key.startsWith("bd-")), ...v.steps.map((st) => ({ ...st, key: `bd-${st.key}` }))] }));
+    try {
+      let v = await startBreakdown({ title: title || "Remake", media: [{ ref: clip.ref, use: "reference" }] });
+      showSteps(v);
+      for (let i = 0; v.status === "running" && i < 300; i++) {
+        await new Promise((r) => setTimeout(r, 4000));
+        v = await getVideo(v.id);
+        showSteps(v);
+      }
+      if (v.status !== "done") throw new Error(v.message || "Couldn't study the reference.");
+      const bd = await breakdownOf(v.id);
+      patch(aid, (x) => ({
+        remake: { id: v.id, times: (bd.compare ?? []).slice(0, 12), stage: "build" },
+        steps: [...x.steps.map((st) => (st.key.startsWith("bd-") ? { ...st, state: "done" as const } : st)), { key: "studied", label: `Studied the reference: ${bd.shots?.length ?? 0} shots, ${bd.cards?.length ?? 0} looks`, state: "done" }],
+      }));
+      const media = mediaForBuild(all, "create").filter((m) => m.ref !== clip.ref);
+      await build(aid, { mode: "create", prompt: brief, aspect: bd.aspect ?? aspect_, media, replicate: v.id });
+    } catch (err) {
+      if ((err as { status?: number }).status === 401) return toLogin();
+      patch(aid, (x) => ({ error: err instanceof Error ? err.message : "Couldn't remake the video.", steps: x.steps.map((st) => (st.state === "active" ? { ...st, state: "failed" as const } : st)) }));
+      setBusy(false);
+    }
+  };
+
+  // After a remake passes the preview: render the same moments as the
+  // reference's comparison frames, pair them on one sheet, and build one fix.
+  const compareRemake = async (t: Reply) => {
+    const tpl = t.template!;
+    const remake = t.remake!;
+    if (!user || !renderHost.current) return;
+    setBusy(true);
+    patch(t.id, (x) => ({ remake: { ...remake, stage: "comparing" }, steps: [...x.steps, { key: "compare", label: "Comparing it with the original", state: "active" }] }));
+    try {
+      const times = remake.times.length ? remake.times : Array.from({ length: 8 }, (_, i) => ((i + 0.5) * tpl.durationInFrames) / 8 / tpl.fps);
+      const stills = await renderStills({ template: tpl, brand, content: contentFor(tpl), host: renderHost.current, frames: times.map((s) => s * tpl.fps), signal: new AbortController().signal });
+      const sheet = await compareSheet(times.map((time, i) => ({ time, reference: remake.times.length ? breakdownFrame(remake.id, i) : "", remake: stills[i] })), tpl.width / tpl.height);
+      const up = await uploadMedia(new File([sheet], "remake-compare.jpg", { type: "image/jpeg" }), user.id);
+      patch(t.id, (x) => ({ steps: x.steps.map((st) => (st.key === "compare" ? { ...st, state: "done" as const } : st)), remake: { ...remake, stage: "done" } }));
+      await build(t.id, { mode: "edit", id: tpl.id, instruction: COMPARE_NOTE, media: [{ ref: up.ref, use: "reference" }], replicate: remake.id });
+    } catch {
+      patch(t.id, (x) => ({ remake: { ...remake, stage: "done" }, steps: x.steps.map((st) => (st.key === "compare" ? { ...st, label: "Couldn't compare it with the original, keeping this version", state: "failed" as const } : st)) }));
+      setBusy(false);
+    }
+  };
+  useEffect(() => {
+    if (busy) return;
+    const t = turns.find((x): x is Reply => x.role === "assistant" && x.remake?.stage === "build" && x.health === "ok" && !!x.template && !x.building);
+    if (t) void compareRemake(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turns, busy]);
+
   const explainer = async (aid: number, start: () => Promise<ExplainerVideo>) => {
     track("studio_video", { conversation_id: conversationId() });
     try {
@@ -624,7 +694,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
         template: current
           ? { title: current.title, outcome: current.outcome, version: current.version, format: formatOf(current), seconds: seconds(current), copy: contentFor(current) }
           : undefined,
-        video: currentVideo ? { title: currentVideo.title, format: currentVideo.aspect, kind: currentVideo.kind ?? "explainer" } : undefined,
+        video: currentVideo ? { title: currentVideo.title, format: currentVideo.aspect, kind: currentVideo.kind === "edit" ? "edit" : "explainer" } : undefined,
         mode: explainerMode ? "explainer" : undefined,
       });
       patch(aid, () => ({ thinking: false, text: r.reply }));
@@ -633,7 +703,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       let all: Turn[] = [...before, userTurn];
       // Goblin wants music and the user hasn't given a track: make one first.
       const hasTrack = all.some((t) => t.role === "user" && t.media?.some((m) => m.kind === "audio"));
-      if ((r.action === "build" || (r.action === "change" && current)) && r.music && r.music !== "none" && !hasTrack && user) {
+      if ((r.action === "build" || r.action === "replicate" || (r.action === "change" && current)) && r.music && r.music !== "none" && !hasTrack && user) {
         patch(aid, () => ({ steps: [{ key: "music", label: `Making ${r.music} music`, state: "active" }] }));
         try {
           const m = await makeMusic(r.music as Mood);
@@ -650,7 +720,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       // Goblin wants stock photos the user didn't attach: fetch them from Pixabay or Unsplash
       // and attach them to the message, like the user's own photos.
       let brief = r.brief;
-      if ((r.action === "build" || r.action === "change" || r.action === "edit") && r.photos?.length) {
+      if ((r.action === "build" || r.action === "change" || r.action === "edit" || r.action === "replicate") && r.photos?.length) {
         patch(aid, (x) => ({ steps: [...x.steps, { key: "photos", label: r.photos!.length > 1 ? `Finding ${r.photos!.length} photos` : "Finding a photo", state: "active" }] }));
         try {
           const found = await stockPhotos(r.photos, r.aspect);
@@ -666,7 +736,8 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "photos" ? { ...st, label: "Couldn't find photos, going without them", state: "failed" as const } : st)) }));
         }
       }
-      if (r.action === "build") await build(aid, { mode: "create", prompt: brief, aspect: r.aspect, media: mediaForBuild(all, "create") });
+      if (r.action === "replicate") await replicate(aid, r.title, r.aspect, brief, all);
+      else if (r.action === "build") await build(aid, { mode: "create", prompt: brief, aspect: r.aspect, media: mediaForBuild(all, "create") });
       else if (r.action === "explainer" && explainerMode) await explainer(aid, () => startVideo({ brief: r.brief, title: r.title, aspect: r.aspect, brand: brandFor() }));
       else if (r.action === "edit") await explainer(aid, () => startEdit({ brief, title: r.title, aspect: r.aspect, brand: brandFor(), media: mediaForBuild(all, "create") }));
       else if (r.action === "change" && currentVideo?.kind === "edit") await explainer(aid, () => changeVideo(currentVideo.id, brief, mediaSince(all)));

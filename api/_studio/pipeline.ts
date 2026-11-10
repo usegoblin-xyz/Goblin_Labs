@@ -27,8 +27,10 @@ export type Outcome = {
 };
 
 export type Job =
-  | { mode: "create"; prompt: string; aspect: Aspect; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[] }
-  | { mode: "edit" | "repair"; current: Snapshot; instruction: string; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[] };
+  | { mode: "create"; prompt: string; aspect: Aspect; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[]; spec?: string; maxSeconds?: number; deadline?: number }
+  | { mode: "edit" | "repair"; current: Snapshot; instruction: string; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[]; spec?: string; maxSeconds?: number; deadline?: number };
+// A remake (replicate.ts) sends the reference's breakdown as the spec.
+// deadline: when the request must end; a fix isn't started without time for it.
 
 // How to use the attachments, after the brief. The pictures and documents
 // themselves come first in the message (see refs.blocks).
@@ -53,17 +55,19 @@ const canvas = (w: number, h: number, s?: number) =>
 function firstMessage(job: Job): string {
   if (job.mode === "create") {
     const [w, h] = ASPECTS[job.aspect];
-    return `${canvas(w, h)}\n\nThe user's brief:\n<brief>\n${job.prompt}\n</brief>${describeMedia(job.media)}\n\nDesign the template and save it.`;
+    const spec = job.spec ? `\n\nThe reference video's breakdown:\n<reference_breakdown>\n${job.spec}\n</reference_breakdown>` : "";
+    return `${canvas(w, h)}${spec}\n\nThe user's brief:\n<brief>\n${job.prompt}\n</brief>${describeMedia(job.media)}\n\nDesign the template and save it.`;
   }
   const c = job.current;
   const meta = { title: c.title, outcome: c.outcome, category: c.category, tags: c.tags, durationSeconds: Math.round(c.durationInFrames / c.fps), fields: c.fields.map((f) => ({ ...f, default: c.defaults[f.key] ?? "" })) };
   const note = job.mode === "edit" ? EDIT_NOTE : REPAIR_NOTE;
   const ask = job.mode === "edit" ? `The user's change:\n<change>\n${job.instruction}\n</change>` : `The problem, reported by the live preview:\n<problem>\n${job.instruction}\n</problem>`;
-  return `${note}\n\n${canvas(c.width, c.height, meta.durationSeconds)}\n\nCurrent template metadata:\n${JSON.stringify(meta, null, 2)}\n\nCurrent code:\n\`\`\`tsx\n${c.code}\n\`\`\`\n\n${ask}${describeMedia(job.media)}`;
+  const spec = job.spec ? `\n\nThis template remakes a reference video. Its breakdown:\n<reference_breakdown>\n${job.spec}\n</reference_breakdown>` : "";
+  return `${note}\n\n${canvas(c.width, c.height, meta.durationSeconds)}${spec}\n\nCurrent template metadata:\n${JSON.stringify(meta, null, 2)}\n\nCurrent code:\n\`\`\`tsx\n${c.code}\n\`\`\`\n\n${ask}${describeMedia(job.media)}`;
 }
 
 // Validates Claude's answer and turns it into a saved-template snapshot.
-export function toSnapshot(input: ToolInput, width: number, height: number): { snapshot: Snapshot | null; problems: string[] } {
+export function toSnapshot(input: ToolInput, width: number, height: number, maxSeconds = 20): { snapshot: Snapshot | null; problems: string[] } {
   const problems: string[] = [];
   const code = String(input.code ?? "");
   const fields = Array.isArray(input.fields) ? input.fields : [];
@@ -77,7 +81,7 @@ export function toSnapshot(input: ToolInput, width: number, height: number): { s
     if ((f.type === "media" || f.type === "audio") && f.default && !parseMediaRef(f.default)) problems.push(`${f.type} field "${f.key}" must default to an attached media ref like "media:<id>", or "".`);
   }
   const secs = Math.round(Number(input.durationSeconds));
-  if (!(secs >= 3 && secs <= 20)) problems.push(`durationSeconds is ${input.durationSeconds}; use 4 to 15.`);
+  if (!(secs >= 3 && secs <= maxSeconds)) problems.push(`durationSeconds is ${input.durationSeconds}; use ${maxSeconds > 20 ? `3 to ${maxSeconds}` : "4 to 15"}.`);
   problems.push(...checkTemplate(code));
   if (problems.length) return { snapshot: null, problems };
 
@@ -113,7 +117,10 @@ export async function runJob(job: Job, call: CallClaude, emit: (e: Event) => voi
   const calls: Outcome["calls"] = [];
   let problems: string[] = [];
 
+  let lastMs = 0;
   for (let attempt = 0; attempt <= MAX_FIXES; attempt++) {
+    // A fix takes about as long as the last call did; don't start one that can't finish.
+    if (attempt > 0 && job.deadline && Date.now() + lastMs * 0.8 > job.deadline) break;
     emit(attempt === 0 ? { type: "stage", stage: "writing", attempt } : { type: "stage", stage: "fixing", attempt, problems });
     const started = Date.now();
     let res;
@@ -124,6 +131,7 @@ export async function runJob(job: Job, call: CallClaude, emit: (e: Event) => voi
       throw e;
     }
     const ms = Date.now() - started;
+    lastMs = ms;
     if (res.stop === "refusal") {
       calls.push({ usage: res.usage, ms, ok: false, error: "refusal" });
       return { snapshot: null, problems: ["Claude declined this request."], calls, refused: true };
@@ -132,7 +140,7 @@ export async function runJob(job: Job, call: CallClaude, emit: (e: Event) => voi
       problems = [res.stop === "max_tokens" ? "the template was too long and got cut off; make it more compact." : "no template was returned."];
     } else {
       emit({ type: "stage", stage: "checking", attempt });
-      const out = toSnapshot(res.input, width, height);
+      const out = toSnapshot(res.input, width, height, job.maxSeconds);
       if (out.snapshot) {
         calls.push({ usage: res.usage, ms, ok: true });
         return { snapshot: out.snapshot, problems: [], calls };
