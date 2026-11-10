@@ -38,6 +38,8 @@ const COLOUR_NAMES = new Set([
 const FONT_PROPS = new Set(["fontFamily", "font"]);
 const MAX_CODE = 60_000;
 const MAX_SFX = 30;
+// Components that load a file from their src (only <Media>/<Music> may, with a field).
+const LOADERS = new Set(["Img", "Video", "OffthreadVideo", "Audio", "IFrame", "Html5Audio", "Html5Video", "AnimatedImage", "Gif", "Lottie"]);
 const RENDER_LIMITS: [RegExp, string][] = [
   [/\bzIndex\b/, "uses zIndex, which the MP4 export ignores; order elements back to front instead."],
   [/\bbackdropFilter\b/, "uses backdropFilter, which the MP4 export can't draw."],
@@ -143,7 +145,10 @@ export function checkTemplate(code: string): Problem[] {
       // The one allowed src: <Media src={c.field}>, the user's own photo or clip.
       const tag = node.parent?.parent && (ts.isJsxSelfClosingElement(node.parent.parent) || ts.isJsxOpeningElement(node.parent.parent)) ? node.parent.parent.tagName.getText(sf) : "";
       const mediaSrc = (tag === "Media" || tag === "Music") && name === "src" && !!node.initializer && ts.isJsxExpression(node.initializer) && !!node.initializer.expression && !ts.isStringLiteralLike(node.initializer.expression);
-      if ((name === "src" || name === "href" || name === "xlinkHref") && !mediaSrc)
+      // Passing a field into the template's own component (<Photo src={c.horse} />) is fine:
+      // whatever that component draws is checked too. Elements that load files never are.
+      const ownSrc = name === "src" && /^[A-Z]/.test(tag) && !LOADERS.has(tag.replace(/^.*\./, "")) && !!node.initializer && ts.isJsxExpression(node.initializer) && !!node.initializer.expression && !ts.isStringLiteralLike(node.initializer.expression) && !ts.isTemplateExpression(node.initializer.expression);
+      if ((name === "src" || name === "href" || name === "xlinkHref") && !mediaSrc && !ownSrc)
         add(node, tag === "Media" || tag === "Music" ? `<${tag} src> must read a field, like src={c.${tag === "Music" ? "music" : "photo"}}.` : `sets ${name}; templates can't load images or links. The user's own photo or clip goes through <Media src={c.field}>.`);
       if (FONT_PROPS.has(name) && node.initializer && ts.isStringLiteral(node.initializer)) add(node, `hard-codes a font (${name}="${node.initializer.text}"); use fontOf(b), MONO or SERIF.`);
     } else if (ts.isPropertyAssignment(node) && FONT_PROPS.has(propName(node.name)) && isStringy(node.initializer)) {

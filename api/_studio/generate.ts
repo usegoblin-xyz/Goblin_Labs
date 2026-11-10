@@ -63,7 +63,10 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
     const allBlocks = remake ? [...remake.blocks, ...(blocksFor ?? [])] : blocksFor;
     // Vercel stops the function at 300 s; leave room to save and answer.
     const deadline = Date.now() + 270_000;
-    const extra = spec ? { spec: spec.text, maxSeconds: MAX_REMAKE_SECONDS, deadline } : { deadline };
+    // Picking up a draft that ran out of time in an earlier request.
+    const r0 = body.resume && typeof body.resume === "object" ? body.resume : null;
+    const resume = r0 && typeof r0.raw === "string" && Array.isArray(r0.problems) ? { raw: r0.raw.slice(0, 400_000), problems: r0.problems.filter((p: unknown) => typeof p === "string").slice(0, 40) } : undefined;
+    const extra = { ...(spec ? { spec: spec.text, maxSeconds: MAX_REMAKE_SECONDS } : {}), deadline, ...(resume ? { resume } : {}) };
 
     if (mode === "create") {
       const prompt = str(body.prompt, MAX_PROMPT);
@@ -122,6 +125,8 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
         await logGeneration({ userId, templateId, kind: i === 0 ? mode : "fix", model: MODEL, ok: c.ok, error: c.error, ...c.usage, ms: c.ms });
       }
       if (saved) send({ type: "done", template: saved });
+      // Out of time with a draft that needs fixing: the page resumes it in a new request.
+      else if (out.draft) send({ type: "error", message: "Ran out of time before fixing the last problems.", problems: out.problems, resume: out.draft });
       else send({ type: "error", message: out.refused ? "Claude declined this request. Try describing the video differently." : "Couldn't produce a working template this time. Try rephrasing the prompt.", problems: out.problems });
     } catch (e) {
       console.error("studio-generate failed", (e as Error).message);

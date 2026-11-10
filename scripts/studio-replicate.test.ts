@@ -5,6 +5,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { breakdownMessage, progress } from "../api/_studio/videos.ts";
 import { cleanBreakdown, remakeSpec, MAX_REMAKE_SECONDS } from "../api/_studio/replicate.ts";
+import { runJob } from "../api/_studio/pipeline.ts";
+import { checkTemplate } from "../api/_studio/check.ts";
+import type { CallClaude, ToolInput } from "../api/_studio/claude.ts";
 
 // the message: the link, and a trimmed clip's part
 const clip = { ref: "media:11111111-2222-4333-8444-555555555555#t=2,9", use: "reference" as const, kind: "video" as const, mime: "video/mp4", name: "ad.mp4", width: 576, height: 1024, durationSeconds: 19, meta: {}, pathname: "p", preview: null };
@@ -58,4 +61,38 @@ assert.ok(spec.text.includes("0:A 3:-o 6:A 9:E*"));
 const long = remakeSpec(odd);
 assert.equal(long.seconds, MAX_REMAKE_SECONDS);
 assert.ok(long.text.includes("0:A* 30:B") && long.text.includes("remake its first 30 s"));
+// running out of time: a failed answer comes back as a draft, and resuming it fixes it
+const read = (f: string) => fs.readFileSync(new URL(`./studio-fixtures/${f}`, import.meta.url), "utf8");
+const meta = (code: string): ToolInput => ({ title: "Launch Checklist", outcome: "x", category: "Launch", tags: [], durationSeconds: 9, fields: [{ key: "product", label: "Product", type: "text", hint: "", default: "Notewise" }, { key: "features", label: "Features", type: "text", hint: "", default: "a, b, c" }, { key: "cta", label: "CTA", type: "text", hint: "", default: "Live" }], code });
+const script = (answers: ToolInput[], ms = 0) => {
+  const sent: any[] = [];
+  const call: CallClaude = async (messages) => {
+    sent.push(structuredClone(messages));
+    await new Promise((r) => setTimeout(r, ms));
+    const a = answers.shift()!;
+    return { input: a, raw: JSON.stringify(a), stop: "end_turn", usage: { inputTokens: 1, outputTokens: 1, cacheRead: 0, cacheWrite: 0 } };
+  };
+  return { call, sent };
+};
+const bad = meta(read("bad.tsx"));
+const good = meta(read("good.tsx"));
+assert.ok(checkTemplate(bad.code).length && !checkTemplate(good.code).length);
+let f = script([bad, good], 40);
+let out = await runJob({ mode: "create", prompt: "A launch video", aspect: "16:9", deadline: Date.now() + 50 }, f.call, () => {});
+assert.equal(out.snapshot, null);
+assert.equal(f.sent.length, 1); // no fix started without time for it
+assert.ok(out.draft && out.draft.problems.length && JSON.parse(out.draft.raw).code === bad.code);
+const stages: string[] = [];
+f = script([good]);
+out = await runJob({ mode: "create", prompt: "A launch video", aspect: "16:9", resume: out.draft }, f.call, (e) => e.type === "stage" && stages.push(`${e.stage}${e.attempt}`));
+assert.ok(out.snapshot);
+assert.equal(stages[0], "fixing0");
+const msgs = f.sent[0];
+assert.equal(msgs.length, 3);
+assert.equal(msgs[1].role, "assistant");
+assert.ok(String(msgs[2].content).includes(out.calls.length ? "" : "x"));
+// with time to spare, the fix happens in the same request as before
+f = script([bad, good]);
+out = await runJob({ mode: "create", prompt: "A launch video", aspect: "16:9", deadline: Date.now() + 60_000 }, f.call, () => {});
+assert.ok(out.snapshot && !out.draft && f.sent.length === 2);
 console.log("studio replicate checks passed");
