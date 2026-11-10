@@ -28,7 +28,7 @@ import { cutMp4 } from "@/library/studio/cut";
 import { AttachmentChips, MAX_TRIM_SECONDS, MOOD_LIST, MusicControls, SplitDialog, TrimDialog, type ClipRange, type MixState, type Pending, type Use } from "./media-ui";
 import { compose, type Mood } from "@/library/studio/compose";
 import {
-  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveChat, stockPhotos, getChat, setConversationId, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
+  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveChat, stockPhotos, type StockCredit, getChat, setConversationId, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
   type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
@@ -69,7 +69,7 @@ type Reply = {
   health?: "testing" | "ok" | "error";
 };
 // A photo or clip sent with a message.
-type Sent = { ref: string; kind: "image" | "video" | "audio" | "doc"; use: Use; name: string; preview: string; width: number | null; height: number | null; duration: number | null; trim: { start: number; end: number } | null };
+type Sent = { ref: string; kind: "image" | "video" | "audio" | "doc"; use: Use; name: string; preview: string; width: number | null; height: number | null; duration: number | null; trim: { start: number; end: number } | null; credit?: StockCredit };
 type LinkNote = { url: string; title: string; ok: boolean; text: string };
 type Turn = { id: number; role: "user"; text: string; explainer?: boolean; media?: Sent[]; links?: LinkNote[] } | Reply;
 
@@ -246,7 +246,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
       const rebuilt: Turn[] = list.map((t) => {
         const id = nextId.current++;
         if (t.role === "user")
-          return { id, role: "user", text: t.text ?? "", explainer: t.explainer, links: t.links, media: t.media?.map((m) => ({ ...m, preview: media[parseMediaRef(m.ref)?.id ?? ""]?.url ?? "" })) };
+          return { id, role: "user", text: t.text ?? "", explainer: t.explainer, links: t.links, media: t.media?.map((m) => ({ ...m, preview: m.credit?.thumb || media[parseMediaRef(m.ref)?.id ?? ""]?.url || "" })) };
         const template = t.templateId ? tMap.get(t.templateId) ?? undefined : undefined;
         const video = t.videoId ? vMap.get(t.videoId) ?? undefined : undefined;
         const gone = (t.templateId && !template) || (t.videoId && !video);
@@ -647,20 +647,21 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
           patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "music" ? { ...st, label: "Couldn't make the music, building without it", state: "failed" as const } : st)) }));
         }
       }
-      // Goblin wants stock photos the user didn't attach: fetch them from Pexels
+      // Goblin wants stock photos the user didn't attach: fetch them from Unsplash
       // and attach them to the message, like the user's own photos.
       let brief = r.brief;
       if ((r.action === "build" || r.action === "change" || r.action === "edit") && r.photos?.length) {
         patch(aid, (x) => ({ steps: [...x.steps, { key: "photos", label: r.photos!.length > 1 ? `Finding ${r.photos!.length} photos` : "Finding a photo", state: "active" }] }));
         try {
           const found = await stockPhotos(r.photos, r.aspect);
-          const extra = found.map((p): Sent => ({ ref: p.ref, kind: "image", use: "video", name: p.name, preview: p.url, width: p.width, height: p.height, duration: null, trim: null }));
+          // Unsplash asks that the photos are shown from their own links, credited.
+          const extra = found.map((p): Sent => ({ ref: p.ref, kind: "image", use: "video", name: p.name, preview: p.credit.thumb || p.url, width: p.width, height: p.height, duration: null, trim: null, credit: p.credit }));
           const cur = all[all.length - 1] as Extract<Turn, { role: "user" }>;
           const withPhotos = { ...cur, media: [...(cur.media ?? []), ...extra] };
           all = [...all.slice(0, -1), withPhotos];
           setTurns((ts) => ts.map((t) => (t.id === userTurn.id ? withPhotos : t)));
           brief += `\n\nStock photos attached for this (use them in the video): ${found.map((p) => `${p.name}${p.alt ? ` (${p.alt})` : ` (${p.query})`}`).join("; ")}.`;
-          patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "photos" ? { ...st, label: `Found ${found.length} photo${found.length === 1 ? "" : "s"} on Pexels`, state: "done" as const } : st)) }));
+          patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "photos" ? { ...st, label: `Found ${found.length} photo${found.length === 1 ? "" : "s"} on Unsplash`, state: "done" as const } : st)) }));
         } catch {
           patch(aid, (x) => ({ steps: x.steps.map((st) => (st.key === "photos" ? { ...st, label: "Couldn't find photos, going without them", state: "failed" as const } : st)) }));
         }
@@ -1031,6 +1032,7 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
                             ))}
                           </div>
                         ) : null}
+                        {t.media?.some((m) => m.credit) && <StockCredits credits={t.media.flatMap((m) => (m.credit ? [m.credit] : []))} />}
                         {t.text && <div className="rounded-2xl rounded-br-md bg-white/[0.07] px-4 py-2.5 text-[14.5px] leading-relaxed whitespace-pre-wrap text-white">{t.text}</div>}
                       </div>
                     );
@@ -1451,5 +1453,30 @@ function AddMusic({ busy, inline, onFile }: { busy?: boolean; inline?: boolean; 
         <button disabled={busy} onClick={() => input.current?.click()} className="h-7 shrink-0 rounded-full border border-white/15 px-2.5 text-[12px] text-white/80 hover:bg-white/8 hover:text-white disabled:opacity-40">Upload a track</button>
       </div>
     </div>
+  );
+}
+
+// "Photos by A and B on Unsplash", each name linked to the photographer.
+function StockCredits({ credits }: { credits: StockCredit[] }) {
+  const seen = new Map<string, StockCredit>();
+  for (const c of credits) if (!seen.has(c.photographerUrl)) seen.set(c.photographerUrl, c);
+  const list = [...seen.values()];
+  const a = "underline decoration-white/25 underline-offset-2 hover:text-white";
+  return (
+    <p className="max-w-[360px] text-right text-[11.5px] leading-snug text-white/45">
+      {list.length > 1 ? "Photos by " : "Photo by "}
+      {list.map((c, i) => (
+        <span key={c.photographerUrl}>
+          {i > 0 && (i === list.length - 1 ? " and " : ", ")}
+          <a href={c.photographerUrl} target="_blank" rel="noreferrer" className={a}>
+            {c.photographer}
+          </a>
+        </span>
+      ))}{" "}
+      on{" "}
+      <a href="https://unsplash.com/?utm_source=goblin&utm_medium=referral" target="_blank" rel="noreferrer" className={a}>
+        Unsplash
+      </a>
+    </p>
   );
 }
