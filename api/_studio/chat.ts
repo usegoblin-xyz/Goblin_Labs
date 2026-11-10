@@ -16,11 +16,12 @@ export const CHAT_MODEL = process.env.STUDIO_CHAT_MODEL || process.env.STUDIO_MO
 export const CHAT_LIMIT = Number(process.env.STUDIO_CHAT_LIMIT || 200);
 const ASPECTS = ["16:9", "9:16", "1:1"] as const;
 
-export type ChatAction = "chat" | "build" | "change" | "explainer" | "edit";
+export type ChatAction = "chat" | "build" | "change" | "explainer" | "edit" | "replicate";
 export const MOODS = ["calm", "upbeat", "cinematic", "lofi", "epic", "playful", "corporate"] as const;
 export type ChatOut = { reply: string; action: ChatAction; brief: string; title: string; aspect: (typeof ASPECTS)[number] | "none"; music: "none" | (typeof MOODS)[number]; photos?: string[] };
 const explainersOn = () => !!(process.env.GOBLIN_EXPLAINER_AGENT_ID && process.env.GOBLIN_AGENT_ENVIRONMENT_ID);
 const editorOn = () => !!(process.env.GOBLIN_EDITOR_AGENT_ID && process.env.GOBLIN_EDITOR_ENVIRONMENT_ID);
+const replicateOn = () => !!(process.env.GOBLIN_BREAKDOWN_AGENT_ID && process.env.GOBLIN_EDITOR_ENVIRONMENT_ID);
 export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => Promise<{ out: ChatOut | null; usage: Usage }>;
 
 export const CHAT_SCHEMA = {
@@ -31,14 +32,14 @@ export const CHAT_SCHEMA = {
     reply: { type: "string", description: "What Goblin says to the user. Plain text, usually one to three sentences." },
     action: {
       type: "string",
-      enum: ["chat", "build", "change", "explainer", "edit"],
-      description: "chat: just talk. build: make a new short template now. change: change the current template, explainer or edit now. explainer: make a new explainer video now. edit: hand the user's own footage and audio to Goblin Editor for real editing now.",
+      enum: ["chat", "build", "change", "explainer", "edit", "replicate"],
+      description: "chat: just talk. build: make a new short template now. change: change the current template, explainer or edit now. explainer: make a new explainer video now. edit: hand the user's own footage and audio to Goblin Editor for real editing now. replicate: remake the format of an attached reference video now (frame-exact), with the user's content.",
     },
     brief: {
       type: "string",
-      description: "For build: a complete, self-contained description of the video for the template writer (scenes in order, the on-screen copy, timing, feel). For explainer: the topic, audience, length, any scenes asked for, and every fact, number and name the user gave, with any source text they pasted copied in full. For edit: complete instructions for the editor: every attached file by name and what to do with it, in order (cuts with times, joins, captions and their style, reframing, audio cleanup, music and sound effects, colour, overlays), plus the format and length. For change: the exact change to make. Empty string for chat.",
+      description: "For build: a complete, self-contained description of the video for the template writer (scenes in order, the on-screen copy, timing, feel). For explainer: the topic, audience, length, any scenes asked for, and every fact, number and name the user gave, with any source text they pasted copied in full. For replicate: what replaces the reference's content: the user's brand name, handle and site, the words for each piece of text (keep each about as long as the original), and which photo (attached or stock) stands in for each picture; also anything they want different from the reference. For edit: complete instructions for the editor: every attached file by name and what to do with it, in order (cuts with times, joins, captions and their style, reframing, audio cleanup, music and sound effects, colour, overlays), plus the format and length. For change: the exact change to make. Empty string for chat.",
     },
-    title: { type: "string", description: "For build, explainer or edit: a 2 to 5 word title in title case. Empty string otherwise." },
+    title: { type: "string", description: "For build, explainer, edit or replicate: a 2 to 5 word title in title case. Empty string otherwise." },
     aspect: { type: "string", enum: [...ASPECTS, "none"], description: "The format the user asked for, or none if they didn't say." },
     music: {
       type: "string",
@@ -48,7 +49,7 @@ export const CHAT_SCHEMA = {
     photos: {
       type: "array",
       items: { type: "string" },
-      description: "For build, change or edit: stock photo searches, one photo each (at most 6), only when the user wants photos of things they haven't attached. Each is a short, concrete search like \"misty pine forest\" or \"close-up of a dew-covered leaf\". Empty array otherwise.",
+      description: "For build, change, edit or replicate: stock photo searches, one photo each (at most 6), only when the user wants photos of things they haven't attached. Each is a short, concrete search like \"misty pine forest\" or \"close-up of a dew-covered leaf\". Empty array otherwise.",
     },
   },
 };
@@ -65,6 +66,8 @@ export function chatSystem(ctx: {
   editor?: boolean;
   // A stock photo source (Pixabay or Unsplash) is set up, so Goblin can add stock photos itself.
   stock?: boolean;
+  // Goblin Breakdown is set up, so attached reference videos can be remade frame-exact.
+  replicate?: boolean;
 }) {
   return `You are Goblin, the assistant on usegoblin.xyz. Goblin builds short motion-graphics videos as templates: code-based animations, 4 to 15 seconds long, in 16:9, 9:16 or 1:1, styled automatically from the user's brand kit (colours, font, motion feel), with editable text fields, and optionally the user's own photo or clip as the background. They can carry sound effects from Goblin's library (whooshes, pops, clicks, ticks, typing, dings, chimes, sparkles, impacts, booms, bass drops, risers, glitches, drumrolls and more) timed to the motion, and music: the user's own track or original Goblin-made music. Users preview them on the site and download them as MP4 files, with sound.
 
@@ -87,7 +90,8 @@ Attachments, references and links:
 - Each attachment is marked for the video (put it in), as a reference (look at it, don't put it in), or left for you to judge from what they said. A screenshot of an ad, a brand board or a competitor's video is usually a reference; "put my quote on this" means it goes in.
 - Use what you see. Describe a reference's style concretely in the brief for the template writer (layout, pacing, type treatment, colour mood, motion), pull exact facts, names, numbers and copy from documents and links, and ask about things you can't tell.
 - In a build brief, name each attachment by its file name and say how it's used: "the attached photo beach.jpg full-bleed behind the quote, slow push-in", "match the layout and pacing of the reference ad.png", "use the attached track song.mp3 as the soundtrack and cut on its beats". The template writer gets the same files.
-${ctx.stock ? `- Stock photos: when the user wants photos of things they haven't attached ("add some nature photos", "show a city at night", "random real-life objects"), add them yourself: put one concrete search per photo in "photos" (at most 6, varied, matching the look they want), and Goblin fetches free stock photos (from Pixabay or Unsplash) and attaches them to the video. Never tell the user you can't get photos or ask them to find their own. In the brief, say how the stock photos are used (for example "flash the stock photos one after another in stark black and white, with glitch cuts between them"); their file names are added for you. If they ask for the photos on a change, use change. Photos only: there's no stock footage or music.
+${ctx.replicate && !ctx.explainerMode ? `- Remaking a video ("replicate"): when the user attaches a video and wants one like it ("make something like this", "replicate this", "remake it for my brand", "build something similar"), use action "replicate" instead of "build". Goblin then studies the clip frame by frame (every cut, layout, type treatment, transition and beat) and remakes its format exactly, which takes a few minutes. Their content replaces the reference's: brand, words, handle, photos. Before replicating, make sure you know the words and handle to use; if they haven't said, ask once in one short question, or if they say "just go", write fitting words yourself. For each picture in the reference, put a stock photo search in "photos" for a stand-in of the same kind and tone (a running animal for a running animal), unless they attached their own; never search for the reference's own artwork, characters, logos or people. A later change to the remake is an ordinary "change".
+` : ""}${ctx.stock ? `- Stock photos: when the user wants photos of things they haven't attached ("add some nature photos", "show a city at night", "random real-life objects"), add them yourself: put one concrete search per photo in "photos" (at most 6, varied, matching the look they want), and Goblin fetches free stock photos (from Pixabay or Unsplash) and attaches them to the video. Never tell the user you can't get photos or ask them to find their own. In the brief, say how the stock photos are used (for example "flash the stock photos one after another in stark black and white, with glitch cuts between them"); their file names are added for you. If they ask for the photos on a change, use change. Photos only: there's no stock footage or music.
 ` : `- You can't find photos on the web yourself: if the user wants photos they haven't attached, ask them to attach them with the + button.
 `}- A clip stays silent unless the user wants its sound. Any finished video can be cut into shorter clips with the Clips button in the video panel.
 
@@ -257,7 +261,7 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       try {
         const v = body.video && typeof body.video === "object" ? body.video : null;
         const video = v ? { title: str(v.title, 80), format: ASPECTS.includes(v.format) ? v.format : "16:9", kind: v.kind === "edit" ? ("edit" as const) : ("explainer" as const) } : undefined;
-        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn(), explainerMode, editor: editorOn(), stock: stockOn() }), messages);
+        result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn(), explainerMode, editor: editorOn(), stock: stockOn(), replicate: replicateOn() }), messages);
       } catch (e) {
         await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: false, error: (e as Error).message, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0, ms: Date.now() - started });
         return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
@@ -266,7 +270,8 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: !!out, ...result.usage, ms: Date.now() - started });
       if (!out || !out.reply) return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
 
-      let action: ChatAction = out.action === "build" || out.action === "change" || out.action === "explainer" || out.action === "edit" ? out.action : "chat";
+      let action: ChatAction = out.action === "build" || out.action === "change" || out.action === "explainer" || out.action === "edit" || out.action === "replicate" ? out.action : "chat";
+      if (action === "replicate" && (!replicateOn() || explainerMode)) action = explainerMode ? "explainer" : "build";
       const editingVideo = body.video?.kind === "edit";
       if (action === "edit" && (!editorOn() || explainerMode)) action = explainerMode ? "explainer" : "build";
       let reply = str(out.reply, 2000);
@@ -283,24 +288,26 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       if (action === "change" && !template && !body.video) action = "build";
       if (action === "build" && explainerMode) action = "explainer";
       const brief = action === "chat" ? "" : str(out.brief, action === "explainer" || action === "edit" ? 4000 : 1200);
+      // A remake needs something to remake: a clip attached somewhere in the chat.
+      if (action === "replicate" && !messages.some((m) => Array.isArray(m.content) && m.content.some((b) => b.type === "text" && /(^|\] )Clip "/.test(b.text)))) action = "build";
       if (action !== "chat" && brief.length < 8) action = "chat";
       // A build counts toward the daily generation limit; say so before starting.
       // (Explainers have their own limit, checked when one starts.)
-      if (action === "build" || (action === "change" && !body.video)) {
+      if (action === "build" || action === "replicate" || (action === "change" && !body.video)) {
         const limit = Number(process.env.STUDIO_DAILY_LIMIT || 20);
         if ((await usedToday(userId)) >= limit) {
           return res.status(200).json({ reply: `I'd love to, but you've used all ${limit} builds for today. We can keep planning it, and I'll build it tomorrow.`, action: "chat", brief: "", aspect });
         }
       }
-      const music = (action === "build" || action === "change") && MOODS.includes(out.music as never) ? out.music : "none";
+      const music = (action === "build" || action === "change" || action === "replicate") && MOODS.includes(out.music as never) ? out.music : "none";
       return res.status(200).json({
         reply,
         action,
         brief,
-        title: action === "build" || action === "explainer" || action === "edit" ? str(out.title, 80) : "",
+        title: action === "build" || action === "explainer" || action === "edit" || action === "replicate" ? str(out.title, 80) : "",
         aspect: out.aspect === "none" || !ASPECTS.includes(out.aspect as never) ? aspect : out.aspect,
         music,
-        photos: action === "build" || action === "change" || action === "edit" ? (stockOn() ? cleanQueries(out.photos) : []) : [],
+        photos: action === "build" || action === "change" || action === "edit" || action === "replicate" ? (stockOn() ? cleanQueries(out.photos) : []) : [],
         // What the links said, for the page to keep with the message.
         links: links.map((l) => ({ url: l.url, title: l.title, ok: l.ok, text: l.text.slice(0, 3000) })),
       });

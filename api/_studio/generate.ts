@@ -12,6 +12,8 @@ import { callClaude, MODEL, type CallClaude } from "./claude.js";
 import { createTemplate, getTemplate, logGeneration, recentRepairs, saveVersion, usedToday, type StudioTemplate } from "./db.js";
 import { ASPECTS, runJob, type Aspect, type Attachment, type Job } from "./pipeline.js";
 import { blocks as refBlocks, loadAttachments } from "./refs.js";
+import { loadRemake, remakeSpec, MAX_REMAKE_SECONDS } from "./replicate.js";
+import { agentApi, type AgentApi } from "./agent.js";
 
 export const DAILY_LIMIT = Number(process.env.STUDIO_DAILY_LIMIT || 20);
 const MAX_PROMPT = 1200;
@@ -19,7 +21,8 @@ const MAX_PROMPT = 1200;
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 // Exposed for tests: the handler with the Claude call and auth swappable.
-export function makeHandler(deps: { call: CallClaude; userId: (req: VercelRequest) => Promise<string | null>; configured?: () => boolean }) {
+export function makeHandler(deps: { call: CallClaude; userId: (req: VercelRequest) => Promise<string | null>; configured?: () => boolean; agent?: AgentApi }) {
+  const agent = deps.agent ?? agentApi;
   const configured = deps.configured ?? (() => !!process.env.ANTHROPIC_API_KEY || deps.call !== callClaude);
   return async function handler(req: VercelRequest, res: VercelResponse) {
     try {
@@ -53,12 +56,20 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
     const docs = media.filter((m) => m.kind === "doc");
     if (docs.length > 2) media.splice(0, media.length, ...media.filter((m) => m.kind !== "doc" || docs.slice(-2).includes(m)));
     const blocksFor = media.length ? await refBlocks(media) : undefined;
+    // A remake of a reference video: its breakdown becomes the spec, its sheets pictures.
+    const remake = mode !== "repair" && body.replicate ? await loadRemake(userId, str(body.replicate, 40), agent) : null;
+    if (mode !== "repair" && body.replicate && !remake) return res.status(404).json({ error: "The reference's breakdown isn't ready." });
+    const spec = remake ? remakeSpec(remake.breakdown) : null;
+    const allBlocks = remake ? [...remake.blocks, ...(blocksFor ?? [])] : blocksFor;
+    // Vercel stops the function at 300 s; leave room to save and answer.
+    const deadline = Date.now() + 270_000;
+    const extra = spec ? { spec: spec.text, maxSeconds: MAX_REMAKE_SECONDS, deadline } : { deadline };
 
     if (mode === "create") {
       const prompt = str(body.prompt, MAX_PROMPT);
-      const aspect = (Object.keys(ASPECTS).includes(body.aspect) ? body.aspect : "16:9") as Aspect;
+      const aspect = (Object.keys(ASPECTS).includes(body.aspect) ? body.aspect : remake?.breakdown.aspect ?? "16:9") as Aspect;
       if (prompt.length < 8) return res.status(400).json({ error: "Describe the video in a sentence or two." });
-      job = { mode, prompt, aspect, media, blocks: blocksFor };
+      job = { mode, prompt, aspect, media, blocks: allBlocks, ...extra };
       label = prompt;
     } else if (mode === "edit" || mode === "repair") {
       const current = await getTemplate(userId, str(body.id, 40));
@@ -69,7 +80,9 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
       if (mode === "repair" && (await recentRepairs(userId, current.id)) >= 3) {
         return res.status(429).json({ error: "This template keeps failing in the preview. Try describing it differently." });
       }
-      job = { mode, current, instruction, ...(mode === "edit" ? { media, blocks: blocksFor } : {}) };
+      // A remake can run longer than an ordinary template; later changes keep that allowance.
+      const longer = current.durationInFrames > 600 ? { maxSeconds: MAX_REMAKE_SECONDS } : {};
+      job = { mode, current, instruction, ...longer, ...(mode === "edit" ? { media, blocks: allBlocks, ...extra } : { deadline }) };
       label = mode === "edit" ? instruction : `Automatic fix: ${instruction.slice(0, 200)}`;
     } else {
       return res.status(400).json({ error: "Unknown mode." });

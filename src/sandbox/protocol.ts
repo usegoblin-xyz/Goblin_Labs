@@ -26,6 +26,8 @@ export type ToSandbox =
       export?: boolean;
       // Export only these frames (inclusive), for splitting a video into clips.
       frameRange?: [number, number];
+      // Render these frames as JPEG stills instead (for comparing a remake with its reference).
+      stills?: number[];
     }
   | { type: "props"; brand: Brand; content: Record<string, string | number> }
   // New photos or clips (for example after one is swapped in the side panel).
@@ -37,4 +39,5 @@ export type FromSandbox =
   | { type: "error"; phase: "load" | "render" | "play"; message: string }
   | { type: "export-progress"; progress: number }
   | { type: "exported"; data: ArrayBuffer; mime: string }
+  | { type: "stills"; images: ArrayBuffer[] }
   | { type: "export-error"; message: string };

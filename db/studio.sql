@@ -121,7 +121,7 @@ alter table studio.media add column if not exists meta jsonb not null default '{
 -- footage, made by the editor agent. media lists the refs the edit was given.
 alter table studio.videos add column if not exists kind text not null default 'explainer';
 alter table studio.videos drop constraint if exists videos_kind_check;
-alter table studio.videos add constraint videos_kind_check check (kind in ('explainer', 'edit'));
+alter table studio.videos add constraint videos_kind_check check (kind in ('explainer', 'edit', 'breakdown'));
 alter table studio.videos add column if not exists media jsonb not null default '[]'::jsonb;
 
 -- Saved chats (Nov 2026): every conversation in the chat, so users can go back
