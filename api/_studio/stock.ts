@@ -150,7 +150,7 @@ export async function searchPixabay(fetcher: Fetcher, cache: Cache, query: strin
       photographerUrl: user && h.user_id ? `https://pixabay.com/users/${encodeURIComponent(user)}-${h.user_id}/` : "https://pixabay.com/",
       photoUrl: hostIs(h.pageURL, "pixabay.com") ? h.pageURL : "https://pixabay.com/",
       thumb: "", // Pixabay doesn't allow hotlinking: the chat shows our copy
-      alt: (h.tags ?? "").slice(0, 200),
+      alt: [...new Set((h.tags ?? "").split(",").map((t) => t.trim().toLowerCase()).filter(Boolean))].slice(0, 8).join(", ").slice(0, 200),
     },
   };
 }
