@@ -27,11 +27,13 @@ export type GenEvent =
   | { type: "stage"; stage: "writing" | "checking" | "fixing"; attempt: number; problems?: string[] }
   | { type: "progress"; chars: number }
   | { type: "done"; template: StudioTemplate }
-  | { type: "error"; message: string; problems?: string[] };
+  | { type: "error"; message: string; problems?: string[]; resume?: Draft };
+// A draft that ran out of time before its last fix; send it back as `resume` to finish it.
+export type Draft = { raw: string; problems: string[] };
 
 export type GenRequest =
-  | { mode: "create"; prompt: string; aspect: Aspect; media?: (string | { ref: string; use: string })[]; replicate?: string }
-  | { mode: "edit"; id: string; instruction: string; media?: (string | { ref: string; use: string })[]; replicate?: string }
+  | { mode: "create"; prompt: string; aspect: Aspect; media?: (string | { ref: string; use: string })[]; replicate?: string; resume?: Draft }
+  | { mode: "edit"; id: string; instruction: string; media?: (string | { ref: string; use: string })[]; replicate?: string; resume?: Draft }
   | { mode: "repair"; id: string; error: string };
 
 // The current chat's id, sent with each chat and build request so PostHog can
@@ -86,7 +88,7 @@ export async function generate(req: GenRequest, onEvent: (e: GenEvent) => void, 
       const e = JSON.parse(line) as GenEvent;
       onEvent(e);
       if (e.type === "done") result = e.template;
-      if (e.type === "error") throw new StudioError(e.message, 200);
+      if (e.type === "error") throw Object.assign(new StudioError(e.message, 200), { resume: e.resume });
     }
     if (done) break;
   }

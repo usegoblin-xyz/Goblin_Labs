@@ -24,11 +24,15 @@ export type Outcome = {
   problems: string[];
   calls: { usage: Usage; ms: number; ok: boolean; error?: string }[];
   refused?: boolean;
+  draft?: Draft;
 };
 
 export type Job =
-  | { mode: "create"; prompt: string; aspect: Aspect; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[]; spec?: string; maxSeconds?: number; deadline?: number }
-  | { mode: "edit" | "repair"; current: Snapshot; instruction: string; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[]; spec?: string; maxSeconds?: number; deadline?: number };
+  | { mode: "create"; prompt: string; aspect: Aspect; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[]; spec?: string; maxSeconds?: number; deadline?: number; resume?: Draft }
+  | { mode: "edit" | "repair"; current: Snapshot; instruction: string; media?: Attachment[]; blocks?: Anthropic.ContentBlockParam[]; spec?: string; maxSeconds?: number; deadline?: number; resume?: Draft };
+// An answer that failed the checks when the request ran out of time to fix it.
+// The page sends it back in a new request (resume), which picks up with the fix.
+export type Draft = { raw: string; problems: string[] };
 // A remake (replicate.ts) sends the reference's breakdown as the spec.
 // deadline: when the request must end; a fix isn't started without time for it.
 
@@ -116,12 +120,18 @@ export async function runJob(job: Job, call: CallClaude, emit: (e: Event) => voi
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: job.blocks?.length ? [...job.blocks, { type: "text", text: firstMessage(job) }] : firstMessage(job) }];
   const calls: Outcome["calls"] = [];
   let problems: string[] = [];
+  let raw = "";
+  // Resuming: the failed answer and its problems are already in the conversation.
+  if (job.resume) {
+    problems = job.resume.problems.slice(0, 40).map((p) => String(p).slice(0, 400));
+    messages.push({ role: "assistant", content: job.resume.raw.slice(0, 400_000) || "(no template)" }, { role: "user", content: `${REPAIR_NOTE}\n\n${problems.map((p) => `- ${p}`).join("\n")}` });
+  }
 
   let lastMs = 0;
   for (let attempt = 0; attempt <= MAX_FIXES; attempt++) {
     // A fix takes about as long as the last call did; don't start one that can't finish.
-    if (attempt > 0 && job.deadline && Date.now() + lastMs * 0.8 > job.deadline) break;
-    emit(attempt === 0 ? { type: "stage", stage: "writing", attempt } : { type: "stage", stage: "fixing", attempt, problems });
+    if (attempt > 0 && job.deadline && Date.now() + lastMs * 0.8 > job.deadline) return { snapshot: null, problems, calls, draft: { raw, problems } };
+    emit(attempt === 0 && !job.resume ? { type: "stage", stage: "writing", attempt } : { type: "stage", stage: "fixing", attempt, problems });
     const started = Date.now();
     let res;
     try {
@@ -132,6 +142,7 @@ export async function runJob(job: Job, call: CallClaude, emit: (e: Event) => voi
     }
     const ms = Date.now() - started;
     lastMs = ms;
+    raw = res.raw;
     if (res.stop === "refusal") {
       calls.push({ usage: res.usage, ms, ok: false, error: "refusal" });
       return { snapshot: null, problems: ["Claude declined this request."], calls, refused: true };

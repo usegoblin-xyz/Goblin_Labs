@@ -29,7 +29,7 @@ import { cutMp4 } from "@/library/studio/cut";
 import { AttachmentChips, MAX_TRIM_SECONDS, MOOD_LIST, MusicControls, SplitDialog, TrimDialog, type ClipRange, type MixState, type Pending, type Use } from "./media-ui";
 import { compose, type Mood } from "@/library/studio/compose";
 import {
-  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveChat, stockPhotos, startBreakdown, breakdownOf, breakdownFrame, type StockCredit, getChat, setConversationId, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
+  asTemplate, changeVideo, chat, conversationId, formatOf, generate, getTemplate, getVideo, newConversation, saveChat, stockPhotos, type Draft, startBreakdown, breakdownOf, breakdownFrame, type StockCredit, getChat, setConversationId, saveDefaults, saveFile, slugOf, startEdit, startVideo, videoFile,
   type Aspect, type ChatMessage, type ExplainerVideo, type GenEvent, type GenRequest, type StudioTemplate,
 } from "@/library/studio/api";
 
@@ -366,7 +366,11 @@ export default function GoblinChat({ brand, className }: { brand: Brand; classNa
     };
 
     try {
-      const t = await generate(req, onEvent);
+      // A build that runs out of time mid-fix hands back its draft: finish it in a fresh request, once.
+      const t = await generate(req, onEvent).catch((err: { resume?: Draft }) => {
+        if (!err?.resume || req.mode === "repair" || ("resume" in req && req.resume)) throw err;
+        return generate({ ...req, resume: err.resume }, onEvent);
+      });
       if (req.mode !== "repair") autoFixes.current = 0;
       patch(aid, (x) => ({
         template: t,
