@@ -1,8 +1,9 @@
-// Remaking a reference video's format ("make one like this"). Goblin Breakdown
-// (see agents/breakdown.md and videos.ts) takes the reference apart frame by
-// frame; this turns its breakdown into the spec and pictures the template
-// writer builds from, alongside the user's own brief (their words, brand and
-// photos replace the reference's).
+// Remaking a reference video ("make one like this"). Goblin Breakdown (see
+// agents/breakdown.md and videos.ts) takes the reference apart frame by frame;
+// this turns its breakdown into the spec and pictures the template writer
+// builds from. A remake keeps the reference's rhythm (cuts, timing, motion,
+// scale) and shows the user's own product, words and brand kit: the brief
+// says what each scene shows.
 import type Anthropic from "@anthropic-ai/sdk";
 import { db } from "./db.js";
 import type { AgentApi } from "./agent.js";
@@ -92,7 +93,7 @@ export function remakeSpec(b: Breakdown): { text: string; seconds: number } {
   const shots = b.shots.map((x) => ({ ...x, start: to30(x.start), end: to30(x.end) })).filter((x) => x.start < last && x.end > x.start);
   const seq = shots.map((x) => `${x.start}:${x.card}${x.mods ?? ""}`).join(" ");
   const lines = [
-    `Remake the FORMAT of the reference video below, as exactly as you can, with the user's content in place of the reference's (see the brief). The reference was taken apart frame by frame; follow this breakdown, not your own guess at its pacing.`,
+    `Remake the FORMAT of the reference video below with the user's own product and message (see the brief). The breakdown decides WHEN things happen and how they move: the cuts, the timing, the transitions, the scale and energy. The brief decides WHAT is shown. Where they disagree about what is on screen, the brief wins; on timing, the breakdown wins. The reference was taken apart frame by frame; follow its timing, not your own guess at its pacing.`,
     `Length: ${seconds} seconds (${last} frames at 30 fps)${b.duration > MAX_REMAKE_SECONDS ? `; the reference is ${r2(b.duration)} s, so remake its first ${MAX_REMAKE_SECONDS} s` : ""}. Format: ${b.aspect}.`,
     `What it is: ${b.summary}`,
     b.globals.length ? `On every frame:\n${b.globals.map((g) => `- ${g}`).join("\n")}` : "",
@@ -101,7 +102,7 @@ export function remakeSpec(b: Breakdown): { text: string; seconds: number } {
     b.end ? `End: ${b.end}` : "",
     `Shot list, as startFrame:card+modifiers at 30 fps (each shot lasts until the next one starts; ${shots.length} shots). Put it in the code as this one string, parsed once at the top of the file, and pick the current shot from the frame, so every cut lands on exactly this frame. Keep the code compact (well under 700 lines): one small component per card, shared helpers for the treatments and modifiers:\n${seq}`,
     b.audio?.bpm || b.audio?.music ? `Sound in the reference: ${[b.audio.music, b.audio.bpm ? `${b.audio.bpm} BPM` : "", b.audio.cutsOnBeat ? "cuts on the beat" : ""].filter(Boolean).join(", ")}.${b.audio.sfx?.length ? ` Sound effects at: ${b.audio.sfx.map((e) => `${e.t}s ${e.kind}`).join(", ")}.` : ""} Use the user's music (or Goblin's) and Goblin's sound effects at these moments; never the reference's audio.` : "",
-    `Rules for a remake: keep the reference's structure, pacing, layouts, type treatments and transitions, but never reproduce its artwork, logos, characters or brand: the user's photos (or the stock photos attached) take the place of its pictures, given the same treatment, and the user's words, handle and brand take the place of its text. Where the brief doesn't give replacement words, write new ones of the same length and feel. The pictures above the brief are the reference's cards (one example frame each, labelled with its code) and its shots (the middle frame of every shot, numbered): use them for layout, scale and treatment only.`,
+    `Rules for a remake:\n- Keep the reference's structure: the same scenes in the same order, each starting on its frame, with the same kind of transition, the same motion (what enters from where, how it bounces or settles) and the same type scale.\n- The subject is the user's. A scene that shows the reference's product (its app screen, its interface, its content) is rebuilt as the user's product from the brief, in the same slot with the same motion: draw the user's screen or feature simply and clearly, never the reference's. If the brief doesn't say what a scene becomes, show the thing the brief announces, not the reference's content with new labels.\n- The look is the brand kit's: every colour from palette(b), the font from fontOf(b), on the kit's own background. Never take a colour, a font or a light or dark mood from the reference.\n- Never reproduce the reference's artwork, logos, characters, mascots or brand. Where it has a character, use what the brief gives, or plain shapes and simple icons in the brand's colours that suit the user's product.\n- Photos: the user's photos (or the stock photos attached) take the place of the reference's, given the same treatment. Don't add a photo backdrop only because the reference has one, if the user's scene doesn't need it.\n- Words: the user's words, handle and site replace the reference's. Where the brief gives none, write new ones of the same length that say what the user is announcing.\n- The end: the brand name lands the way the reference's last beat does, then one short line saying what's new and the site, if the brief gives them.\nThe pictures above the brief are the reference's cards (one example frame each, labelled with its code) and its shots (the middle frame of every shot, numbered): use them for timing, layout, scale and motion only.`,
   ];
   return { text: lines.filter(Boolean).join("\n\n"), seconds };
 }
@@ -137,4 +138,4 @@ export async function loadRemake(userId: string, id: string, agent: AgentApi): P
 
 // What the page sends after comparing the remake with the reference.
 export const COMPARE_NOTE =
-  "The attached sheet compares the remake with the reference at the same moments: each pair is the reference on the left and the current template on the right, with the time above. Fix the biggest differences in design only: layout, scale, cropping, type treatment, image treatment (contrast, threshold, invert, halftone), timing and transitions, so each pair matches as closely as the user's own content allows. Never change the words: every piece of text, the handle, the site, the field labels and every field default stay exactly as they are now, even where the reference says something else. Don't copy the reference's artwork, logos or brand. Keep everything that already matches.";
+  "The attached sheet compares the remake with the reference at the same moments: each pair is the reference on the left and the current template on the right, with the time above. The remake is meant to differ in subject and look: it shows the user's own product, words and brand colours where the reference shows its own, and none of that is a difference to fix. Fix the biggest differences in rhythm and craft only: what is on screen at each moment (the same scene should be playing), the scale and position of the main elements, how big the type is, how things enter, bounce and settle, and the transitions. Never change the words: every piece of text, the handle, the site, the field labels and every field default stay exactly as they are now. Never move toward the reference's colours, fonts, artwork, characters, logos, product or brand. Keep everything that already matches.";

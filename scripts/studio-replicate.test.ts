@@ -58,6 +58,9 @@ const spec = remakeSpec(real);
 assert.equal(spec.seconds, 19);
 assert.ok(spec.text.includes("570 frames at 30 fps") && spec.text.includes("150 shots") && spec.text.startsWith("Remake the FORMAT"));
 assert.ok(spec.text.includes("0:A 3:-o 6:A 9:E*"));
+// a remake keeps the rhythm and shows the user's own product in the brand kit's look
+assert.ok(spec.text.includes("the brief wins") && spec.text.includes("The subject is the user's") && spec.text.includes("every colour from palette(b)"));
+assert.ok(!/as exactly as you can/.test(spec.text));
 const long = remakeSpec(odd);
 assert.equal(long.seconds, MAX_REMAKE_SECONDS);
 assert.ok(long.text.includes("0:A* 30:B") && long.text.includes("remake its first 30 s"));
