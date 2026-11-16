@@ -12,7 +12,9 @@ import type { Usage } from "./claude.js";
 import { stockOn, cleanQueries } from "./stock.js";
 import { blocks, describe, linksIn, loadAttachments, readLinkPage, type AttachmentIn, type LinkRead } from "./refs.js";
 
-export const CHAT_MODEL = process.env.STUDIO_CHAT_MODEL || process.env.STUDIO_MODEL || "claude-opus-5-5";
+import { CHAT, requestFor, withFallbacks } from "./models.js";
+
+export const CHAT_MODEL = CHAT.model;
 export const CHAT_LIMIT = Number(process.env.STUDIO_CHAT_LIMIT || 200);
 const ASPECTS = ["16:9", "9:16", "1:1"] as const;
 
@@ -24,11 +26,11 @@ const editorOn = () => !!(process.env.GOBLIN_EDITOR_AGENT_ID && process.env.GOBL
 const replicateOn = () => !!(process.env.GOBLIN_BREAKDOWN_AGENT_ID && process.env.GOBLIN_EDITOR_ENVIRONMENT_ID);
 // stop and error explain a null out (a cut-off or unreadable reply), so the
 // failure is logged with its reason.
-export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => Promise<{ out: ChatOut | null; usage: Usage; stop?: string | null; error?: string; maxTokens?: number }>;
+export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => Promise<{ out: ChatOut | null; usage: Usage; stop?: string | null; error?: string; maxTokens?: number; model?: string }>;
 // Room for the longest replies: a build or remake brief can run to a few
-// thousand tokens. Only tokens actually written are billed. A reply that
+// thousand tokens, plus Fable's thinking (it counts toward max_tokens). Only tokens actually written are billed. A reply that
 // still runs out of room is retried once with RETRY_TOKENS.
-export const CHAT_MAX_TOKENS = Number(process.env.STUDIO_CHAT_MAX_TOKENS || 6000);
+export const CHAT_MAX_TOKENS = Number(process.env.STUDIO_CHAT_MAX_TOKENS || 8000);
 const RETRY_TOKENS = 16000;
 
 export const CHAT_SCHEMA = {
@@ -133,14 +135,24 @@ export const callChat: CallChat = async (system, messages) => {
   client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 2 });
   const usage: Usage = { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 };
   let maxTokens = CHAT_MAX_TOKENS;
+  let model = CHAT_MODEL;
   for (let attempt = 0; ; attempt++) {
-    const msg = await client.messages.create({
-      model: CHAT_MODEL,
-      max_tokens: maxTokens,
-      system,
-      output_config: { format: { type: "json_schema", schema: CHAT_SCHEMA } },
-      messages,
+    const { msg, used } = await withFallbacks(CHAT, "chat", async (plan) => {
+      const req = requestFor(plan);
+      const m = await client!.messages.create(
+        {
+          model: req.model,
+          max_tokens: maxTokens,
+          ...(req.speed ? { speed: req.speed } : {}),
+          system,
+          output_config: { format: { type: "json_schema", schema: CHAT_SCHEMA }, ...(req.effort ? { effort: req.effort } : {}) },
+          messages,
+        },
+        req.headers ? { headers: req.headers } : undefined,
+      );
+      return { msg: m };
     });
+    model = used.model;
     usage.inputTokens += msg.usage.input_tokens;
     usage.outputTokens += msg.usage.output_tokens;
     usage.cacheRead += msg.usage.cache_read_input_tokens ?? 0;
@@ -153,7 +165,7 @@ export const callChat: CallChat = async (system, messages) => {
     } catch {
       out = null;
     }
-    if (out) return { out, usage, stop, maxTokens };
+    if (out) return { out, usage, stop, maxTokens, model };
     // Cut off mid-reply: try once more with more room.
     if (stop === "max_tokens" && attempt === 0) {
       maxTokens = RETRY_TOKENS;
@@ -165,7 +177,7 @@ export const callChat: CallChat = async (system, messages) => {
         : stop === "refusal"
           ? "Claude declined to reply (refusal)"
           : `Reply wasn't valid JSON (stop: ${stop ?? "unknown"}, ${msg.usage.output_tokens} tokens)`;
-    return { out: null, usage, stop, error, maxTokens };
+    return { out: null, usage, stop, error, maxTokens, model };
   }
 };
 
@@ -290,7 +302,7 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
       const out = result.out;
       const failure = out && out.reply ? undefined : result.error || (out ? "Reply had no text" : "No reply");
       if (failure) console.error(`[studio chat] ${failure} (user ${userId}, ${Date.now() - started} ms)`);
-      await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: !failure, error: failure, ...result.usage, ms: Date.now() - started });
+      await logGeneration({ userId, templateId: null, kind: "chat", model: result.model || CHAT_MODEL, ok: !failure, error: failure, ...result.usage, ms: Date.now() - started });
       if (!out || !out.reply) return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
 
       let action: ChatAction = out.action === "build" || out.action === "change" || out.action === "explainer" || out.action === "edit" || out.action === "replicate" ? out.action : "chat";

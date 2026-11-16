@@ -122,7 +122,7 @@ export function makeHandler(deps: { call: CallClaude; userId: (req: VercelReques
       }
       // Log each Claude call: the first under the request's kind, follow-ups as fixes.
       for (const [i, c] of out.calls.entries()) {
-        await logGeneration({ userId, templateId, kind: i === 0 ? mode : "fix", model: MODEL, ok: c.ok, error: c.error, ...c.usage, ms: c.ms });
+        await logGeneration({ userId, templateId, kind: i === 0 ? mode : "fix", model: c.model || MODEL, ok: c.ok, error: c.error, ...c.usage, ms: c.ms });
       }
       if (saved) send({ type: "done", template: saved });
       // Out of time with a draft that needs fixing: the page resumes it in a new request.

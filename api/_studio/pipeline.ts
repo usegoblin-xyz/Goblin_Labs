@@ -22,7 +22,7 @@ export type Event =
 export type Outcome = {
   snapshot: Snapshot | null;
   problems: string[];
-  calls: { usage: Usage; ms: number; ok: boolean; error?: string }[];
+  calls: { usage: Usage; ms: number; ok: boolean; error?: string; model?: string }[];
   refused?: boolean;
   draft?: Draft;
 };
@@ -144,7 +144,7 @@ export async function runJob(job: Job, call: CallClaude, emit: (e: Event) => voi
     lastMs = ms;
     raw = res.raw;
     if (res.stop === "refusal") {
-      calls.push({ usage: res.usage, ms, ok: false, error: "refusal" });
+      calls.push({ usage: res.usage, ms, ok: false, error: "refusal", model: res.model });
       return { snapshot: null, problems: ["Claude declined this request."], calls, refused: true };
     }
     if (!res.input || res.stop === "max_tokens") {
@@ -153,12 +153,12 @@ export async function runJob(job: Job, call: CallClaude, emit: (e: Event) => voi
       emit({ type: "stage", stage: "checking", attempt });
       const out = toSnapshot(res.input, width, height, job.maxSeconds);
       if (out.snapshot) {
-        calls.push({ usage: res.usage, ms, ok: true });
+        calls.push({ usage: res.usage, ms, ok: true, model: res.model });
         return { snapshot: out.snapshot, problems: [], calls };
       }
       problems = out.problems;
     }
-    calls.push({ usage: res.usage, ms, ok: false, error: problems.join(" | ") });
+    calls.push({ usage: res.usage, ms, ok: false, error: problems.join(" | "), model: res.model });
     // Ask for a fix in the same conversation.
     messages.push(
       { role: "assistant", content: res.raw.trim() || "(no template)" },
