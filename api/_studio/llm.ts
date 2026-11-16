@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto";
 import type { VercelRequest } from "@vercel/node";
 import type { CallClaude, Usage } from "./claude.js";
-import type { CallChat } from "./chat.js";
+import { CHAT_MAX_TOKENS, type CallChat } from "./chat.js";
 
 const KEY = () => process.env.POSTHOG_KEY || process.env.VITE_POSTHOG_KEY || "";
 const HOST = () => (process.env.POSTHOG_HOST || "https://us.i.posthog.com").replace(/\/$/, "");
@@ -82,10 +82,10 @@ export function tracedChat(call: CallChat, trace: Trace, model: string): CallCha
     const t0 = Date.now();
     try {
       const r = await call(system, messages);
-      await reportGeneration(trace, { span: "chat", model, input, output: r.out ? JSON.stringify(r.out) : "", usage: r.usage, ms: Date.now() - t0, maxTokens: 1500, error: r.out ? undefined : "Reply wasn't valid JSON", props: { goblin_action: r.out?.action ?? null } });
+      await reportGeneration(trace, { span: "chat", model, input, output: r.out ? JSON.stringify(r.out) : "", usage: r.usage, ms: Date.now() - t0, maxTokens: r.maxTokens ?? CHAT_MAX_TOKENS, error: r.out ? undefined : r.error || "Reply wasn't valid JSON", props: { goblin_action: r.out?.action ?? null, goblin_stop: r.stop ?? null } });
       return r;
     } catch (e) {
-      await reportGeneration(trace, { span: "chat", model, input, ms: Date.now() - t0, maxTokens: 1500, error: (e as Error).message });
+      await reportGeneration(trace, { span: "chat", model, input, ms: Date.now() - t0, maxTokens: CHAT_MAX_TOKENS, error: (e as Error).message });
       throw e;
     }
   };
