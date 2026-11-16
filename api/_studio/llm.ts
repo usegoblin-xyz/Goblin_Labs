@@ -9,7 +9,7 @@
 // conversation's replies and builds group into one trace.
 import { randomUUID } from "node:crypto";
 import type { VercelRequest } from "@vercel/node";
-import type { CallClaude, Usage } from "./claude.js";
+import { BUILD_MAX_TOKENS, type CallClaude, type Usage } from "./claude.js";
 import { CHAT_MAX_TOKENS, type CallChat } from "./chat.js";
 
 const KEY = () => process.env.POSTHOG_KEY || process.env.VITE_POSTHOG_KEY || "";
@@ -82,7 +82,7 @@ export function tracedChat(call: CallChat, trace: Trace, model: string): CallCha
     const t0 = Date.now();
     try {
       const r = await call(system, messages);
-      await reportGeneration(trace, { span: "chat", model, input, output: r.out ? JSON.stringify(r.out) : "", usage: r.usage, ms: Date.now() - t0, maxTokens: r.maxTokens ?? CHAT_MAX_TOKENS, error: r.out ? undefined : r.error || "Reply wasn't valid JSON", props: { goblin_action: r.out?.action ?? null, goblin_stop: r.stop ?? null } });
+      await reportGeneration(trace, { span: "chat", model: r.model || model, input, output: r.out ? JSON.stringify(r.out) : "", usage: r.usage, ms: Date.now() - t0, maxTokens: r.maxTokens ?? CHAT_MAX_TOKENS, error: r.out ? undefined : r.error || "Reply wasn't valid JSON", props: { goblin_action: r.out?.action ?? null, goblin_stop: r.stop ?? null } });
       return r;
     } catch (e) {
       await reportGeneration(trace, { span: "chat", model, input, ms: Date.now() - t0, maxTokens: CHAT_MAX_TOKENS, error: (e as Error).message });
@@ -101,10 +101,10 @@ export function tracedTemplate(call: CallClaude, trace: Trace, model: string): C
     const t0 = Date.now();
     try {
       const r = await call(messages, onChars);
-      await reportGeneration(trace, { span: attempt === 1 ? "template" : "template-fix", model, input, output: r.raw, usage: r.usage, ms: Date.now() - t0, maxTokens: 32000, error: r.input ? undefined : `No usable template (stop: ${r.stop ?? "unknown"})`, props: { goblin_attempt: attempt } });
+      await reportGeneration(trace, { span: attempt === 1 ? "template" : "template-fix", model: r.model || model, input, output: r.raw, usage: r.usage, ms: Date.now() - t0, maxTokens: BUILD_MAX_TOKENS, error: r.input ? undefined : `No usable template (stop: ${r.stop ?? "unknown"})`, props: { goblin_attempt: attempt } });
       return r;
     } catch (e) {
-      await reportGeneration(trace, { span: "template", model, input, ms: Date.now() - t0, maxTokens: 32000, error: (e as Error).message, props: { goblin_attempt: attempt } });
+      await reportGeneration(trace, { span: "template", model, input, ms: Date.now() - t0, maxTokens: BUILD_MAX_TOKENS, error: (e as Error).message, props: { goblin_attempt: attempt } });
       throw e;
     }
   };

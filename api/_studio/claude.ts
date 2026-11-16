@@ -3,7 +3,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { systemPrompt } from "./context.js";
 
-export const MODEL = process.env.STUDIO_MODEL || "claude-opus-5-5";
+import { BUILD, requestFor, withFallbacks } from "./models.js";
+
+export const MODEL = BUILD.model;
+// Room for Fable's thinking plus the template itself (the longest so far: 28k).
+export const BUILD_MAX_TOKENS = 64000;
 const CATEGORIES = ["Launch", "Product", "Data", "Explainer", "Social", "Brand", "Showreel", "Story"];
 
 // Structured outputs: the reply is always JSON in this shape (forced tool
@@ -46,30 +50,40 @@ export type ToolInput = {
 };
 export type Usage = { inputTokens: number; outputTokens: number; cacheRead: number; cacheWrite: number };
 // `raw` is Claude's answer as sent, used to ask for a fix in the same conversation.
-export type CallResult = { input: ToolInput | null; raw: string; stop: string | null; usage: Usage };
+export type CallResult = { input: ToolInput | null; raw: string; stop: string | null; usage: Usage; model?: string };
 export type CallClaude = (messages: Anthropic.MessageParam[], onChars: (n: number) => void) => Promise<CallResult>;
 
 let client: Anthropic | null = null;
 
 export const callClaude: CallClaude = async (messages, onChars) => {
   client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 2 });
-  const stream = client.messages.stream({
-    model: MODEL,
-    max_tokens: 32000,
-    // The guide, kit sources and examples are identical on every call;
-    // cache them for an hour since traffic is bursty.
-    system: [{ type: "text", text: systemPrompt(), cache_control: { type: "ephemeral", ttl: "1h" } }],
-    output_config: { format: { type: "json_schema", schema: TEMPLATE_SCHEMA } },
-    messages,
-  });
   let chars = 0;
-  for await (const ev of stream) {
-    if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
-      chars += ev.delta.text.length;
-      onChars(chars);
+  const r = await withFallbacks(BUILD, "build", async (plan) => {
+    // Fall back only if nothing has streamed yet; a half-written answer can't be resumed.
+    if (chars > 0) throw Object.assign(new Error("stream failed after output began"), { status: 0 });
+    const req = requestFor(plan);
+    const stream = client!.messages.stream(
+      {
+        model: req.model,
+        max_tokens: BUILD_MAX_TOKENS,
+        ...(req.speed ? { speed: req.speed } : {}),
+        // The guide, kit sources and examples are identical on every call;
+        // cache them for an hour since traffic is bursty.
+        system: [{ type: "text", text: systemPrompt(), cache_control: { type: "ephemeral", ttl: "1h" } }],
+        output_config: { format: { type: "json_schema", schema: TEMPLATE_SCHEMA }, ...(req.effort ? { effort: req.effort } : {}) },
+        messages,
+      },
+      req.headers ? { headers: req.headers } : undefined,
+    );
+    for await (const ev of stream) {
+      if (ev.type === "content_block_delta" && ev.delta.type === "text_delta") {
+        chars += ev.delta.text.length;
+        onChars(chars);
+      }
     }
-  }
-  const msg = await stream.finalMessage();
+    return { msg: await stream.finalMessage() };
+  });
+  const msg = r.msg;
   const raw = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   let input: ToolInput | null = null;
   try {
@@ -81,6 +95,7 @@ export const callClaude: CallClaude = async (messages, onChars) => {
     input,
     raw,
     stop: msg.stop_reason,
+    model: r.used.model,
     usage: {
       inputTokens: msg.usage.input_tokens,
       outputTokens: msg.usage.output_tokens,
