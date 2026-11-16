@@ -22,7 +22,14 @@ export type ChatOut = { reply: string; action: ChatAction; brief: string; title:
 const explainersOn = () => !!(process.env.GOBLIN_EXPLAINER_AGENT_ID && process.env.GOBLIN_AGENT_ENVIRONMENT_ID);
 const editorOn = () => !!(process.env.GOBLIN_EDITOR_AGENT_ID && process.env.GOBLIN_EDITOR_ENVIRONMENT_ID);
 const replicateOn = () => !!(process.env.GOBLIN_BREAKDOWN_AGENT_ID && process.env.GOBLIN_EDITOR_ENVIRONMENT_ID);
-export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => Promise<{ out: ChatOut | null; usage: Usage }>;
+// stop and error explain a null out (a cut-off or unreadable reply), so the
+// failure is logged with its reason.
+export type CallChat = (system: string, messages: Anthropic.MessageParam[]) => Promise<{ out: ChatOut | null; usage: Usage; stop?: string | null; error?: string; maxTokens?: number }>;
+// Room for the longest replies: a build or remake brief can run to a few
+// thousand tokens. Only tokens actually written are billed. A reply that
+// still runs out of room is retried once with RETRY_TOKENS.
+export const CHAT_MAX_TOKENS = Number(process.env.STUDIO_CHAT_MAX_TOKENS || 6000);
+const RETRY_TOKENS = 16000;
 
 export const CHAT_SCHEMA = {
   type: "object",
@@ -124,29 +131,42 @@ ${ctx.editor && !ctx.explainerMode ? `Goblin Editor (real video editing):
 let client: Anthropic | null = null;
 export const callChat: CallChat = async (system, messages) => {
   client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, maxRetries: 2 });
-  const msg = await client.messages.create({
-    model: CHAT_MODEL,
-    max_tokens: 1500,
-    system,
-    output_config: { format: { type: "json_schema", schema: CHAT_SCHEMA } },
-    messages,
-  });
-  const raw = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
-  let out: ChatOut | null = null;
-  try {
-    out = JSON.parse(raw) as ChatOut;
-  } catch {
-    out = null;
+  const usage: Usage = { inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0 };
+  let maxTokens = CHAT_MAX_TOKENS;
+  for (let attempt = 0; ; attempt++) {
+    const msg = await client.messages.create({
+      model: CHAT_MODEL,
+      max_tokens: maxTokens,
+      system,
+      output_config: { format: { type: "json_schema", schema: CHAT_SCHEMA } },
+      messages,
+    });
+    usage.inputTokens += msg.usage.input_tokens;
+    usage.outputTokens += msg.usage.output_tokens;
+    usage.cacheRead += msg.usage.cache_read_input_tokens ?? 0;
+    usage.cacheWrite += msg.usage.cache_creation_input_tokens ?? 0;
+    const raw = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+    const stop = msg.stop_reason ?? null;
+    let out: ChatOut | null = null;
+    try {
+      out = JSON.parse(raw) as ChatOut;
+    } catch {
+      out = null;
+    }
+    if (out) return { out, usage, stop, maxTokens };
+    // Cut off mid-reply: try once more with more room.
+    if (stop === "max_tokens" && attempt === 0) {
+      maxTokens = RETRY_TOKENS;
+      continue;
+    }
+    const error =
+      stop === "max_tokens"
+        ? `Reply cut off at max_tokens (${maxTokens}) after ${msg.usage.output_tokens} tokens`
+        : stop === "refusal"
+          ? "Claude declined to reply (refusal)"
+          : `Reply wasn't valid JSON (stop: ${stop ?? "unknown"}, ${msg.usage.output_tokens} tokens)`;
+    return { out: null, usage, stop, error, maxTokens };
   }
-  return {
-    out,
-    usage: {
-      inputTokens: msg.usage.input_tokens,
-      outputTokens: msg.usage.output_tokens,
-      cacheRead: msg.usage.cache_read_input_tokens ?? 0,
-      cacheWrite: msg.usage.cache_creation_input_tokens ?? 0,
-    },
-  };
 };
 
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -263,11 +283,14 @@ export function makeHandler(deps: { call: CallChat; userId: (req: VercelRequest)
         const video = v ? { title: str(v.title, 80), format: ASPECTS.includes(v.format) ? v.format : "16:9", kind: v.kind === "edit" ? ("edit" as const) : ("explainer" as const) } : undefined;
         result = await deps.call(chatSystem({ brand: str(body.brand, 60), aspect, template: video ? undefined : template, video, explainers: explainersOn(), explainerMode, editor: editorOn(), stock: stockOn(), replicate: replicateOn() }), messages);
       } catch (e) {
+        console.error(`[studio chat] Claude call failed: ${(e as Error).message} (user ${userId})`);
         await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: false, error: (e as Error).message, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0, ms: Date.now() - started });
         return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
       }
       const out = result.out;
-      await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: !!out, ...result.usage, ms: Date.now() - started });
+      const failure = out && out.reply ? undefined : result.error || (out ? "Reply had no text" : "No reply");
+      if (failure) console.error(`[studio chat] ${failure} (user ${userId}, ${Date.now() - started} ms)`);
+      await logGeneration({ userId, templateId: null, kind: "chat", model: CHAT_MODEL, ok: !failure, error: failure, ...result.usage, ms: Date.now() - started });
       if (!out || !out.reply) return res.status(502).json({ error: "Goblin couldn't reply just now. Try again in a moment." });
 
       let action: ChatAction = out.action === "build" || out.action === "change" || out.action === "explainer" || out.action === "edit" || out.action === "replicate" ? out.action : "chat";
